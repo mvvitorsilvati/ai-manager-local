@@ -23,8 +23,8 @@ git push -u origin feat/minha-mudanca
 ## Preparando o ambiente
 
 ```bash
-git clone git@github.com:mvvitorsilvati/ai-management-local.git
-cd ai-management-local
+git clone git@github.com:mvvitorsilvati/ai-manager-local.git
+cd ai-manager-local
 just setup     # uv sync (backend) + pnpm install (frontend)
 just build     # build do frontend servido pelo backend
 ```

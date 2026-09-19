@@ -166,8 +166,16 @@ export function Viewer() {
             <span title={new Date(data.mtime * 1000).toISOString()}>Modificado: {fmtDT(data.mtime * 1000)}</span>
             <span>Dono: {data.owner}{data.group !== data.owner ? ` · grupo ${data.group}` : ""}</span>
             {data.git && (
-              <span title={`${data.git.email} ${data.git.date}`}>
-                Git: {data.git.author} · {fmtDT(Date.parse(data.git.date))} · {data.git.sha}
+              <span
+                title={[
+                  `autor: ${data.git.author} <${data.git.email}>`,
+                  `committer: ${data.git.committer}`,
+                  data.git.coauthors.length ? `co-autores: ${data.git.coauthors.join(", ")}` : "",
+                  data.git.date,
+                ].filter(Boolean).join("\n")}
+              >
+                Alterado por: {data.git.author}
+                {data.git.coauthors.length ? ` + ${data.git.coauthors.length} co-autor(es)` : ""} · {fmtDT(Date.parse(data.git.date))} · {data.git.sha}
               </span>
             )}
             {data.truncated && <span className="text-amber-400">exibindo primeiros 400 KB</span>}

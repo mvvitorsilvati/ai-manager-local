@@ -18,6 +18,8 @@ import sys
 import threading
 import time
 import webbrowser
+
+import trio
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -29,6 +31,7 @@ DEFAULT_PORT = 4747
 MAX_FILE_BYTES = 400_000
 MAX_SEARCH_BYTES = 300_000
 MAX_RAW_BYTES = 20_000_000
+MAX_AUTHOR_FILES = 30
 
 EXCLUDED_EXT = {
     ".pyc", ".pyo", ".so", ".dylib", ".o", ".a", ".class", ".jar", ".war",
@@ -605,9 +608,10 @@ def build_catalog() -> dict:
 # ---------------------------------------------------------------- http
 
 def git_last_commit(path: Path) -> dict | None:
+    fmt = "%an%x00%ae%x00%aI%x00%h%x00%cn%x00%(trailers:key=Co-Authored-By,valueonly,separator=%x1f)"
     try:
         proc = subprocess.run(
-            ["git", "-C", str(path.parent), "log", "-1", "--format=%an%x00%ae%x00%aI%x00%h", "--", str(path)],
+            ["git", "-C", str(path.parent), "log", "-1", f"--format={fmt}", "--", str(path)],
             capture_output=True, text=True, timeout=3,
         )
     except (OSError, subprocess.SubprocessError):
@@ -615,10 +619,42 @@ def git_last_commit(path: Path) -> dict | None:
     if proc.returncode != 0 or not proc.stdout.strip():
         return None
     parts = proc.stdout.strip().split("\x00")
-    if len(parts) != 4:
+    if len(parts) < 5:
         return None
-    author, email, date, sha = parts
-    return {"author": author, "email": email, "date": date, "sha": sha}
+    author, email, date, sha, committer = parts[:5]
+    coauthors = [line.strip() for line in "\x00".join(parts[5:]).split("\x1f") if line.strip()]
+    return {
+        "author": author, "email": email, "date": date, "sha": sha,
+        "committer": committer, "coauthors": coauthors,
+    }
+
+
+def _author_for_item(item: dict) -> dict | None:
+    try:
+        path = resolve_file(item.get("s", ""), item.get("r", ""))
+    except (ValueError, ApiError):
+        return None
+    info = git_last_commit(path)
+    if not info:
+        return None
+    return {"s": item.get("s"), "r": item.get("r"), **info}
+
+
+def authors_for(items: list[dict]) -> list[dict]:
+    async def run_all() -> list[dict]:
+        results: list[dict] = []
+
+        async def one(item: dict):
+            info = await trio.to_thread.run_sync(_author_for_item, item)
+            if info:
+                results.append(info)
+
+        async with trio.open_nursery() as nursery:
+            for item in items[:MAX_AUTHOR_FILES]:
+                nursery.start_soon(one, item)
+        return results
+
+    return trio.run(run_all)
 
 
 def file_info(path: Path) -> dict:
@@ -691,7 +727,7 @@ AUDIT_LOG = Path(os.path.expanduser("~/.gestor_local/audit.log"))
 BACKUP_KEEP = 10
 MAX_SAVE_BYTES = 2_000_000
 GESTOR_HEADER = "X-Gestor"
-DIST_DIR = Path(__file__).parent / "web" / "dist"
+DIST_DIR = Path(__file__).parent.parent / "web" / "dist"
 
 
 class ApiError(Exception):
@@ -974,6 +1010,12 @@ class Handler(BaseHTTPRequestHandler):
                     force=bool(payload.get("force")),
                     expected_mtime_ns=payload.get("mtime_ns"),
                 ))
+                return
+            if url.path == "/api/authors":
+                items = payload.get("files") or []
+                if not isinstance(items, list):
+                    raise ApiError("lista de arquivos inválida", 400)
+                self._json(authors_for(items))
                 return
             if url.path == "/api/restore":
                 self._json(restore_backup(

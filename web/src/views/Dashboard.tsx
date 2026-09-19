@@ -1,4 +1,6 @@
 import { useNavigate } from "react-router-dom"
+import { useQuery } from "@tanstack/react-query"
+import { api } from "@/lib/api"
 import { useCatalog } from "@/hooks/useCatalog"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
@@ -13,6 +15,14 @@ const SRC_COLOR: Record<string, string> = {
 export default function Dashboard() {
   const navigate = useNavigate()
   const { data: catalog, isLoading } = useCatalog()
+  const recent = catalog ? [...catalog.files].sort((a, b) => b.t - a.t).slice(0, 10) : []
+  const { data: authors } = useQuery({
+    queryKey: ["authors", recent.map((f) => f.s + f.r).join("|")],
+    queryFn: () => api.authors(recent.map((f) => ({ s: f.s, r: f.r }))),
+    enabled: recent.length > 0,
+    staleTime: 30_000,
+  })
+  const authorOf = (s: string, r: string) => authors?.find((a) => a.s === s && a.r === r)?.author
 
   if (isLoading || !catalog) {
     return <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">{Array.from({ length: 9 }).map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
@@ -57,7 +67,7 @@ export default function Dashboard() {
       <div>
         <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Modificados recentemente</h3>
         <div className="overflow-hidden rounded-lg border border-border">
-          {[...files].sort((a, b) => b.t - a.t).slice(0, 10).map((f) => (
+          {recent.map((f) => (
             <button
               key={f.s + f.r}
               onClick={() => navigate(`/f?s=${encodeURIComponent(f.s)}&r=${encodeURIComponent(f.r)}`)}
@@ -66,7 +76,7 @@ export default function Dashboard() {
               <CatIcon cat={f.c} className="size-3.5 shrink-0 opacity-70" />
               <span className="truncate">{f.n}</span>
               <span className="ml-auto shrink-0 font-mono text-[11px] text-muted-foreground">
-                {f.r} · {ago(f.t)}
+                {authorOf(f.s, f.r) ? `por ${authorOf(f.s, f.r)} · ` : ""}{f.r} · {ago(f.t)}
               </span>
             </button>
           ))}

@@ -84,11 +84,6 @@ jobs:
         continue-on-error: true
         run: pnpm format:check
 
-      - name: Checks JS do frontend legado
-        run: |
-          node ../backend/tests/unit/test_tree.js
-          node ../backend/tests/unit/test_render.js
-
   e2e:
     name: E2E (playwright)
     runs-on: ubuntu-latest

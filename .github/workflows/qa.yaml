@@ -1,0 +1,90 @@
+name: QA
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (pytest, ruff, pyright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Sync dependencies from uv.lock
+        run: uv sync --locked
+
+      - name: Testes (pytest + cobertura)
+        run: uv run --no-sync pytest
+
+      - name: Lint (ruff)
+        continue-on-error: true
+        run: uv run --no-sync ruff check --output-format=github .
+
+      - name: Type check (pyright)
+        continue-on-error: true
+        run: uv run --no-sync pyright
+
+  frontend:
+    name: Frontend (vitest, build, oxlint, oxfmt)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Testes (vitest)
+        run: pnpm test
+
+      - name: Build (tsc + vite)
+        run: pnpm build
+
+      - name: Lint (oxlint)
+        continue-on-error: true
+        run: pnpm lint
+
+      - name: Formatação (oxfmt)
+        continue-on-error: true
+        run: pnpm format:check
+
+      - name: Checks JS do frontend legado
+        run: |
+          node ../backend/tests/unit/test_tree.js
+          node ../backend/tests/unit/test_render.js

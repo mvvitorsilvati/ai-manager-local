@@ -1,0 +1,20 @@
+#!/bin/sh
+# Gate do projeto antes do commit: lint (ruff, pyright, oxlint) + testes (pytest, vitest).
+# Pular quando necessário: git commit --no-verify
+# Desativar neste clone: git config --unset core.hooksPath
+
+if ! command -v just >/dev/null 2>&1; then
+  echo "pre-commit: 'just' não encontrado — rode 'just check' manualmente ou instale o just (brew install just)." >&2
+  exit 0
+fi
+
+# limpa o ambiente que o Git injeta no hook (GIT_DIR, GIT_INDEX_FILE, GIT_AUTHOR_*…):
+# sem isso, comandos git disparados pelos testes operariam no repositório errado
+unset $(git rev-parse --local-env-vars) 2>/dev/null
+unset GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_AUTHOR_DATE GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL GIT_COMMITTER_DATE
+
+if ! just check; then
+  echo "" >&2
+  echo "pre-commit: 'just check' falhou — corrija acima ou use 'git commit --no-verify' para pular." >&2
+  exit 1
+fi

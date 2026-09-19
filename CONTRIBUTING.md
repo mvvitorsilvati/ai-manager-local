@@ -37,6 +37,8 @@ Sem `just`: `cd backend && uv sync` e `cd web && pnpm install && pnpm build`.
 just check     # ruff + pyright + oxlint + pytest + vitest
 ```
 
+O repositório traz um **pre-commit** versionado em `.githooks/` (ativado por `just setup` ou `just hooks`): cada commit roda `just check` sozinho. Para pular pontualmente: `git commit --no-verify`.
+
 O mesmo conjunto roda no CI (`.github/workflows/qa.yaml`) em `push`/PR para `develop` e `main`. Lint e type check são **informativos** (não bloqueiam); testes e build **bloqueiam**.
 
 ## Commits

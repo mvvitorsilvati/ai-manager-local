@@ -7,10 +7,10 @@ import { cn } from "@/lib/utils"
 
 export type TreeEntry = { f: FileEntry; label?: string }
 
-type Node = { dirs: Map<string, Node>; files: TreeEntry[] }
+export type TreeNode = { dirs: Map<string, TreeNode>; files: TreeEntry[] }
 
-function build(entries: TreeEntry[]): Node {
-  const root: Node = { dirs: new Map(), files: [] }
+export function buildTree(entries: TreeEntry[]): TreeNode {
+  const root: TreeNode = { dirs: new Map(), files: [] }
   for (const entry of entries) {
     const parts = (entry.f.r || entry.f.n).split("/")
     let node = root
@@ -27,10 +27,10 @@ function build(entries: TreeEntry[]): Node {
   return root
 }
 
-const count = (node: Node): number =>
-  node.files.length + [...node.dirs.values()].reduce((acc, child) => acc + count(child), 0)
+export const countTree = (node: TreeNode): number =>
+  node.files.length + [...node.dirs.values()].reduce((acc, child) => acc + countTree(child), 0)
 
-function Level({ node, depth, onOpen }: { node: Node; depth: number; onOpen: (f: FileEntry) => void }) {
+function Level({ node, depth, onOpen }: { node: TreeNode; depth: number; onOpen: (f: FileEntry) => void }) {
   const dirs = [...node.dirs.entries()].sort((a, b) => a[0].localeCompare(b[0], "pt-BR"))
   const files = [...node.files].sort((a, b) =>
     (a.label ?? a.f.n).localeCompare(b.label ?? b.f.n, "pt-BR"),
@@ -58,7 +58,7 @@ function Level({ node, depth, onOpen }: { node: Node; depth: number; onOpen: (f:
   )
 }
 
-function Folder({ name, node, depth, onOpen }: { name: string; node: Node; depth: number; onOpen: (f: FileEntry) => void }) {
+function Folder({ name, node, depth, onOpen }: { name: string; node: TreeNode; depth: number; onOpen: (f: FileEntry) => void }) {
   const [open, setOpen] = useState(false)
   return (
     <div>
@@ -68,7 +68,7 @@ function Folder({ name, node, depth, onOpen }: { name: string; node: Node; depth
       >
         <ChevronRight className={cn("size-3 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} />
         <span className="truncate">{name}</span>
-        <span className="ml-auto shrink-0 text-[10.5px] text-muted-foreground">{count(node)}</span>
+        <span className="ml-auto shrink-0 text-[10.5px] text-muted-foreground">{countTree(node)}</span>
       </button>
       {open && <Level node={node} depth={depth + 1} onOpen={onOpen} />}
     </div>
@@ -76,7 +76,7 @@ function Folder({ name, node, depth, onOpen }: { name: string; node: Node; depth
 }
 
 export function FileTree({ entries, onOpen }: { entries: TreeEntry[]; onOpen: (f: FileEntry) => void }) {
-  const root = useMemo(() => build(entries), [entries])
+  const root = useMemo(() => buildTree(entries), [entries])
   if (!entries.length) return <p className="px-2 py-1 text-xs text-muted-foreground">Nada aqui.</p>
   return <Level node={root} depth={0} onOpen={onOpen} />
 }

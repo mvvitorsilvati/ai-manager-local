@@ -23,7 +23,7 @@ function Mermaid({ code }: { code: string }) {
   return <div ref={ref} className="my-3 overflow-auto rounded-lg border border-border bg-card p-3 text-center" />
 }
 
-function splitFrontmatter(text: string): [string, string] {
+export function splitFrontmatter(text: string): [string, string] {
   const match = text.match(/^---\s*\n([\s\S]*?)\n---\s*\n?/)
   return match ? [match[1], text.slice(match[0].length)] : ["", text]
 }

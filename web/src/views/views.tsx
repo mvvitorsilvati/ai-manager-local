@@ -295,7 +295,9 @@ export function McpsView() {
             {(list as Mcp[]).map((m) => (
               <div key={m.name + m.detail} className="border-border rounded-lg border p-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{m.name}</span>
+                  <span className="min-w-0 flex-1 truncate font-medium" title={m.name}>
+                    {m.name}
+                  </span>
                   <McpTypeBadge type={m.type} />
                   {m.scope && (
                     <Badge variant="outline" className="font-normal">
@@ -330,7 +332,9 @@ export function PluginsView() {
             {(list as Plugin[]).map((p) => (
               <div key={p.name + p.detail} className="border-border rounded-lg border p-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{p.name}</span>
+                  <span className="min-w-0 flex-1 truncate font-medium" title={p.name}>
+                    {p.name}
+                  </span>
                   {p.scope && (
                     <Badge variant="outline" className="font-normal">
                       {p.scope}

@@ -1,0 +1,99 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { RefreshCw } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
+import { api } from "@/lib/api"
+import { ago, fmtDT, until } from "@/lib/format"
+import { cn } from "@/lib/utils"
+
+const TOOL_LABEL: Record<string, string> = { claude: "Claude Code", codex: "Codex" }
+
+export function UsageCard({ tool }: { tool: string }) {
+  const queryClient = useQueryClient()
+  const { data, isFetching } = useQuery({ queryKey: ["usage"], queryFn: () => api.usage(), staleTime: 30_000 })
+  const usage = tool === "claude" ? data?.claude : tool === "codex" ? data?.codex : null
+
+  const refresh = async () => {
+    const fresh = await api.usage(true)
+    queryClient.setQueryData(["usage"], fresh)
+  }
+
+  const money = (value: number | null | undefined, currency: string | null | undefined) =>
+    value == null
+      ? "—"
+      : new Intl.NumberFormat("pt-BR", { style: "currency", currency: currency ?? "USD" }).format(value)
+
+  const barColor = (severity: string | null | undefined, percent: number | null | undefined) =>
+    severity === "critical" || (percent ?? 0) >= 90
+      ? "bg-red-500"
+      : severity === "warning" || (percent ?? 0) >= 70
+        ? "bg-amber-500"
+        : "bg-emerald-500"
+
+  const resetLine = (iso: string) => {
+    const future = Date.parse(iso) > Date.now()
+    return `${future ? "Reinicia" : "Reiniciada"} ${until(iso)} (${fmtDT(Date.parse(iso))})`
+  }
+
+  return (
+    <div className="bg-card border-border rounded-lg border p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold">
+          {TOOL_LABEL[tool] ?? tool}
+          {usage?.plan && <span className="text-muted-foreground ml-2 font-normal capitalize">· {usage.plan}</span>}
+        </h3>
+        <Button size="sm" variant="outline" onClick={refresh} disabled={isFetching}>
+          <RefreshCw className={cn("size-3.5", isFetching && "animate-spin")} />
+          Atualizar
+        </Button>
+      </div>
+      {!usage && <p className="text-muted-foreground text-xs">Sem dados de uso para esta ferramenta.</p>}
+      {usage && (
+        <div className="space-y-3">
+          {usage.credits && (
+            <div>
+              <div className="flex items-baseline justify-between gap-3 text-sm">
+                <span>
+                  {money(usage.credits.used, usage.credits.currency)} de{" "}
+                  {money(usage.credits.limit, usage.credits.currency)} gasto
+                </span>
+                <span className="text-muted-foreground">{usage.credits.percent ?? 0}% usado</span>
+              </div>
+              <div className="bg-muted mt-1.5 h-2 w-full overflow-hidden rounded-full">
+                <div
+                  className={cn("h-full rounded-full", barColor(usage.credits.severity, usage.credits.percent))}
+                  style={{ width: `${Math.min(usage.credits.percent ?? 0, 100)}%` }}
+                />
+              </div>
+              <p className="text-muted-foreground mt-1 text-[11.5px]">
+                Limite de gastos ·{" "}
+                {usage.credits.resets_at ? resetLine(usage.credits.resets_at) : "sem data de reinício na API"}
+              </p>
+            </div>
+          )}
+          {usage.windows.map((w) => (
+            <div key={w.label}>
+              <div className="flex items-baseline justify-between gap-3 text-sm">
+                <span>{w.label}</span>
+                <span className="text-muted-foreground">{Math.round(w.utilization ?? 0)}% usado</span>
+              </div>
+              <div className="bg-muted mt-1.5 h-2 w-full overflow-hidden rounded-full">
+                <div
+                  className={cn("h-full rounded-full", barColor(null, w.utilization))}
+                  style={{ width: `${Math.min(w.utilization ?? 0, 100)}%` }}
+                />
+              </div>
+              {w.resets_at && <p className="text-muted-foreground mt-1 text-[11.5px]">{resetLine(w.resets_at)}</p>}
+            </div>
+          ))}
+          {!usage.credits && usage.windows.length === 0 && (
+            <p className="text-muted-foreground text-xs">Sem janelas de uso ativas nesta conta agora.</p>
+          )}
+          {usage.updated_at && (
+            <p className="text-muted-foreground text-[11.5px]">Dados da última sessão · {ago(usage.updated_at)}</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}

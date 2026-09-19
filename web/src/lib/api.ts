@@ -63,8 +63,14 @@ export type UsageCredits = {
   severity: string | null
   resets_at: string | null
 }
-export type ClaudeUsage = { available: boolean; windows: UsageWindow[]; credits: UsageCredits | null }
-export type UsageResponse = { claude: ClaudeUsage | null }
+export type ToolUsage = {
+  available: boolean
+  windows: UsageWindow[]
+  credits?: UsageCredits | null
+  plan?: string | null
+  updated_at?: number
+}
+export type UsageResponse = { claude: ToolUsage | null; codex: ToolUsage | null }
 export type Backup = { name: string; size: number; mtime: number }
 export type SaveResult = { ok: boolean; mtime: number; mtime_ns: string; size: number; created: number; backup: string }
 export type SaveConflict = { error: string; conflict: true; mtime: number; mtime_ns: string; size: number }

@@ -300,4 +300,4 @@ Diretrizes rápidas:
 
 ## Licença
 
-MIT — veja [LICENSE](LICENSE).
+MIT — veja [LICENSE](LICENSE). A convivência no projeto segue o [Código de Conduta](CODE_OF_CONDUCT.md).

@@ -5,9 +5,6 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { api, type Mcp } from "@/lib/api"
 
-const CAN_TOGGLE = new Set(["opencode", "codex", "copilot", "gemini"])
-const CAN_AUTH = new Set(["claude", "opencode", "codex"])
-
 const VERB: Record<string, string> = {
   enable: "ativado",
   disable: "desativado",
@@ -15,7 +12,7 @@ const VERB: Record<string, string> = {
   logout: "desconectado",
 }
 
-export function McpActions({ mcp }: { mcp: Mcp }) {
+export function McpActions({ mcp, canToggle, canAuth }: { mcp: Mcp; canToggle: boolean; canAuth: boolean }) {
   const queryClient = useQueryClient()
   const mutation = useMutation({
     mutationFn: (action: "enable" | "disable" | "login" | "logout") =>
@@ -32,8 +29,8 @@ export function McpActions({ mcp }: { mcp: Mcp }) {
       toast.error(`Falha ao ${VERB[action] ?? action} ${mcp.name}`, { description: error.message })
     },
   })
-  const toggle = CAN_TOGGLE.has(mcp.source)
-  const auth = CAN_AUTH.has(mcp.source)
+  const toggle = canToggle
+  const auth = canAuth
   if (!toggle && !auth) return null
   const pending = mutation.isPending
   return (

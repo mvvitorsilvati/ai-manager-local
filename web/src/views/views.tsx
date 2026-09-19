@@ -27,7 +27,7 @@ import { Input } from "@/components/ui/input"
 import { UpdateButton } from "@/components/UpdateButton"
 import { UsageCard } from "@/components/UsageCard"
 import { CAT_LABEL, isDoc, useCatalog } from "@/hooks/useCatalog"
-import { matches, useFilterQuery } from "@/hooks/useFilter"
+import { matches, useFilterMatcher, useFilterQuery } from "@/hooks/useFilter"
 import { useVersions } from "@/hooks/useVersions"
 import { api, type Catalog, type Mcp, type Plugin, type SearchResult, type SkillEntry } from "@/lib/api"
 import { cn } from "@/lib/utils"
@@ -132,8 +132,9 @@ export function CategoryView({ cat }: { cat: string }) {
   const { data: catalog } = useCatalog()
   const open = useOpenFile()
   const q = useFilterQuery()
+  const match = useFilterMatcher()
   if (!catalog) return <ViewSkeleton />
-  const files = catalog.files.filter((f) => f.c === cat && matches(q, f.n, f.r))
+  const files = catalog.files.filter((f) => f.c === cat && match(f))
   const groups = groupBy(files, (f) => f.s)
   return (
     <div>
@@ -153,8 +154,9 @@ export function SkillsView() {
   const { data: catalog } = useCatalog()
   const open = useOpenFile()
   const q = useFilterQuery()
+  const match = useFilterMatcher()
   if (!catalog) return <ViewSkeleton />
-  const skills = catalog.skills.filter((s) => matches(q, s.skill_name, s.description, s.n, s.r))
+  const skills = catalog.skills.filter((s) => match(s))
   const groups = groupBy(skills, (f) => f.s)
   return (
     <div>
@@ -186,8 +188,9 @@ export function FilesView() {
   const { data: catalog } = useCatalog()
   const open = useOpenFile()
   const q = useFilterQuery()
+  const match = useFilterMatcher()
   if (!catalog) return <ViewSkeleton />
-  const files = catalog.files.filter((f) => matches(q, f.n, f.r))
+  const files = catalog.files.filter((f) => match(f))
   const groups = groupBy(files, (f) => f.s)
   return (
     <div>
@@ -211,10 +214,9 @@ export function ProjectsView() {
   const { data: catalog } = useCatalog()
   const open = useOpenFile()
   const q = useFilterQuery()
+  const match = useFilterMatcher()
   if (!catalog) return <ViewSkeleton />
-  const byProject = new Map(
-    catalog.projects.map((p) => [p.id, catalog.files.filter((f) => f.s === p.id && matches(q, f.n, f.r))]),
-  )
+  const byProject = new Map(catalog.projects.map((p) => [p.id, catalog.files.filter((f) => f.s === p.id && match(f))]))
   const total = [...byProject.values()].reduce((acc, list) => acc + list.length, 0)
   return (
     <div>
@@ -240,8 +242,9 @@ export function DocsView() {
   const { data: catalog } = useCatalog()
   const open = useOpenFile()
   const q = useFilterQuery()
+  const match = useFilterMatcher()
   if (!catalog) return <ViewSkeleton />
-  const files = catalog.files.filter((f) => isDoc(f.r) && matches(q, f.n, f.r))
+  const files = catalog.files.filter((f) => isDoc(f.r) && match(f))
   const groups = groupBy(files, (f) => f.s)
   const ordered = orderGroups(catalog, groups)
   return (
@@ -266,6 +269,7 @@ export function ToolsView() {
   const [params, setParams] = useSearchParams()
   const open = useOpenFile()
   const q = useFilterQuery()
+  const match = useFilterMatcher()
   const fromUrl = params.get("tool")
   const selected = (fromUrl && catalog?.tools.some((t) => t.id === fromUrl) ? fromUrl : null) ?? catalog?.tools[0]?.id
   const setTool = (id: string) =>
@@ -279,7 +283,7 @@ export function ToolsView() {
     )
   if (!catalog) return <ViewSkeleton />
   if (!selected) return null
-  const files = catalog.files.filter((f) => f.k === selected && matches(q, f.n, f.r))
+  const files = catalog.files.filter((f) => f.k === selected && match(f))
   const groups = groupBy(files, (f) => f.s)
   const ordered = orderGroups(catalog, groups)
   const selectedLabel = catalog.tools.find((t) => t.id === selected)?.label ?? selected
@@ -383,7 +387,11 @@ export function McpsView() {
                       Ver config
                     </Button>
                   )}
-                  <McpActions mcp={m} />
+                  <McpActions
+                    mcp={m}
+                    canToggle={catalog.tools_meta.find((t) => t.id === m.source)?.mcp_enable ?? false}
+                    canAuth={catalog.tools_meta.find((t) => t.id === m.source)?.mcp_auth ?? false}
+                  />
                 </div>
               </div>
             ))}

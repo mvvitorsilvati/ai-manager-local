@@ -37,7 +37,7 @@ model = "gpt-5"
 
 
 def test_toggle_opencode_mcp_desliga_preservando_comentarios():
-    updated = app.toggle_opencode_mcp_enabled(OPENCODE_JSONC, "context7", False)
+    updated = app.toggle_json_mcp_enabled(OPENCODE_JSONC, "mcp", "context7", False)
     assert updated is not None
     assert '"enabled": false' in updated
     assert "// comentário com \"mcp\" e chaves { } para confundir" in updated
@@ -46,17 +46,17 @@ def test_toggle_opencode_mcp_desliga_preservando_comentarios():
 
 
 def test_toggle_opencode_mcp_insere_enabled_quando_ausente():
-    updated = app.toggle_opencode_mcp_enabled(OPENCODE_JSONC, "linear", False)
+    updated = app.toggle_json_mcp_enabled(OPENCODE_JSONC, "mcp", "linear", False)
     assert updated is not None
     linear_start = updated.index('"linear"')
     assert '"enabled": false' in updated[linear_start:]
-    assert app.toggle_opencode_mcp_enabled(OPENCODE_JSONC, "nao-existe", True) is None
+    assert app.toggle_json_mcp_enabled(OPENCODE_JSONC, "mcp", "nao-existe", True) is None
 
 
 def test_toggle_opencode_mcp_religa():
-    desligado = app.toggle_opencode_mcp_enabled(OPENCODE_JSONC, "context7", False)
+    desligado = app.toggle_json_mcp_enabled(OPENCODE_JSONC, "mcp", "context7", False)
     assert desligado is not None
-    ligado = app.toggle_opencode_mcp_enabled(desligado, "context7", True)
+    ligado = app.toggle_json_mcp_enabled(desligado, "mcp", "context7", True)
     assert ligado is not None
     assert '"enabled": true' in ligado
 
@@ -82,20 +82,42 @@ def test_collect_mcps_inclui_arquivo_de_origem(tmp_path, monkeypatch):
     (opencode_dir / "opencode.jsonc").write_text(
         '{"mcp": {"linear": {"type": "remote", "url": "https://mcp.linear.app/mcp"}}}'
     )
-    monkeypatch.setitem(
-        app.SOURCE_BY_ID,
-        "opencode",
-        {
-            "id": "opencode", "label": "opencode", "root": str(opencode_dir),
-            "exclude_dirs": set(), "exclude_files": set(),
-        },
-    )
-    monkeypatch.setattr(app, "MCP_GLOBAL_FILES", (("opencode", "opencode.jsonc"),))
+    monkeypatch.setattr(app, "all_tools", lambda: [{
+        "id": "opencode", "label": "opencode", "root": str(opencode_dir),
+        "mcp": {"rel": "opencode.jsonc", "container": "mcp", "kind": "json"},
+    }])
     monkeypatch.setattr(app, "HOME", tmp_path)
 
     mcps = app.collect_mcps()
     assert mcps[0]["name"] == "linear"
     assert mcps[0]["file"] == {"s": "opencode", "r": "opencode.jsonc"}
+
+
+def test_discovery_encontra_ia_com_mcp_json(tmp_path, monkeypatch):
+    trae = tmp_path / ".trae"
+    trae.mkdir()
+    (trae / "mcp.json").write_text('{"mcpServers": {"linear": {"url": "https://x"}}}')
+    monkeypatch.setattr(app, "HOME", tmp_path)
+    monkeypatch.setattr(app, "_discovery_cache", (0.0, []))
+    monkeypatch.setattr(app, "_index_cache", (0.0, ({}, {})))
+
+    found = app.discovered_tools()
+    assert found[0]["id"] == "trae"
+    assert app.tool_for({"project": True}, ".trae/mcp.json", "mcp.json") == "trae"
+
+    mcps = app.collect_mcps()
+    trae_mcps = [m for m in mcps if m["source"] == "trae"]
+    assert trae_mcps[0]["file"] == {"s": "trae", "r": "mcp.json"}
+
+
+def test_discovery_ignora_dirs_sem_assinatura(tmp_path, monkeypatch):
+    (tmp_path / ".qualquercoisa").mkdir()
+    (tmp_path / ".outra" / "sub").mkdir(parents=True)
+    (tmp_path / ".outra" / "mcp.json").write_text('{"outra": true}')
+    monkeypatch.setattr(app, "HOME", tmp_path)
+    monkeypatch.setattr(app, "_discovery_cache", (0.0, []))
+
+    assert app.discovered_tools() == []
 
 
 def test_run_mcp_action_rejeita_desconhecido(monkeypatch):

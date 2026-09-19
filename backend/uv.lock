@@ -139,7 +139,7 @@ wheels = [
 ]
 
 [[package]]
-name = "gestor-local-backend"
+name = "ai-management-local-backend"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

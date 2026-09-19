@@ -1,8 +1,8 @@
-name: gestor-local
+name: ai-management-local
 
 services:
-  gestor:
-    image: localhost/gestor-local-py-3.14:0.1.0
+  app:
+    image: localhost/ai-management-local-py-3.14:0.1.0
     build: .
     ports:
       # publica só no loopback do host; dentro do container a API escuta em 0.0.0.0
@@ -10,7 +10,7 @@ services:
     environment:
       # o HOME do container aponta para o home montado (fontes, backups e audit)
       HOME: /host-home
-      GESTOR_HOST: 0.0.0.0
+      AIM_HOST: 0.0.0.0
     volumes:
       - ${HOME}:/host-home
     restart: unless-stopped

@@ -35,7 +35,9 @@ EXCLUDED_EXT = {
     ".zip", ".tar", ".gz", ".tgz", ".bz2", ".xz", ".7z", ".dmg", ".pkg",
     ".exe", ".dll", ".bin", ".woff", ".woff2", ".ttf", ".otf", ".eot",
     ".mp3", ".mp4", ".mov", ".avi", ".mkv", ".webm", ".sqlite", ".db", ".pdf",
+    ".jsonl", ".sqlite-wal", ".sqlite-shm", ".sqlite-journal",
 }
+SIDECAR_SUFFIXES = ("-wal", "-shm", "-journal")
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".svg"}
 
 CONTEXT_NAMES = {"AGENTS.MD", "CLAUDE.MD", "GEMINI.MD", "RTK.MD", "TGREP.MD", "COPILOT-INSTRUCTIONS.MD"}
@@ -129,7 +131,7 @@ SOURCES = [
             "dictation-history", "ipc", "memories", "rollout-migrations",
             "thread-writer-locks", "tui-luna-reserve", "visualizations", "sqlite",
         },
-        "exclude_files": {"auth.json"},
+        "exclude_files": {"auth.json", "models_cache.json", "chrome-native-hosts-v2.json"},
     },
     {
         "id": "gemini",
@@ -274,7 +276,7 @@ def iter_tree(base: Path, start: Path, exclude_dirs=(), exclude_files=()):
         for fn in filenames:
             if fn.startswith(".") or fn in exclude_files:
                 continue
-            if Path(fn).suffix.lower() in EXCLUDED_EXT:
+            if Path(fn).suffix.lower() in EXCLUDED_EXT or fn.endswith(SIDECAR_SUFFIXES):
                 continue
             p = Path(dirpath) / fn
             try:

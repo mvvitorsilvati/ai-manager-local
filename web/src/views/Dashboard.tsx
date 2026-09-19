@@ -5,6 +5,7 @@ import { CatIcon } from "@/components/bits"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { UsageCard } from "@/components/UsageCard"
 import { useCatalog } from "@/hooks/useCatalog"
 import { api } from "@/lib/api"
 import { ago } from "@/lib/format"
@@ -21,6 +22,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const { data: catalog, isLoading } = useCatalog()
   const recent = catalog ? [...catalog.files].sort((a, b) => b.t - a.t).slice(0, 10) : []
+  const { data: usage } = useQuery({ queryKey: ["usage"], queryFn: () => api.usage(), staleTime: 30_000 })
   const { data: authors } = useQuery({
     queryKey: ["authors", recent.map((f) => f.s + f.r).join("|")],
     queryFn: () => api.authors(recent.map((f) => ({ s: f.s, r: f.r }))),
@@ -74,6 +76,16 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      {(usage?.claude || usage?.codex) && (
+        <div>
+          <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">Uso das IAs</h3>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {usage?.claude && <UsageCard tool="claude" />}
+            {usage?.codex && <UsageCard tool="codex" />}
+          </div>
+        </div>
+      )}
 
       <div>
         <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">

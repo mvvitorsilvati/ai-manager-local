@@ -694,14 +694,16 @@ def collect_project_mcps(projects: list[dict]) -> list[dict]:
 
 
 def collect_project_plugins(projects: list[dict]) -> list[dict]:
-    out = []
+    merged: dict[tuple[str, str], dict] = {}
     for proj in projects:
         for f in proj["files"]:
             if f["n"] not in ("opencode.json", "opencode.jsonc", "settings.json", "config.json", "config.toml"):
                 continue
             for plugin in plugins_from_config(Path(proj["root"]) / f["r"]):
-                out.append({**plugin, "source": proj["id"], "scope": "projeto"})
-    return out
+                entry = merged.setdefault((proj["id"], plugin["name"]), {**plugin, "source": proj["id"], "scope": "projeto"})
+                if plugin.get("detail") and not entry["detail"]:
+                    entry["detail"] = plugin["detail"]
+    return list(merged.values())
 
 
 def build_catalog() -> dict:

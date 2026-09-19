@@ -14,6 +14,7 @@ const file = (r: string, n = r.split("/").pop()!): FileEntry => ({
   t: 0,
   c: "doc",
   k: "opencode",
+  m: "text/markdown",
 })
 
 describe("buildTree", () => {

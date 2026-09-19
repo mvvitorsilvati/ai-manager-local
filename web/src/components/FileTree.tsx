@@ -2,8 +2,8 @@ import { Folder, FolderOpen } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { CatIcon } from "@/components/bits"
-import { CAT_LABEL } from "@/hooks/useCatalog"
 import type { FileEntry } from "@/lib/api"
+import { fmtBytes } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 export type TreeEntry = { f: FileEntry; label?: string }
@@ -31,6 +31,22 @@ export function buildTree(entries: TreeEntry[]): TreeNode {
 export const countTree = (node: TreeNode): number =>
   node.files.length + [...node.dirs.values()].reduce((acc, child) => acc + countTree(child), 0)
 
+export const sizeTree = (node: TreeNode): number =>
+  node.files.reduce((acc, entry) => acc + (entry.f.z || 0), 0) +
+  [...node.dirs.values()].reduce((acc, child) => acc + sizeTree(child), 0)
+
+const COL_SIZE = "w-24 shrink-0 text-right"
+const COL_ITEMS = "w-16 shrink-0 text-right"
+const COL_MIME = "w-44 shrink-0 truncate text-left"
+const COL_EXT = "w-20 shrink-0 text-left"
+
+export const mimeLabel = (f: FileEntry) => f.m || "—"
+
+export const extLabel = (f: FileEntry) => {
+  const ext = f.n.includes(".") ? (f.n.split(".").pop() ?? "") : ""
+  return ext ? `.${ext}` : "—"
+}
+
 function Level({ node, depth, onOpen }: { node: TreeNode; depth: number; onOpen: (f: FileEntry) => void }) {
   const dirs = [...node.dirs.entries()].sort((a, b) => a[0].localeCompare(b[0], "pt-BR"))
   const files = [...node.files].sort((a, b) => (a.label ?? a.f.n).localeCompare(b.label ?? b.f.n, "pt-BR"))
@@ -48,9 +64,14 @@ function Level({ node, depth, onOpen }: { node: TreeNode; depth: number; onOpen:
         >
           <CatIcon cat={entry.f.c} className="size-3.5 shrink-0 opacity-70" />
           <span className="truncate">{entry.label ?? entry.f.n}</span>
-          <span className="text-muted-foreground ml-auto shrink-0 text-[10.5px]">
-            {CAT_LABEL[entry.f.c] ?? entry.f.c}
+          <span className={cn("text-muted-foreground ml-auto text-[10.5px]", COL_SIZE)}>
+            {fmtBytes(entry.f.z || 0)}
           </span>
+          <span className={COL_ITEMS} />
+          <span className={cn("text-muted-foreground text-[10.5px]", COL_MIME)} title={mimeLabel(entry.f)}>
+            {mimeLabel(entry.f)}
+          </span>
+          <span className={cn("text-muted-foreground font-mono text-[10.5px]", COL_EXT)}>{extLabel(entry.f)}</span>
         </button>
       ))}
     </div>
@@ -81,7 +102,10 @@ function FolderNode({
           <Folder className="text-muted-foreground size-3.5 shrink-0" />
         )}
         <span className="truncate">{name}</span>
-        <span className="text-muted-foreground ml-auto shrink-0 text-[10.5px]">{countTree(node)}</span>
+        <span className={cn("text-muted-foreground ml-auto text-[10.5px]", COL_SIZE)}>{fmtBytes(sizeTree(node))}</span>
+        <span className={cn("text-muted-foreground text-[10.5px]", COL_ITEMS)}>{countTree(node)}</span>
+        <span className={COL_MIME} />
+        <span className={COL_EXT} />
       </button>
       {open && <Level node={node} depth={depth + 1} onOpen={onOpen} />}
     </div>
@@ -91,5 +115,16 @@ function FolderNode({
 export function FileTree({ entries, onOpen }: { entries: TreeEntry[]; onOpen: (f: FileEntry) => void }) {
   const root = useMemo(() => buildTree(entries), [entries])
   if (!entries.length) return <p className="text-muted-foreground px-2 py-1 text-xs">Nada aqui.</p>
-  return <Level node={root} depth={0} onOpen={onOpen} />
+  return (
+    <div>
+      <div className="text-muted-foreground border-border mb-1 flex items-center gap-2 border-b px-2 pb-1 text-[10px] tracking-wider uppercase">
+        <span className="flex-1">nome</span>
+        <span className={COL_SIZE}>tamanho</span>
+        <span className={COL_ITEMS}>itens</span>
+        <span className={COL_MIME}>mime</span>
+        <span className={COL_EXT}>ext</span>
+      </div>
+      <Level node={root} depth={0} onOpen={onOpen} />
+    </div>
+  )
 }

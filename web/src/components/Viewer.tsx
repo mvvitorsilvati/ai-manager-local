@@ -122,13 +122,37 @@ export function Viewer() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s" && buffer !== null) {
+      const mod = e.metaKey || e.ctrlKey
+      const key = e.key.toLowerCase()
+      const editing = buffer !== null
+      if (mod && key === "s" && editing) {
         e.preventDefault()
         save()
+        return
+      }
+      if (mod && key === "e" && !editing && !isImage && data) {
+        e.preventDefault()
+        setBuffer(text)
+        setMode("edit")
+        return
+      }
+      if (e.key === "Escape") {
+        // Esc nunca fecha a pré-visualização: age por contexto
+        e.preventDefault()
+        e.stopPropagation()
+        if (backups !== null) {
+          setBackups(null)
+          return
+        }
+        if (mode === "edit" || editing) {
+          if (dirty && !confirm("Descartar alterações não salvas?")) return
+          setBuffer(null)
+          setMode(RENDERABLE_RE.test(r) ? "render" : "raw")
+        }
       }
     }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
+    window.addEventListener("keydown", onKey, true)
+    return () => window.removeEventListener("keydown", onKey, true)
   })
 
   const text = buffer ?? data?.content ?? ""
@@ -218,7 +242,7 @@ export function Viewer() {
             >
               <FolderOpen className="size-3.5" />
             </Button>
-            <Button size="sm" variant="ghost" title="Fechar" onClick={close}>
+            <Button size="sm" variant="ghost" title="Fechar (Esc)" onClick={close}>
               <X className="size-4" />
             </Button>
           </div>
@@ -263,7 +287,7 @@ export function Viewer() {
           ) : isLoading || !data ? (
             <Skeleton className="h-64 w-full" />
           ) : mode === "edit" ? (
-            <CodeEditor value={text} path={r} onChange={setBuffer} onSave={() => save()} />
+            <CodeEditor value={text} path={r} onChange={setBuffer} />
           ) : isImage && mode === "render" ? (
             <img
               alt={baseName(r)}

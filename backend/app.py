@@ -700,7 +700,8 @@ def collect_project_plugins(projects: list[dict]) -> list[dict]:
             if f["n"] not in ("opencode.json", "opencode.jsonc", "settings.json", "config.json", "config.toml"):
                 continue
             for plugin in plugins_from_config(Path(proj["root"]) / f["r"]):
-                entry = merged.setdefault((proj["id"], plugin["name"]), {**plugin, "source": proj["id"], "scope": "projeto"})
+                key = (proj["id"], plugin["name"])
+                entry = merged.setdefault(key, {**plugin, "source": proj["id"], "scope": "projeto"})
                 if plugin.get("detail") and not entry["detail"]:
                     entry["detail"] = plugin["detail"]
     return list(merged.values())

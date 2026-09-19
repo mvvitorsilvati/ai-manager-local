@@ -109,6 +109,15 @@ class ExtensoesTest(unittest.TestCase):
     def test_categoriza_imagem(self):
         self.assertEqual(app.categorize("agents", "skill/assets/logo.png", "logo.png"), "image")
 
+    def test_walk_ignora_wal_shm_e_jsonl(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name in ("logs.sqlite-wal", "logs.sqlite-shm", "state.sqlite-journal", "history.jsonl", "ok.md"):
+                (root / name).write_text("x")
+            src = {"id": "codex", "root": tmp, "exclude_dirs": set(), "exclude_files": set()}
+            rels = {f["r"] for f in app.walk_source(src)}
+            self.assertEqual(rels, {"ok.md"})
+
     def test_walk_ignora_binarios_e_inclui_sem_extensao(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

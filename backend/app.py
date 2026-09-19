@@ -23,6 +23,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+import httpx
 import trio
 
 HOME = Path.home()
@@ -604,6 +605,144 @@ def build_catalog() -> dict:
     }
 
 
+# ---------------------------------------------------------------- uso das IAs
+
+CLAUDE_CREDENTIALS = HOME / ".claude" / ".credentials.json"
+CLAUDE_KEYCHAIN_SERVICE = "Claude Code-credentials"
+CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
+USAGE_CACHE_SECONDS = 60
+_usage_cache: tuple[float, dict] = (0.0, {})
+_usage_lock = threading.Lock()
+
+USAGE_WINDOWS = (
+    ("five_hour", "Sessão (5h)"),
+    ("seven_day", "Semanal (7d)"),
+    ("seven_day_sonnet", "Semanal · Sonnet"),
+    ("seven_day_opus", "Semanal · Opus"),
+)
+
+
+def claude_access_token() -> str | None:
+    if CLAUDE_CREDENTIALS.is_file():
+        try:
+            data = json.loads(CLAUDE_CREDENTIALS.read_text())
+        except (OSError, ValueError):
+            data = {}
+        token = (data.get("claudeAiOauth") or {}).get("accessToken")
+        if token:
+            return str(token)
+    if sys.platform == "darwin":
+        try:
+            proc = subprocess.run(
+                ["security", "find-generic-password", "-s", CLAUDE_KEYCHAIN_SERVICE, "-w"],
+                capture_output=True, text=True, timeout=5,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if proc.returncode == 0:
+            try:
+                return str(json.loads(proc.stdout.strip())["claudeAiOauth"]["accessToken"])
+            except (ValueError, KeyError):
+                return None
+    return None
+
+
+def parse_usage_windows(payload: dict) -> list[dict]:
+    windows = []
+    for key, label in USAGE_WINDOWS:
+        item = payload.get(key)
+        if isinstance(item, dict):
+            windows.append({
+                "label": label,
+                "utilization": item.get("utilization"),
+                "resets_at": item.get("resets_at"),
+            })
+    for item in payload.get("limits") or []:
+        if isinstance(item, dict):
+            windows.append({
+                "label": item.get("label") or item.get("kind") or "Limite",
+                "utilization": item.get("utilization", item.get("percent")),
+                "resets_at": item.get("resets_at"),
+            })
+    return windows
+
+
+def _money(money: dict | None) -> float | None:
+    if not isinstance(money, dict) or money.get("amount_minor") is None:
+        return None
+    return round(money["amount_minor"] / (10 ** (money.get("exponent") or 0)), 2)
+
+
+def _first_reset(source: dict) -> str | None:
+    for key in ("resets_at", "reset_at", "next_reset_at"):
+        value = source.get(key)
+        if isinstance(value, str):
+            return value
+    for nested in ("cap", "weekly", "daily", "period"):
+        inner = source.get(nested)
+        if isinstance(inner, dict):
+            found = _first_reset(inner)
+            if found:
+                return found
+    return None
+
+
+def parse_credits(payload: dict) -> dict | None:
+    spend = payload.get("spend")
+    if isinstance(spend, dict) and spend.get("enabled"):
+        return {
+            "used": _money(spend.get("used")),
+            "limit": _money(spend.get("limit")),
+            "currency": (spend.get("used") or {}).get("currency"),
+            "percent": spend.get("percent"),
+            "severity": spend.get("severity"),
+            "resets_at": _first_reset(spend),
+        }
+    extra = payload.get("extra_usage")
+    if isinstance(extra, dict) and extra.get("is_enabled"):
+        return {
+            "used": extra.get("used_credits"),
+            "limit": extra.get("monthly_limit"),
+            "currency": extra.get("currency"),
+            "percent": extra.get("utilization"),
+            "severity": None,
+            "resets_at": _first_reset(extra),
+        }
+    return None
+
+
+def claude_usage() -> dict | None:
+    token = claude_access_token()
+    if not token:
+        return None
+    try:
+        response = httpx.get(
+            CLAUDE_USAGE_URL,
+            headers={"Authorization": f"Bearer {token}", "anthropic-beta": "oauth-2025-04-20"},
+            timeout=10,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except (httpx.HTTPError, ValueError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return {"available": True, "windows": parse_usage_windows(payload), "credits": parse_credits(payload)}
+
+
+def usage_snapshot(force: bool = False) -> dict:
+    global _usage_cache
+    now = time.time()
+    with _usage_lock:
+        stamp, cached = _usage_cache
+        if not force and now - stamp < USAGE_CACHE_SECONDS:
+            return cached
+    snapshot = {"claude": claude_usage()}
+    with _usage_lock:
+        _usage_cache = (now, snapshot)
+    return snapshot
+
+
 # ---------------------------------------------------------------- http
 
 def git_last_commit(path: Path) -> dict | None:
@@ -920,6 +1059,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/legacy":
             html = (Path(__file__).parent / "index.html").read_bytes()
             self._send(200, html, "text/html; charset=utf-8")
+            return
+        if url.path == "/api/usage":
+            self._json(usage_snapshot(force=params.get("refresh", ["0"])[0] == "1"))
             return
         if url.path == "/api/backups":
             try:

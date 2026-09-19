@@ -9,6 +9,7 @@ export type FileEntry = {
   t: number
   c: string
   k: string
+  m: string
 }
 
 export type Source = { id: string; label: string; root: string; project?: boolean }

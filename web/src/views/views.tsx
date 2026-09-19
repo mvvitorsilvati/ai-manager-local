@@ -210,7 +210,6 @@ export function ToolsView() {
       <p className="text-muted-foreground mb-4 text-sm">
         Escolha a ferramenta para ver as configurações globais e por projeto
       </p>
-      {(selected === "claude" || selected === "codex") && <UsageCard tool={selected} />}
       <div className="mb-5 flex flex-wrap gap-2">
         {catalog.tools.map((t) => {
           const count = catalog.files.filter((f) => f.k === t.id).length
@@ -227,6 +226,11 @@ export function ToolsView() {
           )
         })}
       </div>
+      {(selected === "claude" || selected === "codex" || selected === "copilot") && (
+        <div className="mb-5">
+          <UsageCard tool={selected} />
+        </div>
+      )}
       {ordered.map(([sid, list]) => (
         <SourceSection key={sid} catalog={catalog} id={sid}>
           <FileTree entries={list.map((f) => ({ f }))} onOpen={open} />

@@ -6,12 +6,13 @@ import { api } from "@/lib/api"
 import { ago, fmtDT, until } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
-const TOOL_LABEL: Record<string, string> = { claude: "Claude Code", codex: "Codex" }
+const TOOL_LABEL: Record<string, string> = { claude: "Claude Code", codex: "Codex", copilot: "GitHub Copilot" }
 
 export function UsageCard({ tool }: { tool: string }) {
   const queryClient = useQueryClient()
   const { data, isFetching } = useQuery({ queryKey: ["usage"], queryFn: () => api.usage(), staleTime: 30_000 })
-  const usage = tool === "claude" ? data?.claude : tool === "codex" ? data?.codex : null
+  const usage =
+    tool === "claude" ? data?.claude : tool === "codex" ? data?.codex : tool === "copilot" ? data?.copilot : null
 
   const refresh = async () => {
     const fresh = await api.usage(true)
@@ -86,6 +87,9 @@ export function UsageCard({ tool }: { tool: string }) {
               {w.resets_at && <p className="text-muted-foreground mt-1 text-[11.5px]">{resetLine(w.resets_at)}</p>}
             </div>
           ))}
+          {usage.unlimited && usage.unlimited.length > 0 && (
+            <p className="text-muted-foreground text-[11.5px]">{usage.unlimited.join(" e ")}: ilimitado</p>
+          )}
           {!usage.credits && usage.windows.length === 0 && (
             <p className="text-muted-foreground text-xs">Sem janelas de uso ativas nesta conta agora.</p>
           )}

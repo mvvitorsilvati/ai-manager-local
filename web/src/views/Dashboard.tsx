@@ -77,12 +77,13 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {(usage?.claude || usage?.codex) && (
+      {(usage?.claude || usage?.codex || usage?.copilot) && (
         <div>
           <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">Uso das IAs</h3>
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {usage?.claude && <UsageCard tool="claude" />}
             {usage?.codex && <UsageCard tool="codex" />}
+            {usage?.copilot && <UsageCard tool="copilot" />}
           </div>
         </div>
       )}

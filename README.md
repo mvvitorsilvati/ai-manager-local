@@ -115,6 +115,7 @@ just stop       # encerra a instância que estiver na porta 4747
 | `just lint` | Ruff + Pyright + oxlint |
 | `just format` | oxfmt (frontend) + `ruff check --fix` (backend) |
 | `just check` | lint + testes |
+| `just hooks` | liga os git hooks versionados (pre-commit roda `just check`) |
 
 ### Fluxo de desenvolvimento
 
@@ -315,11 +316,12 @@ Detalhes completos em [CONTRIBUTING.md](CONTRIBUTING.md) (branches, nível certo
    git checkout -b feat/minha-mudanca
    ```
 2. Faça commits pequenos e descritivos (Conventional Commits: `feat:`, `fix:`, `chore:`, `test:`, `docs:`).
-3. Antes de abrir o PR, rode:
+3. O repositório tem **pre-commit** versionado em `.githooks/` (ativado pelo `just setup` ou `just hooks`): todo commit roda `just check` (ruff + pyright + oxlint + pytest + vitest). Para pular pontualmente, use `git commit --no-verify`.
+4. Antes de abrir o PR, rode:
    ```bash
    just check   # ruff + pyright + oxlint + pytest + vitest
    ```
-4. Abra o PR em modo draft descrevendo o que mudou e como validar.
+5. Abra o PR em modo draft descrevendo o que mudou e como validar.
 
 Ao contribuir, siga também a política de segurança em [SECURITY.md](.github/SECURITY.md) — nada de credenciais no diff.
 

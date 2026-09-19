@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -13,10 +14,15 @@ def init_repo(path: Path, name="Teste", email="t@t", message="x"):
     subprocess.run(["git", "init", "-q", str(path)], check=True, capture_output=True)
     (path / "a.md").write_text("x")
     subprocess.run(["git", "-C", str(path), "add", "a.md"], check=True, capture_output=True)
+    # identidade explícita no ambiente: imune a GIT_AUTHOR_*/GIT_COMMITTER_* herdados (ex.: hooks)
+    identidade = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": name, "GIT_AUTHOR_EMAIL": email,
+        "GIT_COMMITTER_NAME": name, "GIT_COMMITTER_EMAIL": email,
+    }
     subprocess.run(
-        ["git", "-C", str(path), "-c", f"user.name={name}", "-c", f"user.email={email}",
-         "commit", "-q", "-m", message],
-        check=True, capture_output=True,
+        ["git", "-C", str(path), "commit", "-q", "-m", message],
+        check=True, capture_output=True, env=identidade,
     )
 
 

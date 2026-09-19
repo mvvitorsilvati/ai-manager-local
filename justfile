@@ -5,10 +5,17 @@ set shell := ["bash", "-uc"]
 default:
     @just --list
 
-# instala/sincroniza dependências (uv sync + pnpm install)
+# instala/sincroniza dependências (uv sync + pnpm install) e liga os git hooks
 setup:
     cd backend && uv sync
     cd web && pnpm install
+    just hooks
+
+# aponta o Git para os hooks versionados em .githooks (pre-commit roda `just check`)
+hooks:
+    chmod +x .githooks/pre-commit
+    git config core.hooksPath .githooks
+    @echo "hooks ativados (pule com: git commit --no-verify)"
 
 # para a instância que estiver rodando na porta 4747
 stop:

@@ -2282,17 +2282,26 @@ class Handler(BaseHTTPRequestHandler):
         self._json({"error": "não encontrado"}, 404)
 
 
-def main():
-    load_env_file()
+def server_address() -> tuple[str, int]:
+    """Endereço de escuta: 127.0.0.1 por padrão; GESTOR_HOST existe para containers (0.0.0.0)."""
+    host = os.environ.get("GESTOR_HOST") or "127.0.0.1"
     port = int(os.environ.get("GESTOR_PORT") or DEFAULT_PORT)
+    if "--host" in sys.argv:
+        host = sys.argv[sys.argv.index("--host") + 1]
     if "--port" in sys.argv:
         port = int(sys.argv[sys.argv.index("--port") + 1])
-    url = f"http://127.0.0.1:{port}/"
+    return host, port
+
+
+def main():
+    load_env_file()
+    host, port = server_address()
+    url = f"http://{'127.0.0.1' if host == '0.0.0.0' else host}:{port}/"
     if "--no-open" not in sys.argv:
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()
     print(f"Gestor Local em {url}  (Ctrl+C para parar)")
     try:
-        server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+        server = ThreadingHTTPServer((host, port), Handler)
     except OSError as exc:
         if exc.errno == errno.EADDRINUSE:
             raise SystemExit(

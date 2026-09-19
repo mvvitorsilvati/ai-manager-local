@@ -880,27 +880,9 @@ class Handler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         params = parse_qs(url.query)
         path = url.path
-        if path in ("/", "/index.html", "/legacy"):
+        if path == "/legacy":
             html = (Path(__file__).parent / "index.html").read_bytes()
             self._send(200, html, "text/html; charset=utf-8")
-            return
-        if path.startswith("/assets/") or path in ("/novo", "/novo/") or path.startswith("/novo/"):
-            if path.startswith("/novo/"):
-                rel = path[len("/novo/"):]
-            elif path.startswith("/assets/"):
-                rel = path.lstrip("/")
-            else:
-                rel = ""
-            target = dist_file(rel)
-            if target is None and not path.startswith("/assets/"):
-                target = dist_file("")
-            if target is None:
-                self._json({"error": "build do frontend não encontrado — rode `pnpm build` em web/"}, 404)
-                return
-            ctype = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
-            if ctype.startswith("text/") or ctype in ("application/javascript", "application/json", "image/svg+xml"):
-                ctype += "; charset=utf-8"
-            self._send(200, target.read_bytes(), ctype)
             return
         if url.path == "/api/backups":
             try:
@@ -945,6 +927,21 @@ class Handler(BaseHTTPRequestHandler):
                 self._json([])
                 return
             self._json(search_catalog(query))
+            return
+        target = dist_file("")
+        if path.startswith("/assets/"):
+            target = dist_file(path.lstrip("/"))
+        elif path.startswith("/novo/"):
+            target = dist_file(path[len("/novo/"):]) or dist_file("")
+        if target is not None:
+            ctype = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+            if ctype.startswith("text/") or ctype in ("application/javascript", "application/json", "image/svg+xml"):
+                ctype += "; charset=utf-8"
+            self._send(200, target.read_bytes(), ctype)
+            return
+        if path in ("/", "/index.html", "/novo", "/novo/"):
+            html = (Path(__file__).parent / "index.html").read_bytes()
+            self._send(200, html, "text/html; charset=utf-8")
             return
         self._json({"error": "não encontrado"}, 404)
 

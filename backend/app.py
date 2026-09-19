@@ -2034,10 +2034,6 @@ class Handler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         params = parse_qs(url.query)
         path = url.path
-        if path == "/legacy":
-            html = (Path(__file__).parent / "index.html").read_bytes()
-            self._send(200, html, "text/html; charset=utf-8")
-            return
         if url.path == "/api/usage":
             self._json(usage_snapshot(force=params.get("refresh", ["0"])[0] == "1"))
             return
@@ -2103,8 +2099,12 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, target.read_bytes(), ctype)
             return
         if path in ("/", "/index.html", "/novo", "/novo/"):
-            html = (Path(__file__).parent / "index.html").read_bytes()
-            self._send(200, html, "text/html; charset=utf-8")
+            self._send(503, (
+                "<html><body style=\"font-family:sans-serif;padding:2rem\">"
+                "<h2>Gestor Local sem build do frontend</h2>"
+                "<p>Rode <code>just build</code> (ou <code>pnpm build</code> em <code>web/</code>) e recarregue.</p>"
+                "</body></html>"
+            ).encode("utf-8"), "text/html; charset=utf-8")
             return
         self._json({"error": "não encontrado"}, 404)
 

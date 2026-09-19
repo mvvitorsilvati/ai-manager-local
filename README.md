@@ -39,10 +39,6 @@ Roda 100% local (`127.0.0.1`), sem telemetria e sem enviar nada para fora — ex
 - **Atalhos de teclado**: `⌘K` busca, `⌘E` editar, `⌘S` salvar, `Esc` fecha painéis/cancela a edição
 - **Histórico**: botão voltar do mouse/navegador navega entre seções e fecha o viewer, com guarda para alterações não salvas
 
-### Modo legado
-
-O frontend original (um único `index.html` vanilla) continua disponível em `/legacy`, servido pelo mesmo backend, como fallback.
-
 ## Stack
 
 - **Backend**: Python 3.14, biblioteca padrão (`http.server`) + [trio](https://trio.readthedocs.io/) e [httpx](https://www.python-httpx.org/), gerenciados pelo [uv](https://docs.astral.sh/uv/)
@@ -151,12 +147,11 @@ just dev
 gestor-local/
 ├── backend/                  # API + serving do frontend
 │   ├── app.py                # servidor HTTP (stdlib), catálogo, escrita, uso das IAs
-│   ├── index.html            # frontend vanilla (modo legado em /legacy)
 │   ├── pyproject.toml        # deps (trio, httpx) + config de pytest/ruff/pyright
 │   ├── uv.lock
 │   └── tests/
 │       ├── conftest.py       # fixtures compartilhadas
-│       ├── unit/             # parsers, árvore, checks JS do vanilla
+│       ├── unit/             # parsers, árvore, uso, versões, MCPs
 │       ├── integration/      # save/backup/restore, git
 │       └── e2e/              # servidor HTTP real (rotas e fluxos)
 ├── web/                      # frontend React (Vite)
@@ -193,8 +188,7 @@ O backend escaneia as fontes a cada requisição de catálogo (sem banco de dado
 
 | Método | Rota | Descrição |
 |---|---|---|
-| GET | `/` | frontend React (build em `web/dist`; cai para o vanilla se não houver build) |
-| GET | `/legacy` | frontend vanilla original |
+| GET | `/` | frontend React (build em `web/dist`; `503` com instrução se não houver build) |
 | GET | `/api/catalog` | fontes, projetos, ferramentas, arquivos, skills, MCPs e plugins |
 | GET | `/api/file?s=&r=` | conteúdo + metadados (tamanho, mtime, mtime_ns, criado, dono, git) |
 | GET | `/api/raw?s=&r=` | bytes crus (imagens, até 20 MB) |
@@ -245,8 +239,7 @@ cd web && pnpm test                            # Vitest (6 testes)
 
 - `tests/unit`: funções puras (JSONC, categorização, skills, MCPs) e varredura de diretórios
 - `tests/integration`: escrita com backup, conflito por nanossegundos, restauração, leitura de autoria via git
-- `tests/e2e`: sobe o servidor de verdade em porta efêmera e exercita catálogo, leitura, salvamento (incluindo `403` sem header e `409` em conflito), backups, restore e rotas `/` e `/legacy`
-- Os checks JS em `tests/unit/*.js` validam a árvore e o renderizador do frontend vanilla (rode com `node backend/tests/unit/test_tree.js`)
+- `tests/e2e`: sobe o servidor de verdade em porta efêmera e exercita catálogo, leitura, salvamento (incluindo `403` sem header e `409` em conflito), backups, restore e a rota `/`
 
 ### Testes E2E (Playwright)
 
@@ -296,8 +289,8 @@ just run
 **`ModuleNotFoundError: httpx/trio` ao rodar `python3 app.py`**
 Você está fora da venv. Use `just run` (ou `cd backend && uv run app.py`), ou sincronize com `uv sync`.
 
-**Tela em branco em `/`**
-O backend cai para o frontend vanilla quando não existe build. Rode `just build`.
+**Aviso de build ausente em `/`**
+O backend responde `503` pedindo o build quando `web/dist` não existe. Rode `just build`.
 
 **Cards de uso aparecem com "sem dados"**
 - Claude: precisa do Claude Code logado (Keychain) ou `~/.claude/.credentials.json`

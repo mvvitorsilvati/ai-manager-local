@@ -38,7 +38,6 @@ body:
       options:
         - Backend / API
         - Frontend (React)
-        - Frontend legado (/legacy)
         - Uso das IAs (Claude/Codex/Copilot)
         - CI / tooling
         - Documentação

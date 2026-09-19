@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { buildTree, countTree, type TreeEntry } from "@/components/FileTree"
 import { splitFrontmatter } from "@/components/Markdown"
+import { languageFor } from "@/components/CodeEditor"
 import type { FileEntry } from "@/lib/api"
 
 const file = (r: string, n = r.split("/").pop()!): FileEntry => ({
@@ -47,5 +48,15 @@ describe("splitFrontmatter", () => {
     const [fm, body] = splitFrontmatter("# Titulo\n\ntexto")
     expect(fm).toBe("")
     expect(body).toBe("# Titulo\n\ntexto")
+  })
+})
+
+describe("languageFor", () => {
+  it("mapeia extensões para linguagens do Monaco", () => {
+    expect(languageFor("README.md")).toBe("markdown")
+    expect(languageFor("opencode.jsonc")).toBe("json")
+    expect(languageFor("config.toml")).toBe("toml")
+    expect(languageFor("script.sh")).toBe("shell")
+    expect(languageFor("arquivo.xyz")).toBe("plaintext")
   })
 })

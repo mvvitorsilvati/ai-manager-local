@@ -1,0 +1,5 @@
+# Overrides de segurança: forçam versões corrigidas das dependências transitivas
+# (lodash-es via chevrotain/mermaid e dompurify via monaco-editor/mermaid).
+overrides:
+  lodash-es: ^4.18.1
+  dompurify: ^3.4.15

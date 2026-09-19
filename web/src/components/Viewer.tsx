@@ -1,17 +1,18 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { Copy, FolderOpen, History, Pencil, RotateCcw, X } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useNavigate, useSearchParams, useBlocker } from "react-router-dom"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { Copy, FolderOpen, History, Pencil, RotateCcw, X } from "lucide-react"
-import { api, GESTOR_HEADERS, type Backup } from "@/lib/api"
-import { RENDERABLE_RE, IMAGE_RE, useCatalog } from "@/hooks/useCatalog"
-import { baseName, fmtBytes, fmtDT, resolveRelative } from "@/lib/format"
+
+import { CodeEditor } from "@/components/CodeEditor"
+import { Markdown } from "@/components/Markdown"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Markdown } from "@/components/Markdown"
-import { CodeEditor } from "@/components/CodeEditor"
+import { RENDERABLE_RE, IMAGE_RE, useCatalog } from "@/hooks/useCatalog"
+import { api, GESTOR_HEADERS, type Backup } from "@/lib/api"
+import { baseName, fmtBytes, fmtDT, resolveRelative } from "@/lib/format"
 
 type Mode = "render" | "raw" | "edit"
 
@@ -53,7 +54,11 @@ export function Viewer() {
 
   function openRelative(href: string) {
     let target = href.split("#")[0]
-    try { target = decodeURIComponent(target) } catch { /* href já decodificado */ }
+    try {
+      target = decodeURIComponent(target)
+    } catch {
+      /* href já decodificado */
+    }
     const rel = resolveRelative(r, target)
     if (!catalog?.files.some((f) => f.s === s && f.r === rel)) {
       toast.error(`Arquivo não encontrado: ${rel}`)
@@ -75,7 +80,11 @@ export function Viewer() {
     } catch (err) {
       const e = err as Error & { status?: number }
       if (e.status === 409) {
-        if (confirm("O arquivo foi alterado fora do painel.\n\nOK = sobrescrever com a sua versão\nCancelar = recarregar do disco")) {
+        if (
+          confirm(
+            "O arquivo foi alterado fora do painel.\n\nOK = sobrescrever com a sua versão\nCancelar = recarregar do disco",
+          )
+        ) {
           setSaving(false)
           return save(true)
         }
@@ -125,46 +134,107 @@ export function Viewer() {
   const text = buffer ?? data?.content ?? ""
 
   return (
-    <Sheet open onOpenChange={(o) => { if (!o) close() }}>
+    <Sheet
+      open
+      onOpenChange={(o) => {
+        if (!o) close()
+      }}
+    >
       <SheetContent
         side="right"
         showCloseButton={false}
         className="gap-0 p-0 data-[side=right]:w-[min(1100px,100%)] data-[side=right]:sm:max-w-[1100px]"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-border px-4 py-3">
+        <div className="border-border flex items-start justify-between gap-4 border-b px-4 py-3">
           <div className="min-w-0">
             <div className="truncate font-semibold">
               {data ? baseName(r) : "Carregando…"} {dirty && <span className="text-amber-400">•</span>}
             </div>
-            <div className="truncate font-mono text-[11px] text-muted-foreground">{data?.abs ?? r}</div>
+            <div className="text-muted-foreground truncate font-mono text-[11px]">{data?.abs ?? r}</div>
           </div>
           <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
             {canRender && (
               <>
-                <Button size="sm" variant={mode === "render" ? "default" : "outline"} onClick={() => setMode("render")}>Render</Button>
-                <Button size="sm" variant={mode === "raw" ? "default" : "outline"} onClick={() => setMode("raw")}>Raw</Button>
+                <Button size="sm" variant={mode === "render" ? "default" : "outline"} onClick={() => setMode("render")}>
+                  Render
+                </Button>
+                <Button size="sm" variant={mode === "raw" ? "default" : "outline"} onClick={() => setMode("raw")}>
+                  Raw
+                </Button>
               </>
             )}
-            {!isImage && <Button size="sm" variant={mode === "edit" ? "default" : "outline"} onClick={() => { setBuffer(text); setMode("edit") }}><Pencil className="size-3.5" />Editar</Button>}
+            {!isImage && (
+              <Button
+                size="sm"
+                variant={mode === "edit" ? "default" : "outline"}
+                onClick={() => {
+                  setBuffer(text)
+                  setMode("edit")
+                }}
+              >
+                <Pencil className="size-3.5" />
+                Editar
+              </Button>
+            )}
             {buffer !== null && (
               <>
-                <Button size="sm" onClick={() => save()} disabled={saving}>Salvar</Button>
-                <Button size="sm" variant="outline" onClick={() => { setBuffer(null); setMode(RENDERABLE_RE.test(r) ? "render" : "raw") }}>Cancelar</Button>
+                <Button size="sm" onClick={() => save()} disabled={saving}>
+                  Salvar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setBuffer(null)
+                    setMode(RENDERABLE_RE.test(r) ? "render" : "raw")
+                  }}
+                >
+                  Cancelar
+                </Button>
               </>
             )}
-            <Button size="sm" variant="outline" onClick={openBackups}><History className="size-3.5" />Backups</Button>
-            <Button size="sm" variant="outline" title="Copiar caminho" onClick={() => { navigator.clipboard.writeText(data?.abs ?? r); toast.success("Caminho copiado") }}><Copy className="size-3.5" /></Button>
-            <Button size="sm" variant="outline" title="Abrir no Finder" onClick={() => fetch("/api/reveal", { method: "POST", headers: GESTOR_HEADERS, body: JSON.stringify({ s, r }) })}><FolderOpen className="size-3.5" /></Button>
-            <Button size="sm" variant="ghost" title="Fechar" onClick={close}><X className="size-4" /></Button>
+            <Button size="sm" variant="outline" onClick={openBackups}>
+              <History className="size-3.5" />
+              Backups
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              title="Copiar caminho"
+              onClick={() => {
+                navigator.clipboard.writeText(data?.abs ?? r)
+                toast.success("Caminho copiado")
+              }}
+            >
+              <Copy className="size-3.5" />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              title="Abrir no Finder"
+              onClick={() =>
+                fetch("/api/reveal", { method: "POST", headers: GESTOR_HEADERS, body: JSON.stringify({ s, r }) })
+              }
+            >
+              <FolderOpen className="size-3.5" />
+            </Button>
+            <Button size="sm" variant="ghost" title="Fechar" onClick={close}>
+              <X className="size-4" />
+            </Button>
           </div>
         </div>
 
         {data && (
-          <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2 text-[11.5px] text-muted-foreground">
-            <Badge variant="secondary" className="font-normal">{fmtBytes(data.size)}</Badge>
+          <div className="border-border text-muted-foreground flex flex-wrap items-center gap-2 border-b px-4 py-2 text-[11.5px]">
+            <Badge variant="secondary" className="font-normal">
+              {fmtBytes(data.size)}
+            </Badge>
             <span title={new Date(data.created * 1000).toISOString()}>Criado: {fmtDT(data.created * 1000)}</span>
             <span title={new Date(data.mtime * 1000).toISOString()}>Modificado: {fmtDT(data.mtime * 1000)}</span>
-            <span>Dono: {data.owner}{data.group !== data.owner ? ` · grupo ${data.group}` : ""}</span>
+            <span>
+              Dono: {data.owner}
+              {data.group !== data.owner ? ` · grupo ${data.group}` : ""}
+            </span>
             {data.git && (
               <span
                 title={[
@@ -172,10 +242,13 @@ export function Viewer() {
                   `committer: ${data.git.committer}`,
                   data.git.coauthors.length ? `co-autores: ${data.git.coauthors.join(", ")}` : "",
                   data.git.date,
-                ].filter(Boolean).join("\n")}
+                ]
+                  .filter(Boolean)
+                  .join("\n")}
               >
                 Alterado por: {data.git.author}
-                {data.git.coauthors.length ? ` + ${data.git.coauthors.length} co-autor(es)` : ""} · {fmtDT(Date.parse(data.git.date))} · {data.git.sha}
+                {data.git.coauthors.length ? ` + ${data.git.coauthors.length} co-autor(es)` : ""} ·{" "}
+                {fmtDT(Date.parse(data.git.date))} · {data.git.sha}
               </span>
             )}
             {data.truncated && <span className="text-amber-400">exibindo primeiros 400 KB</span>}
@@ -184,7 +257,7 @@ export function Viewer() {
 
         <div className="relative flex-1 overflow-auto p-4">
           {error ? (
-            <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+            <div className="border-border bg-card text-muted-foreground rounded-lg border p-4 text-sm">
               Não foi possível abrir: {(error as Error).message}
             </div>
           ) : isLoading || !data ? (
@@ -195,14 +268,14 @@ export function Viewer() {
             <img
               alt={baseName(r)}
               src={`/api/raw?s=${encodeURIComponent(s)}&r=${encodeURIComponent(r)}`}
-              className="max-h-[70vh] max-w-full rounded-lg border border-border bg-card p-2"
+              className="border-border bg-card max-h-[70vh] max-w-full rounded-lg border p-2"
             />
           ) : mode === "raw" || !canRender ? (
-            <pre className="whitespace-pre-wrap break-words rounded-lg border border-border bg-card p-4 font-mono text-xs leading-relaxed">
+            <pre className="border-border bg-card rounded-lg border p-4 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap">
               {buffer !== null ? text : tryPretty(text, r)}
             </pre>
           ) : /\.jsonc?$/i.test(r) ? (
-            <pre className="whitespace-pre-wrap break-words rounded-lg border border-border bg-card p-4 font-mono text-xs leading-relaxed">
+            <pre className="border-border bg-card rounded-lg border p-4 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap">
               {tryPretty(text, r)}
             </pre>
           ) : (
@@ -210,18 +283,21 @@ export function Viewer() {
           )}
 
           {backups !== null && (
-            <div className="absolute inset-x-4 bottom-4 z-10 max-h-[45vh] overflow-auto rounded-lg border border-border bg-popover p-3 shadow-xl">
+            <div className="border-border bg-popover absolute inset-x-4 bottom-4 z-10 max-h-[45vh] overflow-auto rounded-lg border p-3 shadow-xl">
               <div className="mb-2 flex items-center justify-between font-medium">
                 Backups
-                <Button size="sm" variant="ghost" onClick={() => setBackups(null)}><X className="size-4" /></Button>
+                <Button size="sm" variant="ghost" onClick={() => setBackups(null)}>
+                  <X className="size-4" />
+                </Button>
               </div>
-              {backups.length === 0 && <p className="text-xs text-muted-foreground">Nenhum backup ainda.</p>}
+              {backups.length === 0 && <p className="text-muted-foreground text-xs">Nenhum backup ainda.</p>}
               {backups.map((b) => (
-                <div key={b.name} className="flex items-center gap-3 border-t border-border py-1.5 text-xs">
+                <div key={b.name} className="border-border flex items-center gap-3 border-t py-1.5 text-xs">
                   <span className="flex-1">{fmtDT(b.mtime * 1000)}</span>
                   <span className="text-muted-foreground">{fmtBytes(b.size)}</span>
                   <Button size="sm" variant="outline" onClick={() => restore(b.name)}>
-                    <RotateCcw className="size-3.5" />Restaurar
+                    <RotateCcw className="size-3.5" />
+                    Restaurar
                   </Button>
                 </div>
               ))}
@@ -235,7 +311,15 @@ export function Viewer() {
 
 function tryPretty(text: string, r: string) {
   if (!/\.jsonc?$/i.test(r)) return text
-  try { return JSON.stringify(JSON.parse(text), null, 2) } catch { /* jsonc */ }
-  try { return JSON.stringify(JSON.parse(text.replace(/\/\*[\s\S]*?\*\//g, "")), null, 2) } catch { /* mantém como está */ }
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2)
+  } catch {
+    /* jsonc */
+  }
+  try {
+    return JSON.stringify(JSON.parse(text.replace(/\/\*[\s\S]*?\*\//g, "")), null, 2)
+  } catch {
+    /* mantém como está */
+  }
   return text
 }

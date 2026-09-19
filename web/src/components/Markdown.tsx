@@ -1,7 +1,7 @@
+import mermaid from "mermaid"
 import { useEffect, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import mermaid from "mermaid"
 
 mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "strict" })
 
@@ -13,14 +13,21 @@ function Mermaid({ code }: { code: string }) {
     setFailed(false)
     let cancelled = false
     const id = "m" + Math.random().toString(36).slice(2)
-    mermaid.render(id, code)
-      .then(({ svg }) => { if (!cancelled && ref.current) ref.current.innerHTML = svg })
-      .catch(() => { if (!cancelled) setFailed(true) })
-    return () => { cancelled = true }
+    mermaid
+      .render(id, code)
+      .then(({ svg }) => {
+        if (!cancelled && ref.current) ref.current.innerHTML = svg
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [code])
 
-  if (failed) return <pre className="rounded-lg border border-border bg-card p-4 font-mono text-xs">{code}</pre>
-  return <div ref={ref} className="my-3 overflow-auto rounded-lg border border-border bg-card p-3 text-center" />
+  if (failed) return <pre className="border-border bg-card rounded-lg border p-4 font-mono text-xs">{code}</pre>
+  return <div ref={ref} className="border-border bg-card my-3 overflow-auto rounded-lg border p-3 text-center" />
 }
 
 export function splitFrontmatter(text: string): [string, string] {
@@ -31,9 +38,9 @@ export function splitFrontmatter(text: string): [string, string] {
 export function Markdown({ content, onLink }: { content: string; onLink?: (href: string) => void }) {
   const [fm, body] = splitFrontmatter(content)
   return (
-    <div className="prose prose-invert max-w-none prose-headings:scroll-mt-4 prose-pre:border prose-pre:border-border prose-pre:bg-card prose-code:before:content-none prose-code:after:content-none">
+    <div className="prose prose-invert prose-headings:scroll-mt-4 prose-pre:border prose-pre:border-border prose-pre:bg-card prose-code:before:content-none prose-code:after:content-none max-w-none">
       {fm && (
-        <pre className="whitespace-pre-wrap break-words rounded-lg border border-dashed border-border bg-secondary p-4 font-mono text-xs text-muted-foreground">
+        <pre className="border-border bg-secondary text-muted-foreground rounded-lg border border-dashed p-4 font-mono text-xs break-words whitespace-pre-wrap">
           {fm}
         </pre>
       )}
@@ -45,7 +52,10 @@ export function Markdown({ content, onLink }: { content: string; onLink?: (href:
               return (
                 <a
                   href={href}
-                  onClick={(e) => { e.preventDefault(); onLink(href) }}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    onLink(href)
+                  }}
                   {...props}
                 >
                   {children}
@@ -61,7 +71,11 @@ export function Markdown({ content, onLink }: { content: string; onLink?: (href:
           code({ className, children, ...props }) {
             const lang = /language-(\w+)/.exec(className ?? "")?.[1]
             if (lang === "mermaid") return <Mermaid code={String(children).replace(/\n$/, "")} />
-            return <code className={className} {...props}>{children}</code>
+            return (
+              <code className={className} {...props}>
+                {children}
+              </code>
+            )
           },
         }}
       >

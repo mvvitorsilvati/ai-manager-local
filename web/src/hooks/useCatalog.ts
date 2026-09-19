@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+
 import { api } from "@/lib/api"
 
 export function useCatalog() {
@@ -10,8 +11,15 @@ export function useCatalog() {
 }
 
 export const CAT_LABEL: Record<string, string> = {
-  context: "contexto", skill: "skill", agent: "agente", command: "comando",
-  rule: "regra", config: "config", doc: "doc", script: "script", image: "imagem",
+  context: "contexto",
+  skill: "skill",
+  agent: "agente",
+  command: "comando",
+  rule: "regra",
+  config: "config",
+  doc: "doc",
+  script: "script",
+  image: "imagem",
 }
 
 export const isDoc = (r: string) => r.split("/").includes("docs")

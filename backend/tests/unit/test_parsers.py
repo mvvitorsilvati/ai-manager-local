@@ -83,3 +83,20 @@ def test_plugins_de_opencode_json_com_comentarios(tmp_path):
     p = tmp_path / "opencode.jsonc"
     p.write_text('{\n // plugins\n "plugin": ["foo"],\n}')
     assert app.plugins_from_config(p) == [{"name": "foo", "enabled": True, "detail": ""}]
+
+
+def test_mcp_config_do_copilot_cli(tmp_path):
+    p = tmp_path / "mcp-config.json"
+    payload = {
+        "mcpServers": {
+            "linear": {
+                "type": "http",
+                "url": "https://mcp.linear.app/mcp",
+                "headers": {"Authorization": "Bearer segredo"},
+            }
+        }
+    }
+    p.write_text(json.dumps(payload))
+    mcps = app.mcps_from_config(p)
+    assert mcps == [{"name": "linear", "type": "http", "detail": "https://mcp.linear.app/mcp", "enabled": True}]
+    assert "segredo" not in str(mcps)

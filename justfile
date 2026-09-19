@@ -44,6 +44,10 @@ test-web:
 coverage:
     cd backend && uv run pytest --cov-report=html
 
+# testes E2E (Playwright) — builda o front e sobe o backend com a fixture
+e2e:
+    cd web && pnpm build && pnpm test:e2e
+
 # lint do backend (ruff + pyright) e do frontend (oxlint)
 lint: lint-backend lint-web
 

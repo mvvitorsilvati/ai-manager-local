@@ -107,7 +107,9 @@ just stop       # encerra a instância que estiver na porta 4747
 | `just dev` | frontend com hot reload em `http://127.0.0.1:5173` (proxy `/api` → 4747; suba o backend em paralelo) |
 | `just build` | build do frontend em `web/dist` |
 | `just test` | pytest (backend, com cobertura) + Vitest (frontend) |
+| `pnpm test:e2e` (em `web/`) | E2E com Playwright (chromium) |
 | `just coverage` | cobertura do backend + relatório HTML em `backend/htmlcov` |
+| `just e2e` | testes E2E (Playwright) — builda o front e sobe o backend com fixture |
 | `just lint` | Ruff + Pyright + oxlint |
 | `just format` | oxfmt (frontend) + `ruff check --fix` (backend) |
 | `just check` | lint + testes |
@@ -228,6 +230,23 @@ cd web && pnpm test                            # Vitest (6 testes)
 - `tests/integration`: escrita com backup, conflito por nanossegundos, restauração, leitura de autoria via git
 - `tests/e2e`: sobe o servidor de verdade em porta efêmera e exercita catálogo, leitura, salvamento (incluindo `403` sem header e `409` em conflito), backups, restore e rotas `/` e `/legacy`
 - Os checks JS em `tests/unit/*.js` validam a árvore e o renderizador do frontend vanilla (rode com `node backend/tests/unit/test_tree.js`)
+
+### Testes E2E (Playwright)
+
+Sobem o app de verdade: build do frontend + backend real (uv) com `GESTOR_PROJECTS_DIR` apontando para uma fixture em `web/e2e/.tmp` (copiada de `web/e2e/fixtures` a cada execução, então o teste de salvar não altera arquivos versionados).
+
+```bash
+just e2e                     # build + playwright test
+cd web && pnpm test:e2e      # sem rebuild
+```
+
+Cobrem: carregar a visão geral, listar o projeto fixture e abrir arquivo no viewer, busca por ⌘K, edição no Monaco com ⌘S (conferindo o arquivo no disco) e Esc cancelando a edição.
+
+Se o download do chromium estiver bloqueado na sua rede, use o Chrome do sistema:
+
+```bash
+cd web && pnpm test:e2e:chrome   # PLAYWRIGHT_CHANNEL=chrome
+```
 
 Cobertura (pytest-cov, configurada em `[tool.coverage.*]` do `backend/pyproject.toml`):
 

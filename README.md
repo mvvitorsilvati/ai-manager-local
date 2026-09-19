@@ -76,6 +76,21 @@ cd backend && uv sync && cd ..
 cd web && pnpm install && pnpm build
 ```
 
+## Configuração (.env)
+
+Copie o exemplo e ajuste o que precisar:
+
+```bash
+cp .env.example .env
+```
+
+| Variável | Padrão | Descrição |
+|---|---|---|
+| `GESTOR_PROJECTS_DIR` | `~/Projetos` | diretório onde o painel procura os seus projetos (aceita `~`) |
+| `GESTOR_PORT` | `4747` | porta do servidor local (a flag `--port` tem precedência) |
+
+O `.env` fica na raiz do repositório, é carregado com [python-dotenv](https://github.com/theskumar/python-dotenv) **sem sobrescrever** variáveis já exportadas no ambiente, e não entra no Git (apenas o `.env.example`). Alterou? Reinicie o servidor (`just stop && just run`).
+
 ## Uso
 
 ```bash
@@ -89,7 +104,8 @@ just stop       # encerra a instância que estiver na porta 4747
 | `just run-nobrowser` | idem, sem abrir o navegador |
 | `just dev` | frontend com hot reload em `http://127.0.0.1:5173` (proxy `/api` → 4747; suba o backend em paralelo) |
 | `just build` | build do frontend em `web/dist` |
-| `just test` | pytest (backend) + Vitest (frontend) |
+| `just test` | pytest (backend, com cobertura) + Vitest (frontend) |
+| `just coverage` | cobertura do backend + relatório HTML em `backend/htmlcov` |
 | `just lint` | Ruff + Pyright + oxlint |
 | `just format` | oxfmt (frontend) + `ruff check --fix` (backend) |
 | `just check` | lint + testes |
@@ -191,7 +207,7 @@ O backend escaneia as fontes a cada requisição de catálogo (sem banco de dado
 | Codex | `~/.codex` | `config.toml`, `AGENTS.md`, `prompts/`, `rules/`, `skills/` |
 | GitHub Copilot CLI | `~/.copilot` | `settings.json`, `mcp-config.json`, `hooks/`, `skills/` |
 | Gemini / Antigravity | `~/.gemini` | `GEMINI.md`, `settings.json`, `config/`, `skills/` |
-| Projetos | `~/Projetos` | detecta repos (`.git` ou nível raso) e varre só os caminhos de configuração + `docs/` |
+| Projetos | `GESTOR_PROJECTS_DIR` (padrão `~/Projetos`) | detecta repos (`.git` ou nível raso) e varre só os caminhos de configuração + `docs/` |
 
 Exclusões automáticas: binários e caches por extensão (`.pyc`, `.zip`, `.pdf`, fontes, áudio, SQLite e seus `-wal/-shm/-journal`), históricos `.jsonl`, diretórios de sessão/cache (`sessions/`, `projects/`, `cache/`, `worktrees/`, `session-state/`, `run/`) e arquivos de credenciais (`auth.json`).
 
@@ -210,6 +226,16 @@ cd web && pnpm test                            # Vitest (6 testes)
 - `tests/integration`: escrita com backup, conflito por nanossegundos, restauração, leitura de autoria via git
 - `tests/e2e`: sobe o servidor de verdade em porta efêmera e exercita catálogo, leitura, salvamento (incluindo `403` sem header e `409` em conflito), backups, restore e rotas `/` e `/legacy`
 - Os checks JS em `tests/unit/*.js` validam a árvore e o renderizador do frontend vanilla (rode com `node backend/tests/unit/test_tree.js`)
+
+Cobertura (pytest-cov, configurada em `[tool.coverage.*]` do `backend/pyproject.toml`):
+
+```bash
+just coverage                                  # HTML em backend/htmlcov/index.html
+cd backend && uv run pytest --cov-report=html  # idem, sem o just
+cd backend && uv run pytest --cov=app          # só o resumo no terminal
+```
+
+O resumo sai automaticamente a cada `pytest` (79% de linhas/branches hoje).
 
 ## Lint e formatação
 
@@ -240,6 +266,9 @@ O backend cai para o frontend vanilla quando não existe build. Rode `just build
 - Copilot: precisa de `GITHUB_TOKEN`/`GH_TOKEN` ou `gh auth token`
 - Codex: lê o último rollout em `~/.codex/sessions` — sem sessão recente, não há dados
 - opencode (Zen/Go) e Gemini/Antigravity não expõem uso localmente; o consumo do Zen aparece só no console da opencode
+
+**Os projetos não aparecem / aparecem de outro diretório**
+Confira `GESTOR_PROJECTS_DIR` no `.env` (o valor atual aparece no subtítulo da tela *Projetos*) e reinicie o servidor.
 
 **Edição recusada com 409**
 O arquivo mudou no disco (outra ferramenta, IA ou IDE). Escolha *recarregar do disco* ou *sobrescrever*; nada é perdido — a versão anterior vira backup.

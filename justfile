@@ -40,6 +40,10 @@ test-backend:
 test-web:
     cd web && pnpm test
 
+# coverage do backend com relatório HTML em backend/htmlcov
+coverage:
+    cd backend && uv run pytest --cov-report=html
+
 # lint do backend (ruff + pyright) e do frontend (oxlint)
 lint: lint-backend lint-web
 

@@ -19,6 +19,7 @@ export type Plugin = { name: string; source: string; enabled: boolean; detail: s
 
 export type Catalog = {
   sources: Source[]
+  project_base: string
   projects: { id: string; name: string; rel: string }[]
   tools: { id: string; label: string }[]
   files: FileEntry[]

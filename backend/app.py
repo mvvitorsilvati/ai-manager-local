@@ -28,6 +28,7 @@ from urllib.parse import parse_qs, urlparse
 try:
     import httpx
     import trio
+    from dotenv import load_dotenv
 except ModuleNotFoundError as exc:  # guarda de ambiente: dependências vivem na venv do uv
     raise SystemExit(
         f"Dependência ausente: {exc.name}\n\n"
@@ -38,6 +39,7 @@ except ModuleNotFoundError as exc:  # guarda de ambiente: dependências vivem na
     ) from exc
 
 HOME = Path.home()
+ENV_FILE = Path(__file__).parent.parent / ".env"
 DEFAULT_PORT = 4747
 MAX_FILE_BYTES = 400_000
 MAX_SEARCH_BYTES = 300_000
@@ -56,7 +58,7 @@ IMAGE_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".svg"}
 
 CONTEXT_NAMES = {"AGENTS.MD", "CLAUDE.MD", "GEMINI.MD", "RTK.MD", "TGREP.MD", "COPILOT-INSTRUCTIONS.MD"}
 
-PROJECT_BASE = "~/Projetos"
+DEFAULT_PROJECT_BASE = "~/Projetos"
 PROJECT_MAX_DEPTH = 4
 PROJECT_CONFIG_DIRS = {".claude", ".opencode", ".codex", ".gemini", ".cursor", ".agents"}
 PROJECT_DOC_DIRS = ("docs",)
@@ -85,6 +87,15 @@ TOOL_LABELS = {
     "shared": "Compartilhado (AGENTS.md)",
 }
 TOOL_ORDER = ["opencode", "claude", "codex", "gemini", "cursor", "copilot", "shared"]
+
+
+def load_env_file(path: Path = ENV_FILE) -> None:
+    """Carrega o .env da raiz sem sobrescrever variáveis já definidas no ambiente."""
+    load_dotenv(path, override=False)
+
+
+def project_base() -> str:
+    return os.environ.get("GESTOR_PROJECTS_DIR") or DEFAULT_PROJECT_BASE
 
 
 def tool_for(source: dict, rel: str, name: str) -> str:
@@ -370,7 +381,7 @@ def walk_source(source: dict):
 
 
 def discover_projects(base=None, max_depth=PROJECT_MAX_DEPTH) -> list[Path]:
-    base_path = Path(os.path.expanduser(base or PROJECT_BASE))
+    base_path = Path(os.path.expanduser(base or project_base())).resolve()
     if not base_path.is_dir():
         return []
     found: list[Path] = []
@@ -628,6 +639,7 @@ def build_catalog() -> dict:
 
     return {
         "sources": sources,
+        "project_base": str(Path(os.path.expanduser(project_base()))),
         "projects": [{"id": p["id"], "name": p["name"], "rel": p["rel"]} for p in projects],
         "tools": tools,
         "files": files,
@@ -1360,7 +1372,8 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    port = DEFAULT_PORT
+    load_env_file()
+    port = int(os.environ.get("GESTOR_PORT") or DEFAULT_PORT)
     if "--port" in sys.argv:
         port = int(sys.argv[sys.argv.index("--port") + 1])
     url = f"http://127.0.0.1:{port}/"

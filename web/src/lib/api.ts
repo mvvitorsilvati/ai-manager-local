@@ -1,3 +1,5 @@
+import axios from "axios"
+
 export type FileEntry = {
   s: string
   r: string
@@ -52,33 +54,51 @@ export type SearchResult = FileEntry & {
 }
 
 export type AuthorInfo = GitInfo & { s: string; r: string }
+export type UsageWindow = { label: string; utilization: number | null; resets_at: string | null }
+export type UsageCredits = {
+  used: number | null
+  limit: number | null
+  currency: string | null
+  percent: number | null
+  severity: string | null
+  resets_at: string | null
+}
+export type ClaudeUsage = { available: boolean; windows: UsageWindow[]; credits: UsageCredits | null }
+export type UsageResponse = { claude: ClaudeUsage | null }
 export type Backup = { name: string; size: number; mtime: number }
 export type SaveResult = { ok: boolean; mtime: number; mtime_ns: string; size: number; created: number; backup: string }
 export type SaveConflict = { error: string; conflict: true; mtime: number; mtime_ns: string; size: number }
 
-async function parse<T>(res: Response): Promise<T> {
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw Object.assign(new Error(data.error || res.statusText), { data, status: res.status })
-  return data as T
+type ApiFailure = Error & { status?: number; data?: unknown }
+
+const client = axios.create({ headers: { "X-Gestor": "1" } })
+
+function toApiError(error: unknown): ApiFailure {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data as { error?: string } | undefined
+    return Object.assign(new Error(data?.error ?? error.message), { status: error.response?.status, data })
+  }
+  return error as ApiFailure
 }
 
-export const GESTOR_HEADERS = { "Content-Type": "application/json", "X-Gestor": "1" }
+async function unwrap<T>(request: Promise<{ data: T }>): Promise<T> {
+  try {
+    return (await request).data
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
 
 export const api = {
-  catalog: () => fetch("/api/catalog").then(parse<Catalog>),
-  file: (s: string, r: string) =>
-    fetch(`/api/file?s=${encodeURIComponent(s)}&r=${encodeURIComponent(r)}`).then(parse<FileData>),
-  search: (q: string) => fetch(`/api/search?q=${encodeURIComponent(q)}`).then(parse<SearchResult[]>),
-  backups: (s: string, r: string) =>
-    fetch(`/api/backups?s=${encodeURIComponent(s)}&r=${encodeURIComponent(r)}`).then(parse<Backup[]>),
+  catalog: () => unwrap<Catalog>(client.get("/api/catalog")),
+  file: (s: string, r: string) => unwrap<FileData>(client.get("/api/file", { params: { s, r } })),
+  search: (q: string) => unwrap<SearchResult[]>(client.get("/api/search", { params: { q } })),
+  backups: (s: string, r: string) => unwrap<Backup[]>(client.get("/api/backups", { params: { s, r } })),
   save: (body: { s: string; r: string; content: string; mtime_ns?: string; force?: boolean }) =>
-    fetch("/api/save", { method: "POST", headers: GESTOR_HEADERS, body: JSON.stringify(body) }).then(parse<SaveResult>),
-  authors: (files: { s: string; r: string }[]) =>
-    fetch("/api/authors", { method: "POST", headers: GESTOR_HEADERS, body: JSON.stringify({ files }) }).then(
-      parse<AuthorInfo[]>,
-    ),
-  restore: (body: { s: string; r: string; backup: string }) =>
-    fetch("/api/restore", { method: "POST", headers: GESTOR_HEADERS, body: JSON.stringify(body) }).then(
-      parse<SaveResult>,
-    ),
+    unwrap<SaveResult>(client.post("/api/save", body)),
+  restore: (body: { s: string; r: string; backup: string }) => unwrap<SaveResult>(client.post("/api/restore", body)),
+  reveal: (s: string, r: string) => unwrap<{ ok: boolean }>(client.post("/api/reveal", { s, r })),
+  usage: (refresh = false) =>
+    unwrap<UsageResponse>(client.get("/api/usage", { params: refresh ? { refresh: "1" } : {} })),
+  authors: (files: { s: string; r: string }[]) => unwrap<AuthorInfo[]>(client.post("/api/authors", { files })),
 }

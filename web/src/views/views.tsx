@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query"
-import { Search as SearchIcon, X } from "lucide-react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { RefreshCw, Search as SearchIcon, X } from "lucide-react"
 import { useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { CAT_LABEL, isDoc, useCatalog } from "@/hooks/useCatalog"
 import { api, type Catalog, type FileEntry, type Mcp, type Plugin, type SearchResult, type SkillEntry } from "@/lib/api"
+import { fmtDT, until } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 const secClass = "mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground"
@@ -194,6 +195,93 @@ export function DocsView() {
   )
 }
 
+function UsageCard() {
+  const queryClient = useQueryClient()
+  const { data, isFetching } = useQuery({ queryKey: ["usage"], queryFn: () => api.usage(), staleTime: 30_000 })
+  const claude = data?.claude
+
+  const refresh = async () => {
+    const fresh = await api.usage(true)
+    queryClient.setQueryData(["usage"], fresh)
+  }
+
+  const money = (value: number | null, currency: string | null) =>
+    value == null
+      ? "—"
+      : new Intl.NumberFormat("pt-BR", { style: "currency", currency: currency ?? "USD" }).format(value)
+
+  return (
+    <div className="border-border bg-card mb-5 rounded-lg border p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold">Seus limites de uso</h3>
+        <Button size="sm" variant="outline" onClick={refresh} disabled={isFetching}>
+          <RefreshCw className={cn("size-3.5", isFetching && "animate-spin")} />
+          Atualizar
+        </Button>
+      </div>
+      {!claude && (
+        <p className="text-muted-foreground text-xs">Não foi possível ler o uso (credenciais ou API indisponíveis).</p>
+      )}
+      {claude && (
+        <div className="space-y-3">
+          {claude.credits && (
+            <div>
+              <div className="flex items-baseline justify-between gap-3 text-sm">
+                <span>
+                  {money(claude.credits.used, claude.credits.currency)} de{" "}
+                  {money(claude.credits.limit, claude.credits.currency)} gasto
+                </span>
+                <span className="text-muted-foreground">{claude.credits.percent ?? 0}% usado</span>
+              </div>
+              <div className="bg-muted mt-1.5 h-2 w-full overflow-hidden rounded-full">
+                <div
+                  className={cn(
+                    "h-full rounded-full",
+                    claude.credits.severity === "critical"
+                      ? "bg-red-500"
+                      : claude.credits.severity === "warning"
+                        ? "bg-amber-500"
+                        : "bg-emerald-500",
+                  )}
+                  style={{ width: `${Math.min(claude.credits.percent ?? 0, 100)}%` }}
+                />
+              </div>
+              <p className="text-muted-foreground mt-1 text-[11.5px]">
+                Limite de gastos ·{" "}
+                {claude.credits.resets_at
+                  ? `Reinicia ${until(claude.credits.resets_at)} (${fmtDT(Date.parse(claude.credits.resets_at))})`
+                  : "sem data de reinício na API"}
+              </p>
+            </div>
+          )}
+          {claude.windows.map((w) => (
+            <div key={w.label}>
+              <div className="flex items-baseline justify-between gap-3 text-sm">
+                <span>{w.label}</span>
+                <span className="text-muted-foreground">{Math.round(w.utilization ?? 0)}% usado</span>
+              </div>
+              <div className="bg-muted mt-1.5 h-2 w-full overflow-hidden rounded-full">
+                <div
+                  className="bg-primary h-full rounded-full"
+                  style={{ width: `${Math.min(w.utilization ?? 0, 100)}%` }}
+                />
+              </div>
+              {w.resets_at && (
+                <p className="text-muted-foreground mt-1 text-[11.5px]">
+                  Reinicia {until(w.resets_at)} ({fmtDT(Date.parse(w.resets_at))})
+                </p>
+              )}
+            </div>
+          ))}
+          {!claude.credits && claude.windows.length === 0 && (
+            <p className="text-muted-foreground text-xs">Sem janelas de uso ativas nesta conta agora.</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ToolsView() {
   const { data: catalog } = useCatalog()
   const [tool, setTool] = useState<string | null>(null)
@@ -209,6 +297,7 @@ export function ToolsView() {
       <p className="text-muted-foreground mb-4 text-sm">
         Escolha a ferramenta para ver as configurações globais e por projeto
       </p>
+      {selected === "claude" && <UsageCard />}
       <div className="mb-5 flex flex-wrap gap-2">
         {catalog.tools.map((t) => {
           const count = catalog.files.filter((f) => f.k === t.id).length

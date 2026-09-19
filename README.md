@@ -2,6 +2,8 @@
 
 Painel web local (somente no seu Mac) para visualizar e editar as configurações das IAs instaladas na máquina: **opencode**, **Claude Code**, **Codex**, **GitHub Copilot CLI**, **Gemini/Antigravity** e os arquivos de configuração **dentro dos seus projetos** (`~/Projetos`).
 
+[![QA](https://github.com/mvvitorsilvati/gestor-local/actions/workflows/qa.yaml/badge.svg)](https://github.com/mvvitorsilvati/gestor-local/actions/workflows/qa.yaml)
+
 Roda 100% local (`127.0.0.1`), sem telemetria e sem enviar nada para fora — exceto as consultas de uso/limites das contas (Claude, Codex e Copilot), que chamam as APIs oficiais usando as credenciais que já existem na sua máquina.
 
 ## Índice
@@ -275,6 +277,8 @@ O arquivo mudou no disco (outra ferramenta, IA ou IDE). Escolha *recarregar do d
 
 ## Como contribuir
 
+Detalhes completos em [CONTRIBUTING.md](CONTRIBUTING.md) (branches, nível certo de teste, convenções). Resumo:
+
 1. Crie uma branch a partir de `develop`:
    ```bash
    git checkout -b feat/minha-mudanca
@@ -286,8 +290,14 @@ O arquivo mudou no disco (outra ferramenta, IA ou IDE). Escolha *recarregar do d
    ```
 4. Abra o PR em modo draft descrevendo o que mudou e como validar.
 
+Ao contribuir, siga também a política de segurança em [SECURITY.md](.github/SECURITY.md) — nada de credenciais no diff.
+
 Diretrizes rápidas:
 
 - **Backend**: nada de dependência nova sem necessidade; prefira a biblioteca padrão. Se `app.py` crescer, mantenha as fronteiras (catálogo / escrita / uso das IAs) e escreva o teste no nível certo (`unit` para função pura, `integration` para filesystem/git, `e2e` para rota).
 - **Frontend**: componentes em `src/components`, telas em `src/views`; chamadas HTTP só pelo `lib/api.ts` (axios); datas pelo `lib/format.ts` (date-fns).
 - **Nada de segredos**: o app lê credenciais em runtime; nunca versione tokens, `auth.json`, logs de auditoria ou backups.
+
+## Licença
+
+MIT — veja [LICENSE](LICENSE).

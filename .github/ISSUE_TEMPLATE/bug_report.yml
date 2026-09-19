@@ -1,0 +1,59 @@
+name: Bug
+description: Reportar um comportamento incorreto
+title: "[Bug] "
+labels: ["Bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por reportar! Quanto mais objetivo, mais rápido de corrigir.
+  - type: textarea
+    id: esperado
+    attributes:
+      label: O que você esperava
+      placeholder: "Ao clicar em salvar, o arquivo gravava e mostrava o toast."
+    validations:
+      required: true
+  - type: textarea
+    id: aconteceu
+    attributes:
+      label: O que aconteceu
+      placeholder: "O save retornou 409 mesmo sem alteração externa."
+    validations:
+      required: true
+  - type: textarea
+    id: passos
+    attributes:
+      label: Passos para reproduzir
+      placeholder: |
+        1. abrir /ia?tool=codex
+        2. clicar em Editar e salvar
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options:
+        - Backend / API
+        - Frontend (React)
+        - Frontend legado (/legacy)
+        - Uso das IAs (Claude/Codex/Copilot)
+        - CI / tooling
+        - Documentação
+    validations:
+      required: true
+  - type: input
+    id: ambiente
+    attributes:
+      label: Ambiente
+      placeholder: "macOS 26, Python 3.14.7, Node 22, pnpm 12"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / capturas
+      description: Saída do terminal (`just run`), console do navegador ou screenshot.
+      render: text
+    validations:
+      required: false

@@ -1,0 +1,9 @@
+# CODEOWNERS — dono padrão do repositório
+# Documentação: https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+* @mvvitorsilvati
+
+# Áreas sensíveis: qualquer mudança aqui pede revisão explícita
+/backend/app.py @mvvitorsilvati
+/backend/tests/ @mvvitorsilvati
+/.github/ @mvvitorsilvati

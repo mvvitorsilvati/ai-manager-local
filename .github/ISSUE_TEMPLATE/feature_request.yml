@@ -1,0 +1,37 @@
+name: Sugestão
+description: Propor uma melhoria ou nova funcionalidade
+title: "[Sugestão] "
+labels: ["Improvement"]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Qual problema isso resolve
+      placeholder: "Hoje não consigo ver o consumo do opencode Zen no painel."
+    validations:
+      required: true
+  - type: textarea
+    id: proposta
+    attributes:
+      label: Proposta
+      placeholder: "Um card com ... puxando de ..."
+    validations:
+      required: true
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: Alternativas consideradas
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options:
+        - Backend / API
+        - Frontend (React)
+        - Uso das IAs (Claude/Codex/Copilot)
+        - CI / tooling
+        - Documentação
+    validations:
+      required: true

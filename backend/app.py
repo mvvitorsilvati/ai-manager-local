@@ -1355,7 +1355,21 @@ def run_update(tool: str) -> dict:
     command = update_command(tool)
     if command is None:
         raise ApiError(f"não sei como atualizar {tool} nesta instalação", 400)
-    return _run_command(command)
+    binary = tool_meta(tool).get("cli", {}).get("binary")
+    before = cli_version(binary) if binary else None
+    result = _run_command(command)
+    after = cli_version(binary) if binary else None
+    changed = None if not before or not after else before != after
+    if result["ok"] and changed is False:
+        result["ok"] = False
+        result["message"] = f"nada mudou: segue na v{after} — o canal de instalação ainda não publicou versão nova"
+    elif result["ok"]:
+        result["message"] = f"atualizado para v{after}" if after else "atualização concluída"
+    else:
+        result["message"] = "falha ao atualizar"
+    result["installed"] = after
+    result["changed"] = changed
+    return result
 
 
 def run_plugin_update(source: str, name: str) -> dict:

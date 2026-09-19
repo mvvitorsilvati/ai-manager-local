@@ -17,8 +17,15 @@ export function UpdateButton({
     mutationFn: () => api.update(body),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["versions"] })
-      if (result.ok) toast.success(`${label} atualizado`, { description: result.command })
-      else toast.error(`Falha ao atualizar ${label}`, { description: result.output || result.command })
+      if (result.ok) {
+        toast.success(`${label} atualizado`, { description: result.message ?? result.command })
+      } else if (result.changed === false) {
+        toast.info(`Nada mudou em ${label}`, { description: result.message ?? (result.output || result.command) })
+      } else {
+        toast.error(`Falha ao atualizar ${label}`, {
+          description: result.message || result.output || result.command,
+        })
+      }
     },
     onError: (error: Error) => toast.error(`Falha ao atualizar ${label}`, { description: error.message }),
   })

@@ -322,6 +322,7 @@ def _entry(source: dict, rel: str, rel_dir: str, fn: str, st) -> dict:
         "t": int(st.st_mtime),
         "c": categorize(source["id"], rel, fn),
         "k": tool_for(source, rel, fn),
+        "m": mimetypes.guess_type(fn)[0] or "",
     }
 
 

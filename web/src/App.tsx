@@ -1,4 +1,5 @@
-import { NavLink, Route, Routes } from "react-router-dom"
+import { useRef } from "react"
+import { NavLink, Route, Routes, useLocation } from "react-router-dom"
 import {
   BookOpen, Cpu, FileText, Files, Folder, Layers, LayoutGrid,
   Package, RefreshCw, Server, Shield, Terminal, Zap, type LucideIcon,
@@ -6,11 +7,14 @@ import {
 import { useCatalog } from "@/hooks/useCatalog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Toaster } from "@/components/ui/sonner"
 import { cn } from "@/lib/utils"
 import Dashboard from "@/views/Dashboard"
-import Placeholder from "@/views/Placeholder"
+import {
+  CategoryView, DocsView, FilesView, McpsView, PluginsView, ProjectsView,
+  SearchInput, SearchView, SkillsView, ToolsView,
+} from "@/views/views"
+import { Viewer } from "@/components/Viewer"
 
 type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean }
 
@@ -31,13 +35,16 @@ export const NAV: NavItem[] = [
 
 export default function App() {
   const { data: catalog, refetch, isFetching } = useCatalog()
+  const location = useLocation()
+  const isViewer = location.pathname === "/f"
+  const lastLocation = useRef(location)
+  if (!isViewer) lastLocation.current = location
 
   const nav = NAV.map((item) => {
     let count: number | null = null
     if (catalog) {
       const files = catalog.files
       const byCat = (c: string) => files.filter((f) => f.c === c).length
-      const docs = files.filter((f) => f.r.split("/").includes("docs")).length
       const map: Record<string, number> = {
         "/ia": catalog.tools.length,
         "/contextos": byCat("context"),
@@ -45,7 +52,7 @@ export default function App() {
         "/agentes": byCat("agent"),
         "/comandos": byCat("command"),
         "/regras": byCat("rule"),
-        "/docs": docs,
+        "/docs": files.filter((f) => f.r.split("/").includes("docs")).length,
         "/mcps": catalog.mcps.length,
         "/plugins": catalog.plugins.length,
         "/projetos": catalog.projects.length,
@@ -94,17 +101,29 @@ export default function App() {
       </aside>
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="flex gap-3 border-b border-border bg-card p-3.5">
-          <Input placeholder="Buscar por nome ou conteúdo (mín. 2 letras)…" className="flex-1" />
+          <SearchInput />
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={cn("size-4", isFetching && "animate-spin")} />
             Atualizar
           </Button>
         </header>
         <section className="flex-1 overflow-auto p-6">
-          <Routes>
+          <Routes location={isViewer ? lastLocation.current : location}>
             <Route path="/" element={<Dashboard />} />
-            <Route path="*" element={<Placeholder />} />
+            <Route path="/ia" element={<ToolsView />} />
+            <Route path="/contextos" element={<CategoryView cat="context" />} />
+            <Route path="/skills" element={<SkillsView />} />
+            <Route path="/agentes" element={<CategoryView cat="agent" />} />
+            <Route path="/comandos" element={<CategoryView cat="command" />} />
+            <Route path="/regras" element={<CategoryView cat="rule" />} />
+            <Route path="/docs" element={<DocsView />} />
+            <Route path="/mcps" element={<McpsView />} />
+            <Route path="/plugins" element={<PluginsView />} />
+            <Route path="/projetos" element={<ProjectsView />} />
+            <Route path="/arquivos" element={<FilesView />} />
+            <Route path="/busca" element={<SearchView />} />
           </Routes>
+          {isViewer && <Viewer />}
         </section>
       </main>
       <Toaster />

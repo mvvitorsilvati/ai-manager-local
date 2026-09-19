@@ -6,6 +6,7 @@ Uso: python3 app.py [--port 4747] [--no-open]
 """
 from __future__ import annotations
 
+import base64
 import errno
 import grp
 import json
@@ -21,9 +22,10 @@ import time
 import tomllib
 import webbrowser
 from datetime import UTC, datetime
+from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 try:
     import httpx
@@ -457,43 +459,20 @@ def _flatten(value, limit=160) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
+MCP_GLOBAL_FILES = (
+    ("opencode", "opencode.jsonc"),
+    ("codex", "config.toml"),
+    ("gemini", "config/mcp.json"),
+    ("copilot", "mcp-config.json"),
+)
+
+
 def collect_mcps() -> list[dict]:
     out = []
-
-    oc = load_jsonc(HOME / ".config/opencode/opencode.jsonc") or {}
-    for name, cfg in (oc.get("mcp") or {}).items():
-        cfg = cfg if isinstance(cfg, dict) else {}
-        out.append({
-            "name": name, "source": "opencode", "type": cfg.get("type", "local"),
-            "detail": _mcp_detail(cfg), "enabled": cfg.get("enabled", True),
-        })
-
-    cx = load_toml(HOME / ".codex/config.toml") or {}
-    for name, cfg in (cx.get("mcp_servers") or {}).items():
-        cfg = cfg if isinstance(cfg, dict) else {}
-        out.append({
-            "name": name, "source": "codex",
-            "type": "remote" if cfg.get("url") else "local",
-            "detail": _mcp_detail(cfg), "enabled": cfg.get("enabled", True),
-        })
-
-    gm = load_json(HOME / ".gemini/config/mcp.json") or {}
-    for name, cfg in (gm.get("mcpServers") or {}).items():
-        cfg = cfg if isinstance(cfg, dict) else {}
-        out.append({
-            "name": name, "source": "gemini",
-            "type": "remote" if cfg.get("url") else "local",
-            "detail": _mcp_detail(cfg), "enabled": cfg.get("enabled", True),
-        })
-
-    cp = load_json(HOME / ".copilot" / "mcp-config.json") or {}
-    for name, cfg in (cp.get("mcpServers") or {}).items():
-        cfg = cfg if isinstance(cfg, dict) else {}
-        out.append({
-            "name": name, "source": "copilot",
-            "type": cfg.get("type", "remote" if cfg.get("url") else "local"),
-            "detail": _mcp_detail(cfg), "enabled": cfg.get("enabled", True),
-        })
+    for source, rel in MCP_GLOBAL_FILES:
+        root = Path(os.path.expanduser(SOURCE_BY_ID[source]["root"]))
+        for mcp in mcps_from_config(root / rel):
+            out.append({**mcp, "source": source, "file": {"s": source, "r": rel}})
 
     cl = load_json(HOME / ".claude.json") or {}
     for name, cfg in (cl.get("mcpServers") or {}).items():
@@ -501,17 +480,8 @@ def collect_mcps() -> list[dict]:
         out.append({
             "name": name, "source": "claude",
             "type": cfg.get("type", "remote" if cfg.get("url") else "local"),
-            "detail": _mcp_detail(cfg), "enabled": True,
+            "detail": _mcp_detail(cfg), "enabled": True, "file": None,
         })
-    for project, pcfg in (cl.get("projects") or {}).items():
-        if not isinstance(pcfg, dict):
-            continue
-        for name in (pcfg.get("mcpServers") or {}):
-            out.append({
-                "name": name, "source": "claude",
-                "type": "local", "detail": f"projeto: {Path(project).name}",
-                "enabled": True,
-            })
     return out
 
 
@@ -594,7 +564,10 @@ def collect_project_mcps(projects: list[dict]) -> list[dict]:
             if f["n"] not in ("opencode.json", "opencode.jsonc", "mcp.json", ".mcp.json", "config.toml"):
                 continue
             for mcp in mcps_from_config(Path(proj["root"]) / f["r"]):
-                out.append({**mcp, "source": proj["id"], "scope": "projeto"})
+                out.append({
+                    **mcp, "source": proj["id"], "scope": "projeto",
+                    "file": {"s": f["s"], "r": f["r"]},
+                })
     return out
 
 
@@ -652,6 +625,7 @@ def build_catalog() -> dict:
 # ---------------------------------------------------------------- uso das IAs
 
 CLAUDE_CREDENTIALS = HOME / ".claude" / ".credentials.json"
+CLAUDE_ACCOUNT = HOME / ".claude.json"
 CLAUDE_KEYCHAIN_SERVICE = "Claude Code-credentials"
 CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 USAGE_CACHE_SECONDS = 60
@@ -659,6 +633,7 @@ _usage_cache: tuple[float, dict] = (0.0, {})
 _usage_lock = threading.Lock()
 
 CODEX_SESSIONS = HOME / ".codex" / "sessions"
+CODEX_AUTH = HOME / ".codex" / "auth.json"
 CODEX_TAIL_BYTES = 200_000
 
 USAGE_WINDOWS = (
@@ -692,6 +667,16 @@ def claude_access_token() -> str | None:
             except (ValueError, KeyError):
                 return None
     return None
+
+
+def claude_account() -> str | None:
+    try:
+        data = json.loads(CLAUDE_ACCOUNT.read_text())
+    except (OSError, ValueError):
+        return None
+    account = (data.get("oauthAccount") or {}) if isinstance(data, dict) else {}
+    email = account.get("emailAddress")
+    return email if isinstance(email, str) else None
 
 
 def parse_usage_windows(payload: dict) -> list[dict]:
@@ -774,7 +759,12 @@ def claude_usage() -> dict | None:
         return None
     if not isinstance(payload, dict):
         return None
-    return {"available": True, "windows": parse_usage_windows(payload), "credits": parse_credits(payload)}
+    return {
+        "available": True,
+        "windows": parse_usage_windows(payload),
+        "credits": parse_credits(payload),
+        "account": claude_account(),
+    }
 
 
 def _epoch_iso(value) -> str | None:
@@ -800,6 +790,39 @@ def parse_codex_rate_limits(rate: dict) -> list[dict]:
             "resets_at": _epoch_iso(item.get("resets_at")),
         })
     return windows
+
+
+def _jwt_claims(token: str) -> dict | None:
+    parts = token.split(".")
+    if len(parts) < 2:
+        return None
+    payload = parts[1] + "=" * (-len(parts[1]) % 4)
+    try:
+        claims = json.loads(base64.urlsafe_b64decode(payload))
+    except ValueError:
+        return None
+    return claims if isinstance(claims, dict) else None
+
+
+def _jwt_email(token: str) -> str | None:
+    claims = _jwt_claims(token)
+    if claims is None:
+        return None
+    email = claims.get("email")
+    if not isinstance(email, str):
+        profile = claims.get("https://api.openai.com/profile")
+        email = profile.get("email") if isinstance(profile, dict) else None
+    return email if isinstance(email, str) else None
+
+
+def codex_account() -> str | None:
+    try:
+        data = json.loads(CODEX_AUTH.read_text())
+    except (OSError, ValueError):
+        return None
+    tokens = (data.get("tokens") or {}) if isinstance(data, dict) else {}
+    id_token = tokens.get("id_token")
+    return _jwt_email(id_token) if isinstance(id_token, str) else None
 
 
 def latest_codex_rollout() -> Path | None:
@@ -843,10 +866,12 @@ def codex_usage() -> dict | None:
         "plan": rate.get("plan_type"),
         "credits_balance": credits.get("balance"),
         "updated_at": int(rollout.stat().st_mtime),
+        "account": codex_account(),
     }
 
 
 COPILOT_USAGE_URL = "https://api.github.com/copilot_internal/user"
+COPILOT_USER_URL = "https://api.github.com/user"
 COPILOT_HEADERS = {
     "Accept": "application/json",
     "Editor-Version": "vscode/1.99.0",
@@ -873,6 +898,23 @@ def github_token() -> str | None:
         if match:
             return match.group(1)
     return None
+
+
+def github_account(token: str) -> str | None:
+    try:
+        response = httpx.get(
+            COPILOT_USER_URL,
+            headers={**COPILOT_HEADERS, "Authorization": f"token {token}"},
+            timeout=10,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except (httpx.HTTPError, ValueError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    account = payload.get("email") or payload.get("login")
+    return account if isinstance(account, str) else None
 
 
 def parse_copilot_quota(payload: dict) -> dict:
@@ -914,7 +956,7 @@ def copilot_usage() -> dict | None:
         return None
     if not isinstance(payload, dict):
         return None
-    return parse_copilot_quota(payload)
+    return {**parse_copilot_quota(payload), "account": github_account(token)}
 
 
 def usage_snapshot(force: bool = False) -> dict:
@@ -927,6 +969,613 @@ def usage_snapshot(force: bool = False) -> dict:
     snapshot = {"claude": claude_usage(), "codex": codex_usage(), "copilot": copilot_usage()}
     with _usage_lock:
         _usage_cache = (now, snapshot)
+    return snapshot
+
+
+# ---------------------------------------------------------------- versões & atualizações
+
+CLI_PACKAGES = (
+    ("opencode", "opencode", "opencode-ai"),
+    ("claude", "claude", "@anthropic-ai/claude-code"),
+    ("codex", "codex", "@openai/codex"),
+    ("copilot", "copilot", "@github/copilot"),
+    ("gemini", "gemini", "@google/gemini-cli"),
+)
+OPENCODE_AUTH = HOME / ".local/share" / "opencode" / "auth.json"
+OPENCODE_CONFIG = HOME / ".config" / "opencode" / "opencode.jsonc"
+OPENCODE_PACKAGES = HOME / ".cache" / "opencode" / "packages"
+CLAUDE_MARKETPLACES = HOME / ".claude" / "plugins" / "known_marketplaces.json"
+CLAUDE_INSTALLED_PLUGINS = HOME / ".claude" / "plugins" / "installed_plugins.json"
+CLAUDE_SETTINGS = HOME / ".claude" / "settings.json"
+NPM_REGISTRY = "https://registry.npmjs.org"
+VERSION_RE = re.compile(r"\d+\.\d+\.\d+")
+VERSIONS_CACHE_SECONDS = 600
+_versions_cache: tuple[float, dict] = (0.0, {})
+_versions_lock = threading.Lock()
+
+
+def cli_version(binary: str) -> str | None:
+    try:
+        proc = subprocess.run([binary, "--version"], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    match = VERSION_RE.search(proc.stdout or proc.stderr or "")
+    return match.group(0) if match else None
+
+
+def npm_latest(package: str) -> str | None:
+    try:
+        response = httpx.get(f"{NPM_REGISTRY}/{quote(package, safe='')}/latest", timeout=10)
+        response.raise_for_status()
+        payload = response.json()
+    except (httpx.HTTPError, ValueError):
+        return None
+    version = payload.get("version") if isinstance(payload, dict) else None
+    return version if isinstance(version, str) else None
+
+
+def _version_tuple(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in version.split(".") if part.isdigit())
+
+
+def has_update(latest: str | None, installed: str | None) -> bool | None:
+    if not latest or not installed:
+        return None
+    return _version_tuple(latest) > _version_tuple(installed)
+
+
+def opencode_account() -> str | None:
+    try:
+        data = json.loads(OPENCODE_AUTH.read_text())
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    for entry in data.values():
+        if not isinstance(entry, dict):
+            continue
+        for key in ("access", "id_token"):
+            token = entry.get(key)
+            if isinstance(token, str):
+                email = _jwt_email(token)
+                if email:
+                    return email
+    return None
+
+
+def opencode_plugin_version(name: str) -> str | None:
+    for manifest in OPENCODE_PACKAGES.glob(f"{name}@*/node_modules/{name}/package.json"):
+        try:
+            data = json.loads(manifest.read_text())
+        except (OSError, ValueError):
+            continue
+        version = data.get("version") if isinstance(data, dict) else None
+        if isinstance(version, str):
+            return version
+    return None
+
+
+def _greater_version(declared: str | None, local: str | None) -> str | None:
+    if declared is None:
+        return local
+    if local is None:
+        return declared
+    a, b = _version_tuple(declared), _version_tuple(local)
+    if a and b:
+        return declared if a >= b else local
+    return declared
+
+
+def _needs_update(installed: str | None, latest: str | None) -> bool | None:
+    if not installed or not latest:
+        return None
+    a, b = _version_tuple(installed), _version_tuple(latest)
+    if a and b:
+        return b > a
+    return installed != latest
+
+
+def marketplace_versions(location: Path) -> tuple[dict[str, str], str | None]:
+    versions: dict[str, str] = {}
+    manifest = load_json(location / ".claude-plugin" / "marketplace.json") or {}
+    for entry in manifest.get("plugins") or []:
+        if not isinstance(entry, dict) or not isinstance(entry.get("name"), str):
+            continue
+        declared = entry.get("version") if isinstance(entry.get("version"), str) else None
+        local = None
+        source = entry.get("source")
+        if isinstance(source, str) and source.startswith("."):
+            plugin = load_json(location / source / ".claude-plugin" / "plugin.json") or {}
+            local = plugin.get("version") if isinstance(plugin.get("version"), str) else None
+        version = _greater_version(declared, local)
+        if version is not None:
+            versions[entry["name"]] = version
+    gcs = location / ".gcs-sha"
+    snapshot = gcs.read_text().strip() or None if gcs.is_file() else None
+    if snapshot is None and (location / ".git").exists():
+        try:
+            proc = subprocess.run(
+                ["git", "-C", str(location), "rev-parse", "HEAD"],
+                capture_output=True, text=True, timeout=10,
+            )
+        except (OSError, subprocess.SubprocessError):
+            proc = None
+        if proc is not None and proc.returncode == 0:
+            snapshot = proc.stdout.strip() or None
+    return versions, snapshot
+
+
+def claude_plugin_updates() -> list[dict]:
+    installed = (load_json(CLAUDE_INSTALLED_PLUGINS) or {}).get("plugins") or {}
+    known = load_json(CLAUDE_MARKETPLACES) or {}
+    settings = load_json(CLAUDE_SETTINGS) or {}
+    extra = settings.get("extraKnownMarketplaces") or {}
+    marketplaces: dict[str, tuple[dict[str, str], str | None]] = {}
+    out = []
+    for name, entries in installed.items():
+        entry = entries[0] if isinstance(entries, list) and entries and isinstance(entries[0], dict) else {}
+        plugin, _, marketplace = name.partition("@")
+        if marketplace and marketplace not in marketplaces:
+            location = ((known.get(marketplace) or {}).get("installLocation") or "")
+            marketplaces[marketplace] = marketplace_versions(Path(location)) if location else ({}, None)
+        versions, snapshot = marketplaces.get(marketplace, ({}, None))
+        installed_version = entry.get("version") if isinstance(entry.get("version"), str) else None
+        latest = versions.get(plugin)
+        if latest is not None:
+            update = _needs_update(installed_version, latest)
+        elif snapshot:
+            update = not (installed_version and snapshot.startswith(installed_version))
+        else:
+            update = None
+        auto = (extra.get(marketplace) or {}).get("autoUpdate")
+        if auto is None:
+            auto = (known.get(marketplace) or {}).get("autoUpdate")
+        if auto is None and marketplace:
+            auto = marketplace == "claude-plugins-official"
+        out.append({
+            "source": "claude",
+            "name": name,
+            "installed": installed_version,
+            "latest": latest,
+            "update": update,
+            "auto_update": bool(auto) if marketplace else None,
+        })
+    return out
+
+
+def plugin_updates() -> list[dict]:
+    out = []
+    oc = load_jsonc(OPENCODE_CONFIG) or {}
+    for raw in oc.get("plugin") or []:
+        name = str(raw)
+        installed, latest = opencode_plugin_version(name), npm_latest(name)
+        out.append({
+            "source": "opencode",
+            "name": name,
+            "installed": installed,
+            "latest": latest,
+            "update": has_update(latest, installed),
+            "auto_update": None,
+        })
+    out.extend(claude_plugin_updates())
+    return out
+
+
+CLI_UPDATE = {
+    "opencode": {"binary": "opencode", "formula": "opencode", "fallback": ["opencode", "upgrade"]},
+    "claude": {"binary": "claude", "cask": "claude-code", "fallback": ["claude", "update"]},
+    "codex": {"binary": "codex", "cask": "codex", "fallback": ["codex", "update"]},
+    "copilot": {"binary": "copilot", "package": "@github/copilot", "fallback": ["copilot", "update"]},
+    "gemini": {"binary": "gemini", "package": "@google/gemini-cli"},
+}
+UPDATE_TIMEOUT = 900
+_update_lock = threading.Lock()
+
+
+def update_command(tool: str) -> list[str] | None:
+    spec = CLI_UPDATE.get(tool)
+    if not spec:
+        return None
+    binary = shutil.which(spec["binary"])
+    if not binary:
+        return None
+    real = os.path.realpath(binary)
+    if spec.get("cask") and "/Caskroom/" in real:
+        return [shutil.which("brew") or "/opt/homebrew/bin/brew", "upgrade", "--cask", spec["cask"]]
+    if spec.get("formula") and "/Cellar/" in real:
+        return [shutil.which("brew") or "/opt/homebrew/bin/brew", "upgrade", spec["formula"]]
+    if spec.get("package") and "/lib/node_modules/" in real:
+        npm = Path(real.split("/lib/node_modules/")[0]) / "bin" / "npm"
+        return [str(npm) if npm.is_file() else "npm", "install", "-g", f"{spec['package']}@latest"]
+    fallback = spec.get("fallback")
+    return list(fallback) if fallback else None
+
+
+def claude_known_plugins() -> set[str]:
+    installed = (load_json(CLAUDE_INSTALLED_PLUGINS) or {}).get("plugins") or {}
+    settings = load_json(CLAUDE_SETTINGS) or {}
+    return set(installed) | set(settings.get("enabledPlugins") or {})
+
+
+def opencode_plugins() -> set[str]:
+    oc = load_jsonc(OPENCODE_CONFIG) or {}
+    return {str(name) for name in oc.get("plugin") or []}
+
+
+def _run_command(command: list[str]) -> dict:
+    if not _update_lock.acquire(blocking=False):
+        raise ApiError("já existe uma atualização em andamento", 409)
+    try:
+        proc = subprocess.run(command, capture_output=True, text=True, timeout=UPDATE_TIMEOUT)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ApiError(f"falha ao executar {' '.join(command)}: {exc}", 500) from exc
+    finally:
+        _update_lock.release()
+    global _versions_cache
+    _versions_cache = (0.0, {})
+    output = ((proc.stdout or "") + (proc.stderr or "")).strip()
+    return {"ok": proc.returncode == 0, "command": " ".join(command), "output": output[-4000:]}
+
+
+def run_update(tool: str) -> dict:
+    command = update_command(tool)
+    if command is None:
+        raise ApiError(f"não sei como atualizar {tool} nesta instalação", 400)
+    return _run_command(command)
+
+
+def run_plugin_update(source: str, name: str) -> dict:
+    if source == "claude":
+        if name not in claude_known_plugins():
+            raise ApiError("plugin não encontrado", 404)
+        binary = shutil.which("claude")
+        if not binary:
+            raise ApiError("binário claude não encontrado no PATH", 400)
+        return _run_command([binary, "plugin", "update", name, "-y"])
+    if source == "opencode":
+        if name not in opencode_plugins():
+            raise ApiError("plugin não encontrado", 404)
+        binary = shutil.which("opencode")
+        if not binary:
+            raise ApiError("binário opencode não encontrado no PATH", 400)
+        return _run_command([binary, "plugin", name, "-g", "--force"])
+    raise ApiError("atualização automática disponível apenas para plugins do Claude Code e do opencode", 400)
+
+
+def set_plugin_auto_update(name: str, auto: bool) -> dict:
+    if name not in claude_known_plugins():
+        raise ApiError("plugin não encontrado", 404)
+    marketplace = name.rsplit("@", 1)[1] if "@" in name else ""
+    if not marketplace:
+        raise ApiError("plugin sem marketplace definido", 400)
+    try:
+        path = resolve_file("claude", "settings.json")
+    except ValueError as exc:
+        raise ApiError(str(exc), 400) from exc
+    data = load_json(path)
+    if not isinstance(data, dict):
+        raise ApiError("não foi possível ler o settings.json do Claude Code", 500)
+    extra = data.setdefault("extraKnownMarketplaces", {})
+    if not isinstance(extra, dict):
+        raise ApiError("extraKnownMarketplaces inválido no settings.json", 500)
+    entry = extra.get(marketplace)
+    if not isinstance(entry, dict):
+        entry = {}
+    if "source" not in entry:
+        known = (load_json(CLAUDE_MARKETPLACES) or {}).get(marketplace) or {}
+        source = known.get("source") or (extra.get(marketplace) or {}).get("source")
+        if source is None:
+            raise ApiError("marketplace sem fonte conhecida para registrar no settings.json", 400)
+        entry["source"] = source
+    entry["autoUpdate"] = bool(auto)
+    extra[marketplace] = entry
+    content = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+    result = save_file("claude", "settings.json", content, expected_mtime_ns=path.stat().st_mtime_ns)
+    global _versions_cache
+    _versions_cache = (0.0, {})
+    return {"ok": True, "auto_update": bool(auto), **result}
+
+
+# ---------------------------------------------------------------- incidentes
+
+STATUS_PAGES = {
+    "claude": "https://status.anthropic.com",
+    "codex": "https://status.openai.com",
+    "copilot": "https://www.githubstatus.com",
+    "cursor": "https://status.cursor.com",
+}
+GOOGLE_STATUS_URL = "https://status.cloud.google.com/incidents.json"
+INCIDENTS_CACHE_SECONDS = 300
+_incidents_cache: tuple[float, dict] = (0.0, {})
+_incidents_lock = threading.Lock()
+
+SEVERITY_ORDER = {"critical": 3, "major": 2, "high": 2, "minor": 1, "medium": 1, "low": 0}
+
+
+def _statuspage_incident(payload: dict) -> dict:
+    status = payload.get("status") if isinstance(payload, dict) else None
+    status = status if isinstance(status, dict) else {}
+    indicator = status.get("indicator")
+    return {"ok": indicator == "none", "indicator": indicator, "description": status.get("description")}
+
+
+def _google_incident(payload) -> dict:
+    active = [i for i in payload if isinstance(i, dict) and not i.get("end")] if isinstance(payload, list) else []
+    if not active:
+        return {"ok": True, "indicator": "none", "description": "All Systems Operational"}
+    worst = max(active, key=lambda i: SEVERITY_ORDER.get(str(i.get("severity")), 1))
+    return {
+        "ok": False,
+        "indicator": worst.get("severity") or "minor",
+        "description": str(worst.get("external_desc") or "incidente ativo")[:300],
+    }
+
+
+def _status_json(url: str):
+    # ponytail: fallback via curl porque o proxy corporativo quebra a verificação TLS do httpx nestes domínios
+    try:
+        response = httpx.get(url, timeout=10, follow_redirects=True)
+        response.raise_for_status()
+        return response.json()
+    except (httpx.HTTPError, ValueError):
+        pass
+    try:
+        proc = subprocess.run(
+            ["curl", "-sL", "--max-time", "10", url],
+            capture_output=True, text=True, timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0 or not proc.stdout:
+        return None
+    try:
+        return json.loads(proc.stdout)
+    except ValueError:
+        return None
+
+
+def incident_for(source: str) -> dict | None:
+    if source == "gemini":
+        url = GOOGLE_STATUS_URL
+    elif source in STATUS_PAGES:
+        url = f"{STATUS_PAGES[source]}/api/v2/status.json"
+    else:
+        return None
+    payload = _status_json(url)
+    if payload is None:
+        return None
+    return _google_incident(payload) if source == "gemini" else _statuspage_incident(payload)
+
+
+def incidents_snapshot(force: bool = False) -> dict:
+    global _incidents_cache
+    now = time.time()
+    with _incidents_lock:
+        stamp, cached = _incidents_cache
+        if not force and now - stamp < INCIDENTS_CACHE_SECONDS:
+            return cached
+    sources = {source: incident_for(source) for source in ("claude", "codex", "copilot", "gemini", "cursor")}
+    snapshot = {"sources": sources}
+    with _incidents_lock:
+        _incidents_cache = (now, snapshot)
+    return snapshot
+
+
+MCP_CLI_ACTIONS = {
+    ("claude", "login"): ["claude", "mcp", "login"],
+    ("claude", "logout"): ["claude", "mcp", "logout"],
+    ("opencode", "login"): ["opencode", "mcp", "auth"],
+    ("opencode", "logout"): ["opencode", "mcp", "logout"],
+    ("codex", "login"): ["codex", "mcp", "login"],
+    ("codex", "logout"): ["codex", "mcp", "logout"],
+    ("copilot", "enable"): ["copilot", "mcp", "enable"],
+    ("copilot", "disable"): ["copilot", "mcp", "disable"],
+    ("gemini", "enable"): ["gemini", "mcp", "enable"],
+    ("gemini", "disable"): ["gemini", "mcp", "disable"],
+}
+
+
+def _skip_comment(text: str, i: int) -> int:
+    if text.startswith("//", i):
+        end = text.find("\n", i)
+        return len(text) if end == -1 else end + 1
+    if text.startswith("/*", i):
+        end = text.find("*/", i)
+        return len(text) if end == -1 else end + 2
+    return i
+
+
+def _string_end(text: str, i: int) -> int:
+    i += 1
+    while i < len(text):
+        if text[i] == "\\":
+            i += 2
+            continue
+        if text[i] == '"':
+            return i + 1
+        i += 1
+    return i
+
+
+def _object_end(text: str, start: int) -> int | None:
+    depth = 0
+    i = start
+    while i < len(text):
+        c = text[i]
+        if c == '"':
+            i = _string_end(text, i)
+            continue
+        skipped = _skip_comment(text, i)
+        if skipped != i:
+            i = skipped
+            continue
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+    return None
+
+
+def _find_key_value(text: str, key: str, start: int, end: int) -> int | None:
+    needle = f'"{key}"'
+    depth = 0
+    i = start
+    while i < end:
+        c = text[i]
+        skipped = _skip_comment(text, i)
+        if skipped != i:
+            i = skipped
+            continue
+        if c == '"':
+            if depth == 0 and text.startswith(needle, i):
+                j = i + len(needle)
+                while j < end and text[j] in " \t\r\n":
+                    j += 1
+                if j < end and text[j] == ":":
+                    j += 1
+                    while j < end and text[j] in " \t\r\n":
+                        j += 1
+                    return j
+            i = _string_end(text, i)
+            continue
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+        i += 1
+    return None
+
+
+def _set_enabled_in_object(text: str, obj_start: int, enabled: bool) -> str | None:
+    obj_end = _object_end(text, obj_start)
+    if obj_end is None:
+        return None
+    value_start = _find_key_value(text, "enabled", obj_start + 1, obj_end)
+    if value_start is not None:
+        match = re.match(r"(true|false)", text[value_start:])
+        if not match:
+            return None
+        return text[:value_start] + ("true" if enabled else "false") + text[value_start + match.end():]
+    line_start = text.rfind("\n", 0, obj_start) + 1
+    line_indent = re.match(r"[ \t]*", text[line_start:obj_start])
+    indent = (line_indent.group(0) if line_indent else "") + "  "
+    return text[: obj_start + 1] + f'\n{indent}"enabled": {"true" if enabled else "false"},' + text[obj_start + 1:]
+
+
+def toggle_opencode_mcp_enabled(text: str, name: str, enabled: bool) -> str | None:
+    root = text.find("{")
+    if root == -1:
+        return None
+    mcp_start = _find_key_value(text, "mcp", root + 1, len(text))
+    if mcp_start is None or mcp_start >= len(text) or text[mcp_start] != "{":
+        return None
+    mcp_end = _object_end(text, mcp_start)
+    if mcp_end is None:
+        return None
+    entry_start = _find_key_value(text, name, mcp_start + 1, mcp_end)
+    if entry_start is None or entry_start >= len(text) or text[entry_start] != "{":
+        return None
+    return _set_enabled_in_object(text, entry_start, enabled)
+
+
+def toggle_codex_mcp_enabled(text: str, name: str, enabled: bool) -> str | None:
+    lines = text.splitlines(keepends=True)
+    headers = {f"[mcp_servers.{name}]", f'[mcp_servers."{name}"]'}
+    start = next((i for i, line in enumerate(lines) if line.strip() in headers), None)
+    if start is None:
+        return None
+    end = len(lines)
+    for i in range(start + 1, len(lines)):
+        if lines[i].lstrip().startswith("["):
+            end = i
+            break
+    value = "true" if enabled else "false"
+    for i in range(start + 1, end):
+        if re.match(r"\s*enabled\s*=", lines[i]):
+            lines[i] = re.sub(r"(\s*enabled\s*=\s*)\S+", rf"\g<1>{value}", lines[i])
+            break
+    else:
+        lines.insert(start + 1, f"enabled = {value}\n")
+    return "".join(lines)
+
+
+def _edit_mcp_config(source: str, rel: str, toggle) -> dict:
+    try:
+        path = resolve_file(source, rel)
+    except ValueError as exc:
+        raise ApiError(str(exc), 400) from exc
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ApiError(f"não consegui ler {rel}: {exc}", 500) from exc
+    updated = toggle(text)
+    if updated is None:
+        raise ApiError(f"não encontrei a configuração do MCP em {rel}", 400)
+    result = save_file(source, rel, updated)
+    return {
+        "ok": True,
+        "command": f"editar {rel}",
+        "output": f"config atualizado (backup: {result.get('backup', '—')})",
+        "backup": str(result.get("backup", "")),
+    }
+
+
+def run_mcp_action(source: str, name: str, action: str) -> dict:
+    known = {m["name"] for m in collect_mcps() if m["source"] == source}
+    if name not in known:
+        raise ApiError("MCP não encontrado", 404)
+    if action in ("enable", "disable"):
+        enabled = action == "enable"
+        if source == "opencode":
+            return _edit_mcp_config(
+                "opencode", "opencode.jsonc", partial(toggle_opencode_mcp_enabled, name=name, enabled=enabled),
+            )
+        if source == "codex":
+            return _edit_mcp_config(
+                "codex", "config.toml", partial(toggle_codex_mcp_enabled, name=name, enabled=enabled),
+            )
+    command = MCP_CLI_ACTIONS.get((source, action))
+    if command is None:
+        raise ApiError(f"ação '{action}' não disponível para MCPs do {source}", 400)
+    binary = shutil.which(command[0])
+    if not binary:
+        raise ApiError(f"binário {command[0]} não encontrado no PATH", 400)
+    return _run_command([binary, *command[1:], name])
+
+
+def versions_snapshot(force: bool = False) -> dict:
+    global _versions_cache
+    now = time.time()
+    with _versions_lock:
+        stamp, cached = _versions_cache
+        if not force and now - stamp < VERSIONS_CACHE_SECONDS:
+            return cached
+    tools = {}
+    for tool, binary, package in CLI_PACKAGES:
+        installed, latest = cli_version(binary), npm_latest(package)
+        command = update_command(tool)
+        tools[tool] = {
+            "installed": installed,
+            "latest": latest,
+            "update": has_update(latest, installed),
+            "command": " ".join(command) if command else None,
+        }
+    token = github_token()
+    accounts = {
+        "opencode": opencode_account(),
+        "claude": claude_account(),
+        "codex": codex_account(),
+        "copilot": github_account(token) if token else None,
+    }
+    for tool, account in accounts.items():
+        if account:
+            tools[tool]["account"] = account
+    snapshot = {"tools": tools, "plugins": plugin_updates()}
+    with _versions_lock:
+        _versions_cache = (now, snapshot)
     return snapshot
 
 
@@ -1250,6 +1899,12 @@ class Handler(BaseHTTPRequestHandler):
         if url.path == "/api/usage":
             self._json(usage_snapshot(force=params.get("refresh", ["0"])[0] == "1"))
             return
+        if url.path == "/api/versions":
+            self._json(versions_snapshot(force=params.get("refresh", ["0"])[0] == "1"))
+            return
+        if url.path == "/api/incidents":
+            self._json(incidents_snapshot(force=params.get("refresh", ["0"])[0] == "1"))
+            return
         if url.path == "/api/backups":
             try:
                 self._json(list_backups(params.get("s", [""])[0], params.get("r", [""])[0]))
@@ -1361,6 +2016,25 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 subprocess.Popen(["open", "-R", str(path)])
                 self._json({"ok": True})
+                return
+            if url.path == "/api/update":
+                if payload.get("tool"):
+                    self._json(run_update(str(payload["tool"])))
+                else:
+                    self._json(run_plugin_update(str(payload.get("source", "")), str(payload.get("name", ""))))
+                return
+            if url.path == "/api/plugin-auto-update":
+                the_name = str(payload.get("name", ""))
+                auto = payload.get("auto")
+                if not isinstance(auto, bool):
+                    raise ApiError("campo auto precisa ser booleano", 400)
+                self._json(set_plugin_auto_update(the_name, auto))
+                return
+            if url.path == "/api/mcp":
+                action = str(payload.get("action", ""))
+                if action not in ("enable", "disable", "login", "logout"):
+                    raise ApiError("ação inválida", 400)
+                self._json(run_mcp_action(str(payload.get("source", "")), str(payload.get("name", "")), action))
                 return
         except ConflictError as exc:
             self._json({"error": str(exc), "conflict": True, **exc.info}, exc.status)

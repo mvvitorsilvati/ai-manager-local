@@ -1,7 +1,8 @@
 import { Folder, FolderOpen } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 
 import { CatIcon } from "@/components/bits"
+import { useCollapsible } from "@/components/collapse"
 import type { FileEntry } from "@/lib/api"
 import { fmtBytes } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -87,7 +88,7 @@ function FolderNode({
   depth: number
   onOpen: (f: FileEntry) => void
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useCollapsible(false)
   return (
     <div>
       <button

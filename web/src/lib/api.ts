@@ -14,7 +14,15 @@ export type FileEntry = {
 
 export type Source = { id: string; label: string; root: string; project?: boolean }
 export type SkillEntry = FileEntry & { skill_name: string; description: string }
-export type Mcp = { name: string; source: string; type: string; detail: string; enabled: boolean; scope?: string }
+export type Mcp = {
+  name: string
+  source: string
+  type: string
+  detail: string
+  enabled: boolean
+  scope?: string
+  file?: { s: string; r: string } | null
+}
 export type Plugin = { name: string; source: string; enabled: boolean; detail: string; scope?: string }
 
 export type Catalog = {
@@ -70,10 +78,39 @@ export type ToolUsage = {
   windows: UsageWindow[]
   credits?: UsageCredits | null
   plan?: string | null
+  account?: string | null
   updated_at?: number
   unlimited?: string[]
 }
 export type UsageResponse = { claude: ToolUsage | null; codex: ToolUsage | null; copilot: ToolUsage | null }
+
+export type ToolVersion = {
+  installed: string | null
+  latest: string | null
+  update: boolean | null
+  command?: string | null
+  account?: string | null
+}
+
+export type PluginUpdate = {
+  source: string
+  name: string
+  installed?: string | null
+  latest?: string | null
+  update?: boolean | null
+  auto_update?: boolean | null
+}
+
+export type VersionsResponse = {
+  tools: Record<string, ToolVersion>
+  plugins: PluginUpdate[]
+}
+
+export type UpdateResult = { ok: boolean; command: string; output: string }
+
+export type Incident = { ok: boolean | null; indicator: string | null; description: string | null }
+
+export type IncidentsResponse = { sources: Record<string, Incident | null> }
 export type Backup = { name: string; size: number; mtime: number }
 export type SaveResult = { ok: boolean; mtime: number; mtime_ns: string; size: number; created: number; backup: string }
 export type SaveConflict = { error: string; conflict: true; mtime: number; mtime_ns: string; size: number }
@@ -109,5 +146,15 @@ export const api = {
   reveal: (s: string, r: string) => unwrap<{ ok: boolean }>(client.post("/api/reveal", { s, r })),
   usage: (refresh = false) =>
     unwrap<UsageResponse>(client.get("/api/usage", { params: refresh ? { refresh: "1" } : {} })),
+  versions: (refresh = false) =>
+    unwrap<VersionsResponse>(client.get("/api/versions", { params: refresh ? { refresh: "1" } : {} })),
+  update: (body: { tool: string } | { source: string; name: string }) =>
+    unwrap<UpdateResult>(client.post("/api/update", body)),
+  incidents: (refresh = false) =>
+    unwrap<IncidentsResponse>(client.get("/api/incidents", { params: refresh ? { refresh: "1" } : {} })),
+  setPluginAutoUpdate: (name: string, auto: boolean) =>
+    unwrap<{ ok: boolean; auto_update: boolean }>(client.post("/api/plugin-auto-update", { name, auto })),
+  mcpAction: (body: { source: string; name: string; action: "enable" | "disable" | "login" | "logout" }) =>
+    unwrap<UpdateResult>(client.post("/api/mcp", body)),
   authors: (files: { s: string; r: string }[]) => unwrap<AuthorInfo[]>(client.post("/api/authors", { files })),
 }

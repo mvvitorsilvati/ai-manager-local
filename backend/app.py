@@ -62,13 +62,8 @@ CONTEXT_NAMES = {"AGENTS.MD", "CLAUDE.MD", "GEMINI.MD", "RTK.MD", "TGREP.MD", "C
 
 DEFAULT_PROJECT_BASE = "~/Projetos"
 PROJECT_MAX_DEPTH = 4
-PROJECT_CONFIG_DIRS = {".claude", ".opencode", ".codex", ".gemini", ".cursor", ".agents"}
 PROJECT_DOC_DIRS = ("docs",)
-PROJECT_ROOT_FILES = {
-    "AGENTS.md", "CLAUDE.md", "GEMINI.md", "RTK.md", "tgrep.md", "CONTEXT.md",
-    ".cursorrules", ".windsurfrules", ".mcp.json", "opencode.json", "opencode.jsonc",
-}
-PROJECT_EXTRA_FILES = (".github/copilot-instructions.md", ".cursor/mcp.json", ".vscode/mcp.json")
+PROJECT_SHARED_FILES = {"AGENTS.md", "RTK.md", "tgrep.md", "CONTEXT.md"}
 PROJECT_SCAN_SKIP = {"node_modules", ".venv", "venv", "dist", "build", "__pycache__", "target", "Library", "vendor"}
 PROJECT_EXCLUDE_DIRS = {
     ".git", "node_modules", "cache", "projects", "file-history", "shell-snapshots",
@@ -76,19 +71,231 @@ PROJECT_EXCLUDE_DIRS = {
     "teams", "session-env", "plans", "mcp-oauth-locks", "worktrees",
 }
 
+# ---------------------------------------------------------------- registro de IAs
+# Uma entrada por IA: scan global, caminhos de projeto, arquivo/formatos de MCP,
+# CLI (versão/update), autenticação e status page. Para suportar uma IA nova,
+# basta acrescentar um item aqui (ou deixar o discovery achar `~/.<ia>/mcp.json`).
+
+TOOLS = [
+    {
+        "id": "opencode",
+        "label": "opencode",
+        "root": "~/.config/opencode",
+        "exclude_dirs": {"node_modules"},
+        "exclude_files": {"bun.lock", "package-lock.json"},
+        "dirs": (".opencode",),
+        "files": ("opencode.json", "opencode.jsonc"),
+        "mcp": {"rel": "opencode.jsonc", "container": "mcp", "kind": "json"},
+        "cli": {
+            "binary": "opencode", "package": "opencode-ai",
+            "formula": "opencode", "fallback": ["opencode", "upgrade"],
+        },
+        "mcp_login": ["opencode", "mcp", "auth"],
+        "mcp_logout": ["opencode", "mcp", "logout"],
+    },
+    {
+        "id": "agents",
+        "label": "Skills compartilhadas",
+        "root": "~/.agents",
+        "tool": "shared",
+        "dirs": (".agents",),
+        "files": (),
+    },
+    {
+        "id": "claude",
+        "label": "Claude Code",
+        "root": "~/.claude",
+        "exclude_dirs": {
+            "projects", "shell-snapshots", "cache", "paste-cache", "file-history",
+            "sessions", "tasks", "teams", "backups", "ide", "session-env", "plans",
+            "plugins", "statsig", "todos", "mcp-oauth-locks",
+        },
+        "exclude_files": set(),
+        "dirs": (".claude",),
+        "files": ("CLAUDE.md", ".mcp.json"),
+        "cli": {
+            "binary": "claude", "package": "@anthropic-ai/claude-code",
+            "cask": "claude-code", "fallback": ["claude", "update"],
+        },
+        "mcp_login": ["claude", "mcp", "login"],
+        "mcp_logout": ["claude", "mcp", "logout"],
+        "status": "https://status.anthropic.com",
+    },
+    {
+        "id": "codex",
+        "label": "Codex",
+        "root": "~/.codex",
+        "exclude_dirs": {
+            "sessions", "shell_snapshots", "cache", "vendor_imports", "node_repl",
+            "computer-use", "pets", "automations", "ambient-suggestions",
+            "dictation-history", "ipc", "memories", "rollout-migrations",
+            "thread-writer-locks", "tui-luna-reserve", "visualizations", "sqlite",
+        },
+        "exclude_files": {"auth.json", "models_cache.json", "chrome-native-hosts-v2.json"},
+        "dirs": (".codex",),
+        "files": (),
+        "mcp": {"rel": "config.toml", "container": "mcp_servers", "kind": "toml"},
+        "cli": {"binary": "codex", "package": "@openai/codex", "cask": "codex", "fallback": ["codex", "update"]},
+        "mcp_login": ["codex", "mcp", "login"],
+        "mcp_logout": ["codex", "mcp", "logout"],
+        "status": "https://status.openai.com",
+    },
+    {
+        "id": "gemini",
+        "label": "Gemini / Antigravity",
+        "root": "~/.gemini",
+        "exclude_dirs": {"users", "sidecars", "antigravity-cli", "antigravity-ide", "antigravity"},
+        "exclude_files": set(),
+        "dirs": (".gemini",),
+        "files": ("GEMINI.md",),
+        "mcp": {"rel": "config/mcp.json", "container": "mcpServers", "kind": "json"},
+        "cli": {"binary": "gemini", "package": "@google/gemini-cli"},
+        "mcp_enable": ["gemini", "mcp", "enable"],
+        "mcp_disable": ["gemini", "mcp", "disable"],
+        "status": "https://status.cloud.google.com",
+        "status_kind": "google",
+    },
+    {
+        "id": "cursor",
+        "label": "Cursor",
+        "root": "~/.cursor",
+        "dirs": (".cursor",),
+        "files": (".cursorrules", ".windsurfrules"),
+        "mcp": {"rel": "mcp.json", "container": "mcpServers", "kind": "json"},
+        "status": "https://status.cursor.com",
+    },
+    {
+        "id": "copilot",
+        "label": "GitHub Copilot CLI",
+        "root": "~/.copilot",
+        "exclude_dirs": {"history-session-state", "sidebar-sessions-state", "session-state", "run", "ide", "logs"},
+        "exclude_files": {
+            "data.db", "data.db-shm", "data.db-wal",
+            "command-history-state.json", "open-sessions-state.json", "vscode.session.metadata.cache.json",
+        },
+        "dirs": (),
+        "files": (),
+        "project_extras": (".github/copilot-instructions.md", ".vscode/mcp.json"),
+        "mcp": {"rel": "mcp-config.json", "container": "mcpServers", "kind": "json"},
+        "cli": {"binary": "copilot", "package": "@github/copilot", "fallback": ["copilot", "update"]},
+        "mcp_enable": ["copilot", "mcp", "enable"],
+        "mcp_disable": ["copilot", "mcp", "disable"],
+        "status": "https://www.githubstatus.com",
+    },
+]
+
+PROJECT_CONFIG_DIRS = {d for t in TOOLS for d in t.get("dirs", ())}
+PROJECT_ROOT_FILES = {f for t in TOOLS for f in t.get("files", ())} | PROJECT_SHARED_FILES
+PROJECT_EXTRA_FILES = tuple(e for t in TOOLS for e in t.get("project_extras", ()))
+
+SOURCE_BY_ID = {}
+TOOL_ORDER = [t["id"] for t in TOOLS if t["id"] != "agents"] + ["shared"]
+TOOL_LABELS = {t["id"]: t["label"] for t in TOOLS} | {"shared": "Compartilhado (AGENTS.md)"}
+
+MCP_DISCOVERY_FILES = ("mcp.json", ".mcp.json", "mcp_config.json")
+DISCOVERY_TTL_SECONDS = 30
+_discovery_cache: tuple[float, list] = (0.0, [])
+_index_cache: tuple[float, tuple[dict[str, str], dict[str, str]]] = (0.0, ({}, {}))
+
 _project_sources: dict[str, dict] = {}
 _project_lock = threading.Lock()
 
-TOOL_LABELS = {
-    "opencode": "opencode",
-    "claude": "Claude Code",
-    "codex": "Codex",
-    "gemini": "Gemini / Antigravity",
-    "cursor": "Cursor",
-    "copilot": "GitHub Copilot",
-    "shared": "Compartilhado (AGENTS.md)",
-}
-TOOL_ORDER = ["opencode", "claude", "codex", "gemini", "cursor", "copilot", "shared"]
+
+def discovered_tools() -> list[dict]:
+    """Descobre IAs não mapeadas: `~/.<ia>/mcp.json` (ou variantes) com mcpServers."""
+    global _discovery_cache
+    now = time.time()
+    stamp, cached = _discovery_cache
+    if now - stamp < DISCOVERY_TTL_SECONDS:
+        return cached
+    known = {t["id"] for t in TOOLS}
+    found = []
+    try:
+        children = sorted(HOME.iterdir())
+    except OSError:
+        children = []
+    for child in children:
+        if not child.name.startswith(".") or child.name == ".Trash" or not child.is_dir():
+            continue
+        name = child.name.lstrip(".")
+        if not name or name in known:
+            continue
+        for candidate in MCP_DISCOVERY_FILES:
+            manifest = child / candidate
+            if not manifest.is_file():
+                continue
+            data = load_json(manifest)
+            if isinstance(data, dict) and isinstance(data.get("mcpServers"), dict):
+                found.append({
+                    "id": name,
+                    "label": name.capitalize(),
+                    "root": str(child),
+                    "discovered": True,
+                    "dirs": (child.name,),
+                    "files": (),
+                    "mcp": {"rel": candidate, "container": "mcpServers", "kind": "json"},
+                })
+                break
+    _discovery_cache = (now, found)
+    return found
+
+
+def all_tools() -> list[dict]:
+    return TOOLS + discovered_tools()
+
+
+def tool_meta(tool_id: str) -> dict:
+    return next((t for t in all_tools() if t["id"] == tool_id), {})
+
+
+def tool_source(tool: dict) -> dict:
+    return {
+        "id": tool["id"],
+        "label": tool["label"],
+        "root": tool["root"],
+        "tool": tool.get("tool", tool["id"]),
+        "exclude_dirs": tool.get("exclude_dirs", set()),
+        "exclude_files": tool.get("exclude_files", set()),
+    }
+
+
+SOURCES = [tool_source(t) for t in TOOLS]
+SOURCE_BY_ID.update({s["id"]: s for s in SOURCES})
+
+
+def discovered_sources() -> list[dict]:
+    return [tool_source(t) for t in discovered_tools()]
+
+
+def source_by_id(source_id: str) -> dict | None:
+    return SOURCE_BY_ID.get(source_id) or _project_sources.get(source_id) or next(
+        (s for s in discovered_sources() if s["id"] == source_id), None,
+    )
+
+
+def tool_index() -> tuple[dict[str, str], dict[str, str]]:
+    global _index_cache
+    now = time.time()
+    stamp, cached = _index_cache
+    if now - stamp < DISCOVERY_TTL_SECONDS:
+        return cached
+    dirs: dict[str, str] = {}
+    files: dict[str, str] = {}
+    for tool in all_tools():
+        for dirname in tool.get("dirs", ()):
+            dirs[dirname] = tool["id"]
+        for filename in tool.get("files", ()):
+            files[filename.upper()] = tool["id"]
+    _index_cache = (now, (dirs, files))
+    return _index_cache[1]
+
+
+def tool_for(source: dict, rel: str, name: str) -> str:
+    if source.get("tool"):
+        return source["tool"]
+    dirs, files = tool_index()
+    first = rel.split("/", 1)[0]
+    return dirs.get(first) or files.get(name.upper()) or "shared"
 
 
 def load_env_file(path: Path = ENV_FILE) -> None:
@@ -98,92 +305,6 @@ def load_env_file(path: Path = ENV_FILE) -> None:
 
 def project_base() -> str:
     return os.environ.get("GESTOR_PROJECTS_DIR") or DEFAULT_PROJECT_BASE
-
-
-def tool_for(source: dict, rel: str, name: str) -> str:
-    if source.get("tool"):
-        return source["tool"]
-    first = rel.split("/", 1)[0]
-    if first == ".claude" or name.upper() == "CLAUDE.MD" or name == ".mcp.json":
-        return "claude"
-    if first == ".opencode" or name.lower() in ("opencode.json", "opencode.jsonc"):
-        return "opencode"
-    if first == ".codex":
-        return "codex"
-    if first == ".gemini" or name.upper() == "GEMINI.MD":
-        return "gemini"
-    if first == ".cursor" or name.lower() in (".cursorrules", ".windsurfrules"):
-        return "cursor"
-    if first == ".vscode" or name.lower() == "copilot-instructions.md":
-        return "copilot"
-    return "shared"
-
-SOURCES = [
-    {
-        "id": "opencode",
-        "label": "opencode",
-        "root": "~/.config/opencode",
-        "tool": "opencode",
-        "exclude_dirs": {"node_modules"},
-        "exclude_files": {"bun.lock", "package-lock.json"},
-    },
-    {
-        "id": "agents",
-        "label": "Skills compartilhadas",
-        "root": "~/.agents",
-        "tool": "shared",
-        "exclude_dirs": set(),
-        "exclude_files": set(),
-    },
-    {
-        "id": "claude",
-        "label": "Claude Code",
-        "root": "~/.claude",
-        "tool": "claude",
-        "exclude_dirs": {
-            "projects", "shell-snapshots", "cache", "paste-cache", "file-history",
-            "sessions", "tasks", "teams", "backups", "ide", "session-env", "plans",
-            "plugins", "statsig", "todos", "mcp-oauth-locks",
-        },
-        "exclude_files": set(),
-    },
-    {
-        "id": "codex",
-        "label": "Codex",
-        "root": "~/.codex",
-        "tool": "codex",
-        "exclude_dirs": {
-            "sessions", "shell_snapshots", "cache", "vendor_imports", "node_repl",
-            "computer-use", "pets", "automations", "ambient-suggestions",
-            "dictation-history", "ipc", "memories", "rollout-migrations",
-            "thread-writer-locks", "tui-luna-reserve", "visualizations", "sqlite",
-        },
-        "exclude_files": {"auth.json", "models_cache.json", "chrome-native-hosts-v2.json"},
-    },
-    {
-        "id": "copilot",
-        "label": "GitHub Copilot CLI",
-        "root": "~/.copilot",
-        "tool": "copilot",
-        "exclude_dirs": {"history-session-state", "sidebar-sessions-state", "session-state", "run", "ide", "logs"},
-        "exclude_files": {
-            "data.db", "data.db-shm", "data.db-wal",
-            "command-history-state.json", "open-sessions-state.json", "vscode.session.metadata.cache.json",
-        },
-    },
-    {
-        "id": "gemini",
-        "label": "Gemini / Antigravity",
-        "root": "~/.gemini",
-        "tool": "gemini",
-        "exclude_dirs": {
-            "users", "sidecars", "antigravity-cli", "antigravity-ide", "antigravity",
-        },
-        "exclude_files": set(),
-    },
-]
-
-SOURCE_BY_ID = {s["id"]: s for s in SOURCES}
 
 
 # ---------------------------------------------------------------- parsers
@@ -435,7 +556,7 @@ def register_projects() -> list[dict]:
 
 
 def all_sources() -> list[dict]:
-    return list(SOURCES) + list(_project_sources.values())
+    return list(SOURCES) + discovered_sources() + list(_project_sources.values())
 
 
 def _mcp_detail(cfg: dict) -> str:
@@ -459,20 +580,15 @@ def _flatten(value, limit=160) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
-MCP_GLOBAL_FILES = (
-    ("opencode", "opencode.jsonc"),
-    ("codex", "config.toml"),
-    ("gemini", "config/mcp.json"),
-    ("copilot", "mcp-config.json"),
-)
-
-
 def collect_mcps() -> list[dict]:
     out = []
-    for source, rel in MCP_GLOBAL_FILES:
-        root = Path(os.path.expanduser(SOURCE_BY_ID[source]["root"]))
-        for mcp in mcps_from_config(root / rel):
-            out.append({**mcp, "source": source, "file": {"s": source, "r": rel}})
+    for tool in all_tools():
+        spec = tool.get("mcp")
+        if not spec:
+            continue
+        root = Path(os.path.expanduser(tool["root"]))
+        for mcp in mcps_from_config(root / spec["rel"]):
+            out.append({**mcp, "source": tool["id"], "file": {"s": tool["id"], "r": spec["rel"]}})
 
     cl = load_json(HOME / ".claude.json") or {}
     for name, cfg in (cl.get("mcpServers") or {}).items():
@@ -584,8 +700,9 @@ def collect_project_plugins(projects: list[dict]) -> list[dict]:
 
 def build_catalog() -> dict:
     projects = register_projects()
+    global_sources = list(SOURCES) + discovered_sources()
     files = []
-    for source in SOURCES:
+    for source in global_sources:
         files.extend(walk_source(source))
     for proj in projects:
         files.extend(proj["files"])
@@ -595,7 +712,7 @@ def build_catalog() -> dict:
     for f in files:
         if f["c"] != "skill":
             continue
-        src = SOURCE_BY_ID.get(f["s"]) or _project_sources.get(f["s"])
+        src = source_by_id(f["s"])
         if not src:
             continue
         path = Path(os.path.expanduser(src["root"])) / f["r"]
@@ -603,18 +720,37 @@ def build_catalog() -> dict:
         skills.append({**f, "skill_name": name, "description": desc})
     skills.sort(key=lambda s: s["skill_name"].lower())
 
-    sources = [{"id": s["id"], "label": s["label"],
-                "root": str(Path(os.path.expanduser(s["root"])))} for s in SOURCES]
+    meta_by_id = {t["id"]: t for t in all_tools()}
+    sources = []
+    for s in global_sources:
+        root = Path(os.path.expanduser(s["root"]))
+        if not root.is_dir():
+            continue
+        meta = meta_by_id.get(s["id"], {})
+        sources.append({
+            "id": s["id"],
+            "label": s["label"],
+            "root": str(root),
+            "status_url": meta.get("status"),
+        })
     sources += [{"id": p["id"], "label": p["name"], "root": p["root"], "project": True} for p in projects]
 
     present = {f["k"] for f in files}
     tools = [{"id": t, "label": TOOL_LABELS[t]} for t in TOOL_ORDER if t in present]
+    tools_meta = [{
+        "id": t["id"],
+        "label": t["label"],
+        "status_url": t.get("status"),
+        "mcp_enable": bool(t.get("mcp")) or bool(t.get("mcp_enable")),
+        "mcp_auth": bool(t.get("mcp_login")),
+    } for t in all_tools()]
 
     return {
         "sources": sources,
         "project_base": str(Path(os.path.expanduser(project_base()))),
         "projects": [{"id": p["id"], "name": p["name"], "rel": p["rel"]} for p in projects],
         "tools": tools,
+        "tools_meta": tools_meta,
         "files": files,
         "skills": skills,
         "mcps": collect_mcps() + collect_project_mcps(projects),
@@ -974,12 +1110,8 @@ def usage_snapshot(force: bool = False) -> dict:
 
 # ---------------------------------------------------------------- versões & atualizações
 
-CLI_PACKAGES = (
-    ("opencode", "opencode", "opencode-ai"),
-    ("claude", "claude", "@anthropic-ai/claude-code"),
-    ("codex", "codex", "@openai/codex"),
-    ("copilot", "copilot", "@github/copilot"),
-    ("gemini", "gemini", "@google/gemini-cli"),
+CLI_PACKAGES = tuple(
+    (t["id"], t["cli"]["binary"], t["cli"]["package"]) for t in TOOLS if t.get("cli")
 )
 OPENCODE_AUTH = HOME / ".local/share" / "opencode" / "auth.json"
 OPENCODE_CONFIG = HOME / ".config" / "opencode" / "opencode.jsonc"
@@ -1161,19 +1293,12 @@ def plugin_updates() -> list[dict]:
     return out
 
 
-CLI_UPDATE = {
-    "opencode": {"binary": "opencode", "formula": "opencode", "fallback": ["opencode", "upgrade"]},
-    "claude": {"binary": "claude", "cask": "claude-code", "fallback": ["claude", "update"]},
-    "codex": {"binary": "codex", "cask": "codex", "fallback": ["codex", "update"]},
-    "copilot": {"binary": "copilot", "package": "@github/copilot", "fallback": ["copilot", "update"]},
-    "gemini": {"binary": "gemini", "package": "@google/gemini-cli"},
-}
 UPDATE_TIMEOUT = 900
 _update_lock = threading.Lock()
 
 
 def update_command(tool: str) -> list[str] | None:
-    spec = CLI_UPDATE.get(tool)
+    spec = tool_meta(tool).get("cli")
     if not spec:
         return None
     binary = shutil.which(spec["binary"])
@@ -1278,12 +1403,7 @@ def set_plugin_auto_update(name: str, auto: bool) -> dict:
 
 # ---------------------------------------------------------------- incidentes
 
-STATUS_PAGES = {
-    "claude": "https://status.anthropic.com",
-    "codex": "https://status.openai.com",
-    "copilot": "https://www.githubstatus.com",
-    "cursor": "https://status.cursor.com",
-}
+STATUS_PAGES = {t["id"]: t["status"] for t in TOOLS if t.get("status") and not t.get("status_kind")}
 GOOGLE_STATUS_URL = "https://status.cloud.google.com/incidents.json"
 INCIDENTS_CACHE_SECONDS = 300
 _incidents_cache: tuple[float, dict] = (0.0, {})
@@ -1335,16 +1455,15 @@ def _status_json(url: str):
 
 
 def incident_for(source: str) -> dict | None:
-    if source == "gemini":
-        url = GOOGLE_STATUS_URL
-    elif source in STATUS_PAGES:
-        url = f"{STATUS_PAGES[source]}/api/v2/status.json"
-    else:
+    status_url = tool_meta(source).get("status")
+    if not status_url:
         return None
+    google = tool_meta(source).get("status_kind") == "google"
+    url = GOOGLE_STATUS_URL if google else f"{status_url}/api/v2/status.json"
     payload = _status_json(url)
     if payload is None:
         return None
-    return _google_incident(payload) if source == "gemini" else _statuspage_incident(payload)
+    return _google_incident(payload) if google else _statuspage_incident(payload)
 
 
 def incidents_snapshot(force: bool = False) -> dict:
@@ -1354,25 +1473,24 @@ def incidents_snapshot(force: bool = False) -> dict:
         stamp, cached = _incidents_cache
         if not force and now - stamp < INCIDENTS_CACHE_SECONDS:
             return cached
-    sources = {source: incident_for(source) for source in ("claude", "codex", "copilot", "gemini", "cursor")}
+    sources = {t["id"]: incident_for(t["id"]) for t in all_tools() if t.get("status")}
     snapshot = {"sources": sources}
     with _incidents_lock:
         _incidents_cache = (now, snapshot)
     return snapshot
 
 
-MCP_CLI_ACTIONS = {
-    ("claude", "login"): ["claude", "mcp", "login"],
-    ("claude", "logout"): ["claude", "mcp", "logout"],
-    ("opencode", "login"): ["opencode", "mcp", "auth"],
-    ("opencode", "logout"): ["opencode", "mcp", "logout"],
-    ("codex", "login"): ["codex", "mcp", "login"],
-    ("codex", "logout"): ["codex", "mcp", "logout"],
-    ("copilot", "enable"): ["copilot", "mcp", "enable"],
-    ("copilot", "disable"): ["copilot", "mcp", "disable"],
-    ("gemini", "enable"): ["gemini", "mcp", "enable"],
-    ("gemini", "disable"): ["gemini", "mcp", "disable"],
+MCP_ACTION_KEYS = {
+    "enable": "mcp_enable",
+    "disable": "mcp_disable",
+    "login": "mcp_login",
+    "logout": "mcp_logout",
 }
+
+
+def mcp_action_command(source: str, action: str) -> list[str] | None:
+    command = tool_meta(source).get(MCP_ACTION_KEYS[action])
+    return list(command) if command else None
 
 
 def _skip_comment(text: str, i: int) -> int:
@@ -1465,11 +1583,11 @@ def _set_enabled_in_object(text: str, obj_start: int, enabled: bool) -> str | No
     return text[: obj_start + 1] + f'\n{indent}"enabled": {"true" if enabled else "false"},' + text[obj_start + 1:]
 
 
-def toggle_opencode_mcp_enabled(text: str, name: str, enabled: bool) -> str | None:
+def toggle_json_mcp_enabled(text: str, container: str, name: str, enabled: bool) -> str | None:
     root = text.find("{")
     if root == -1:
         return None
-    mcp_start = _find_key_value(text, "mcp", root + 1, len(text))
+    mcp_start = _find_key_value(text, container, root + 1, len(text))
     if mcp_start is None or mcp_start >= len(text) or text[mcp_start] != "{":
         return None
     mcp_end = _object_end(text, mcp_start)
@@ -1523,21 +1641,22 @@ def _edit_mcp_config(source: str, rel: str, toggle) -> dict:
     }
 
 
+def toggle_mcp_config(text: str, spec: dict, name: str, enabled: bool) -> str | None:
+    if spec.get("kind") == "toml":
+        return toggle_codex_mcp_enabled(text, name, enabled)
+    return toggle_json_mcp_enabled(text, spec.get("container", "mcpServers"), name, enabled)
+
+
 def run_mcp_action(source: str, name: str, action: str) -> dict:
     known = {m["name"] for m in collect_mcps() if m["source"] == source}
     if name not in known:
         raise ApiError("MCP não encontrado", 404)
-    if action in ("enable", "disable"):
-        enabled = action == "enable"
-        if source == "opencode":
-            return _edit_mcp_config(
-                "opencode", "opencode.jsonc", partial(toggle_opencode_mcp_enabled, name=name, enabled=enabled),
-            )
-        if source == "codex":
-            return _edit_mcp_config(
-                "codex", "config.toml", partial(toggle_codex_mcp_enabled, name=name, enabled=enabled),
-            )
-    command = MCP_CLI_ACTIONS.get((source, action))
+    meta = tool_meta(source)
+    spec = meta.get("mcp")
+    if action in ("enable", "disable") and spec and not meta.get(f"mcp_{action}"):
+        toggle = partial(toggle_mcp_config, spec=spec, name=name, enabled=action == "enable")
+        return _edit_mcp_config(source, spec["rel"], toggle)
+    command = mcp_action_command(source, action)
     if command is None:
         raise ApiError(f"ação '{action}' não disponível para MCPs do {source}", 400)
     binary = shutil.which(command[0])
@@ -1654,7 +1773,7 @@ def file_info(path: Path) -> dict:
 
 
 def resolve_file(source_id: str, rel: str) -> Path:
-    source = SOURCE_BY_ID.get(source_id) or _project_sources.get(source_id)
+    source = source_by_id(source_id)
     if not source:
         raise ValueError("fonte desconhecida")
     root = Path(os.path.expanduser(source["root"])).resolve()

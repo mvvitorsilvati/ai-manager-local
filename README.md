@@ -30,6 +30,8 @@ Roda 100% local (`127.0.0.1`), sem telemetria e sem enviar nada para fora — ex
 - **Viewer**: Markdown renderizado (com Mermaid), JSON formatado, imagens, texto bruto e metadados (criado/modificado, dono, autor do último commit via git)
 - **Edição com segurança**: editor Monaco, backup automático (10 versões por arquivo), conflito detectado se o arquivo mudar por fora (`409`), restauração pela interface e log de auditoria
 - **Busca global** por nome e por conteúdo, com destaque das linhas encontradas
+- **Busca contextual**: na Visão geral o campo busca global; nas demais telas ele filtra os itens exibidos por nome, caminho e **conteúdo**, com contagem e empty state
+- **IAs por registro**: o registro `TOOLS` define scan, MCP, CLI, autenticação e status de cada IA, com auto-discovery de `~/.<ia>/mcp.json` — a sidebar mostra só o que está configurado
 - **Uso das IAs**: cards com a conta autenticada e limites/reset do Claude Code (janelas 5h/7d ou créditos), Codex (5h/7d, lidos do último rollout) e GitHub Copilot (premium requests + reset mensal)
 - **Versões e atualizações**: versão instalada de cada CLI vs. a última publicada no npm, com botão **Atualizar** (via brew, npm ou o próprio updater) e **Copiar comando** para rodar a atualização no seu terminal; nos plugins, versão instalada, atualização disponível, indicação visual de **update automático** (verde, ícone de sincronismo) ou **manual** (âmbar, ícone de mão) — clicável para alternar no `settings.json` do Claude Code
 - **Status pages**: os links das IAs na sidebar mostram um ícone de alerta (âmbar/vermelho) quando há incidente ativo, consultando as APIs de status (Anthropic, OpenAI, GitHub, Google Cloud e Cursor)
@@ -219,7 +221,14 @@ O backend escaneia as fontes a cada requisição de catálogo (sem banco de dado
 | Codex | `~/.codex` | `config.toml`, `AGENTS.md`, `prompts/`, `rules/`, `skills/` |
 | GitHub Copilot CLI | `~/.copilot` | `settings.json`, `mcp-config.json`, `hooks/`, `skills/` |
 | Gemini / Antigravity | `~/.gemini` | `GEMINI.md`, `settings.json`, `config/`, `skills/` |
+| Cursor | `~/.cursor` | `mcp.json` global, `.cursor/`, `.cursorrules`/`.windsurfrules` nos projetos (aparece só se existir) |
 | Projetos | `GESTOR_PROJECTS_DIR` (padrão `~/Projetos`) | detecta repos (`.git` ou nível raso) e varre só os caminhos de configuração + `docs/` |
+
+### Adicionar uma IA nova
+
+O registro `TOOLS` em `backend/app.py` é o ponto único de parametrização: uma entrada define o diretório global (`root`), os caminhos de projeto (`dirs`/`files`), o arquivo de MCP (`mcp.rel` + `kind`/`container`), o CLI (`cli`, para versão/update), autenticação (`mcp_login`/`mcp_logout`, `mcp_enable`/`mcp_disable`) e a status page (`status`). A sidebar e a tela "Por IA" só exibem o que está configurado (diretório existente).
+
+Além do registro, o painel faz **auto-discovery** de IAs não mapeadas: qualquer `~/.<ia>/mcp.json` (ou `.mcp.json`/`mcp_config.json`) com `mcpServers` vira uma fonte automaticamente, com MCPs listados e liga/desliga pelo painel (ícone genérico até você adicionar a marca no `ToolIcon`).
 
 Exclusões automáticas: binários e caches por extensão (`.pyc`, `.zip`, `.pdf`, fontes, áudio, SQLite e seus `-wal/-shm/-journal`), históricos `.jsonl`, diretórios de sessão/cache (`sessions/`, `projects/`, `cache/`, `worktrees/`, `session-state/`, `run/`) e arquivos de credenciais (`auth.json`).
 

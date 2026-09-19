@@ -12,7 +12,14 @@ export type FileEntry = {
   m: string
 }
 
-export type Source = { id: string; label: string; root: string; project?: boolean }
+export type Source = { id: string; label: string; root: string; project?: boolean; status_url?: string | null }
+export type ToolMeta = {
+  id: string
+  label: string
+  status_url?: string | null
+  mcp_enable: boolean
+  mcp_auth: boolean
+}
 export type SkillEntry = FileEntry & { skill_name: string; description: string }
 export type Mcp = {
   name: string
@@ -30,6 +37,7 @@ export type Catalog = {
   project_base: string
   projects: { id: string; name: string; rel: string }[]
   tools: { id: string; label: string }[]
+  tools_meta: ToolMeta[]
   files: FileEntry[]
   skills: SkillEntry[]
   mcps: Mcp[]

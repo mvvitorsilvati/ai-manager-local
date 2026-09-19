@@ -19,6 +19,7 @@ import threading
 import time
 import tomllib
 import webbrowser
+from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -623,6 +624,9 @@ USAGE_CACHE_SECONDS = 60
 _usage_cache: tuple[float, dict] = (0.0, {})
 _usage_lock = threading.Lock()
 
+CODEX_SESSIONS = HOME / ".codex" / "sessions"
+CODEX_TAIL_BYTES = 200_000
+
 USAGE_WINDOWS = (
     ("five_hour", "Sessão (5h)"),
     ("seven_day", "Semanal (7d)"),
@@ -739,6 +743,75 @@ def claude_usage() -> dict | None:
     return {"available": True, "windows": parse_usage_windows(payload), "credits": parse_credits(payload)}
 
 
+def _epoch_iso(value) -> str | None:
+    if not isinstance(value, (int, float)):
+        return None
+    return datetime.fromtimestamp(value, tz=UTC).isoformat()
+
+
+def parse_codex_rate_limits(rate: dict) -> list[dict]:
+    windows = []
+    for key in ("primary", "secondary"):
+        item = rate.get(key)
+        if not isinstance(item, dict):
+            continue
+        minutes = item.get("window_minutes")
+        if key == "primary":
+            label = f"Sessão ({minutes // 60}h)" if isinstance(minutes, int) else "Sessão"
+        else:
+            label = f"Semanal ({minutes // 1440}d)" if isinstance(minutes, int) else "Semanal"
+        windows.append({
+            "label": label,
+            "utilization": item.get("used_percent"),
+            "resets_at": _epoch_iso(item.get("resets_at")),
+        })
+    return windows
+
+
+def latest_codex_rollout() -> Path | None:
+    if not CODEX_SESSIONS.is_dir():
+        return None
+    files = sorted(CODEX_SESSIONS.glob("**/*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+    return files[0] if files else None
+
+
+def codex_usage() -> dict | None:
+    rollout = latest_codex_rollout()
+    if rollout is None:
+        return None
+    size = rollout.stat().st_size
+    try:
+        with open(rollout, "rb") as fh:
+            if size > CODEX_TAIL_BYTES:
+                fh.seek(size - CODEX_TAIL_BYTES)
+            data = fh.read().decode("utf-8", "replace")
+    except OSError:
+        return None
+    rate = None
+    for line in data.splitlines():
+        if "rate_limits" not in line:
+            continue
+        try:
+            obj = json.loads(line)
+        except ValueError:
+            continue
+        payload = obj.get("payload") if isinstance(obj, dict) else None
+        candidate = (payload if isinstance(payload, dict) else obj).get("rate_limits")
+        if isinstance(candidate, dict):
+            rate = candidate
+    if rate is None:
+        return None
+    raw_credits = rate.get("credits")
+    credits = raw_credits if isinstance(raw_credits, dict) else {}
+    return {
+        "available": True,
+        "windows": parse_codex_rate_limits(rate),
+        "plan": rate.get("plan_type"),
+        "credits_balance": credits.get("balance"),
+        "updated_at": int(rollout.stat().st_mtime),
+    }
+
+
 def usage_snapshot(force: bool = False) -> dict:
     global _usage_cache
     now = time.time()
@@ -746,7 +819,7 @@ def usage_snapshot(force: bool = False) -> dict:
         stamp, cached = _usage_cache
         if not force and now - stamp < USAGE_CACHE_SECONDS:
             return cached
-    snapshot = {"claude": claude_usage()}
+    snapshot = {"claude": claude_usage(), "codex": codex_usage()}
     with _usage_lock:
         _usage_cache = (now, snapshot)
     return snapshot

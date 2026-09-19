@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import { RENDERABLE_RE, IMAGE_RE, useCatalog } from "@/hooks/useCatalog"
-import { api, GESTOR_HEADERS, type Backup } from "@/lib/api"
+import { api, type Backup } from "@/lib/api"
 import { baseName, fmtBytes, fmtDT, resolveRelative } from "@/lib/format"
 
 type Mode = "render" | "raw" | "edit"
@@ -236,9 +236,7 @@ export function Viewer() {
               size="sm"
               variant="outline"
               title="Abrir no Finder"
-              onClick={() =>
-                fetch("/api/reveal", { method: "POST", headers: GESTOR_HEADERS, body: JSON.stringify({ s, r }) })
-              }
+              onClick={() => api.reveal(s, r).catch((err) => toast.error((err as Error).message))}
             >
               <FolderOpen className="size-3.5" />
             </Button>

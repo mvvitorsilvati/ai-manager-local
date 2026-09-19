@@ -440,6 +440,7 @@ export function PluginsView() {
                         <AutoUpdateToggle name={p.name} auto={u.auto_update} />
                       )}
                       {u.update === true && <UpdateButton body={{ source: p.source, name: p.name }} label={p.name} />}
+                      {u.update === true && u.command && <CopyCommandButton command={u.command} label={p.name} />}
                     </div>
                   )}
                 </div>
@@ -448,6 +449,49 @@ export function PluginsView() {
           </div>
         </SourceSection>
       ))}
+    </div>
+  )
+}
+
+export function AuditView() {
+  const { data: entries, isPending } = useQuery({
+    queryKey: ["audit"],
+    queryFn: () => api.audit(200),
+    staleTime: 30_000,
+  })
+  return (
+    <div>
+      <h2 className="text-lg font-semibold">Auditoria</h2>
+      <p className="text-muted-foreground mb-5 text-sm">
+        {isPending ? "Carregando…" : `${entries?.length ?? 0} gravação(ões) recentes em ~/.gestor_local/audit.log`}
+      </p>
+      {isPending ? (
+        <ViewSkeleton rows={6} />
+      ) : !entries?.length ? (
+        <p className="text-muted-foreground text-sm">Nenhuma gravação registrada ainda.</p>
+      ) : (
+        <div className="border-border overflow-hidden rounded-lg border">
+          {entries.map((entry, index) => (
+            <div
+              key={`${entry.ts}-${entry.path}-${index}`}
+              className="border-border flex flex-wrap items-center gap-2 border-b px-3 py-2 text-xs last:border-0"
+            >
+              <Badge variant="secondary" className="font-normal">
+                {entry.action}
+              </Badge>
+              <span className="text-muted-foreground font-mono">{entry.ts.replace("T", " ")}</span>
+              <span className="min-w-0 flex-1 truncate font-mono" title={entry.path}>
+                {entry.path}
+              </span>
+              {entry.backup && (
+                <span className="text-muted-foreground truncate font-mono text-[11px]" title={entry.backup}>
+                  backup: {entry.backup.split("/").pop()}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

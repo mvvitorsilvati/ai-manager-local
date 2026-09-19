@@ -6,6 +6,7 @@ import {
   Image as ImageIcon,
   Shield,
   Terminal,
+  TriangleAlert,
   Zap,
   type LucideIcon,
 } from "lucide-react"
@@ -14,7 +15,8 @@ import { ToolIcon, TOOL_COLOR } from "@/components/ToolIcon"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CAT_LABEL } from "@/hooks/useCatalog"
-import type { Source } from "@/lib/api"
+import type { Incident, Source } from "@/lib/api"
+import { cn } from "@/lib/utils"
 
 const CAT_ICON: Record<string, LucideIcon> = {
   context: BookOpen,
@@ -54,6 +56,16 @@ export function CatBadge({ cat }: { cat: string }) {
     <Badge variant="secondary" className="text-muted-foreground font-normal">
       {CAT_LABEL[cat] ?? cat}
     </Badge>
+  )
+}
+
+export function IncidentIcon({ incident }: { incident?: Incident | null }) {
+  if (!incident || incident.ok !== false) return null
+  const severe = ["critical", "major", "high"].includes(incident.indicator ?? "")
+  return (
+    <span title={incident.description ?? "incidente ativo"} className="shrink-0">
+      <TriangleAlert className={cn("size-3.5", severe ? "text-red-500" : "text-amber-400")} />
+    </span>
   )
 }
 

@@ -107,11 +107,20 @@ export type PluginUpdate = {
   latest?: string | null
   update?: boolean | null
   auto_update?: boolean | null
+  command?: string | null
 }
 
 export type VersionsResponse = {
   tools: Record<string, ToolVersion>
   plugins: PluginUpdate[]
+}
+
+export type AuditEntry = {
+  ts: string
+  action: string
+  path: string
+  size?: number
+  backup?: string | null
 }
 
 export type UpdateResult = {
@@ -166,7 +175,8 @@ export const api = {
   update: (body: { tool: string } | { source: string; name: string }) =>
     unwrap<UpdateResult>(client.post("/api/update", body)),
   incidents: (refresh = false) =>
-    unwrap<IncidentsResponse>(client.get("/api/incidents", { params: refresh ? { refresh: "1" } : {} })),
+    unwrap<IncidentsResponse>(client.get("/api/incidents", { params: refresh ? { refresh: "1" } : {}})),
+  audit: (limit = 200) => unwrap<AuditEntry[]>(client.get("/api/audit", { params: { limit } })),
   setPluginAutoUpdate: (name: string, auto: boolean) =>
     unwrap<{ ok: boolean; auto_update: boolean }>(client.post("/api/plugin-auto-update", { name, auto })),
   mcpAction: (body: { source: string; name: string; action: "enable" | "disable" | "login" | "logout" }) =>

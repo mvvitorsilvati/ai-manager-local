@@ -1,0 +1,24 @@
+# git e ferramentas locais
+.git
+.github
+.githooks
+.tgrep
+.env
+.DS_Store
+
+# python
+__pycache__
+*.pyc
+.pytest_cache
+.coverage
+htmlcov
+backend/.venv
+backend/htmlcov
+
+# frontend (o Dockerfile builda dentro da imagem)
+web/node_modules
+web/dist
+web/test-results
+web/playwright-report
+web/e2e/.tmp
+node_modules

@@ -463,7 +463,9 @@ export function AuditView() {
     <div>
       <h2 className="text-lg font-semibold">Auditoria</h2>
       <p className="text-muted-foreground mb-5 text-sm">
-        {isPending ? "Carregando…" : `${entries?.length ?? 0} gravação(ões) recentes em ~/.gestor_local/audit.log`}
+        {isPending
+          ? "Carregando…"
+          : `${entries?.length ?? 0} gravação(ões) recentes em ~/.ai_management_local/audit.log`}
       </p>
       {isPending ? (
         <ViewSkeleton rows={6} />

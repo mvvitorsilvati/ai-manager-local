@@ -141,7 +141,7 @@ export type SaveConflict = { error: string; conflict: true; mtime: number; mtime
 
 type ApiFailure = Error & { status?: number; data?: unknown }
 
-const client = axios.create({ headers: { "X-Gestor": "1" } })
+const client = axios.create({ headers: { "X-AIM": "1" } })
 
 function toApiError(error: unknown): ApiFailure {
   if (axios.isAxiosError(error)) {

@@ -36,8 +36,8 @@ export default defineConfig({
   webServer: {
     command: `uv run --project ../backend ../backend/app.py --no-open --port ${PORT}`,
     env: {
-      GESTOR_PROJECTS_DIR: FIXTURES_TMP,
-      GESTOR_PORT: String(PORT),
+      AIM_PROJECTS_DIR: FIXTURES_TMP,
+      AIM_PORT: String(PORT),
     },
     url: `http://127.0.0.1:${PORT}/api/catalog`,
     reuseExistingServer: !process.env.CI,

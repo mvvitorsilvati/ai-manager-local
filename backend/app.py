@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Gestor Local — painel web local (read-only) para visualizar as configurações das IAs.
+"""AI Manager Local — painel web local (read-only) para visualizar as configurações das IAs.
 
 Fontes: opencode, ~/.agents, Claude Code, Codex e Gemini/Antigravity.
 Uso: python3 app.py [--port 4747] [--no-open]
@@ -344,7 +344,7 @@ def load_env_file(path: Path = ENV_FILE) -> None:
 
 
 def project_base() -> str:
-    return os.environ.get("GESTOR_PROJECTS_DIR") or DEFAULT_PROJECT_BASE
+    return os.environ.get("AIM_PROJECTS_DIR") or DEFAULT_PROJECT_BASE
 
 
 # ---------------------------------------------------------------- parsers
@@ -1072,7 +1072,7 @@ COPILOT_USER_URL = "https://api.github.com/user"
 COPILOT_HEADERS = {
     "Accept": "application/json",
     "Editor-Version": "vscode/1.99.0",
-    "User-Agent": "gestor-local",
+    "User-Agent": "ai-management-local",
 }
 COPILOT_LABELS = {"premium_interactions": "Premium requests", "chat": "Chat", "completions": "Completions"}
 COPILOT_WINDOW_ORDER = ("premium_interactions", "chat", "completions")
@@ -1908,11 +1908,11 @@ def search_catalog(query: str, limit_files: int = 80) -> list[dict]:
 
 # ---------------------------------------------------------------- escrita
 
-BACKUP_DIR = Path(os.path.expanduser("~/.gestor_local/backups"))
-AUDIT_LOG = Path(os.path.expanduser("~/.gestor_local/audit.log"))
+BACKUP_DIR = Path(os.path.expanduser("~/.ai_management_local/backups"))
+AUDIT_LOG = Path(os.path.expanduser("~/.ai_management_local/audit.log"))
 BACKUP_KEEP = 10
 MAX_SAVE_BYTES = 2_000_000
-GESTOR_HEADER = "X-Gestor"
+AIM_HEADER = "X-AIM"
 DIST_DIR = Path(__file__).parent.parent / "web" / "dist"
 
 
@@ -2187,6 +2187,9 @@ class Handler(BaseHTTPRequestHandler):
             target = dist_file(path.lstrip("/"))
         elif path.startswith("/novo/"):
             target = dist_file(path[len("/novo/"):]) or dist_file("")
+        else:
+            # arquivos do build na raiz (favicon, ícones…) com fallback para o SPA
+            target = dist_file(path.lstrip("/")) or dist_file("")
         if target is not None:
             ctype = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
             if ctype.startswith("text/") or ctype in ("application/javascript", "application/json", "image/svg+xml"):
@@ -2196,7 +2199,7 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/", "/index.html", "/novo", "/novo/"):
             self._send(503, (
                 b"<html><body style=\"font-family:sans-serif;padding:2rem\">"
-                b"<h2>Gestor Local sem build do frontend</h2>"
+                b"<h2>AI Manager Local sem build do frontend</h2>"
                 b"<p>Rode <code>just build</code> (ou <code>pnpm build</code> em <code>web/</code>) e recarregue.</p>"
                 b"</body></html>"
             ), "text/html; charset=utf-8")
@@ -2205,7 +2208,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         url = urlparse(self.path)
-        if self.headers.get(GESTOR_HEADER) != "1":
+        if self.headers.get(AIM_HEADER) != "1":
             self._json({"error": "header de segurança ausente"}, 403)
             return
         length = int(self.headers.get("Content-Length", 0))
@@ -2283,9 +2286,9 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def server_address() -> tuple[str, int]:
-    """Endereço de escuta: 127.0.0.1 por padrão; GESTOR_HOST existe para containers (0.0.0.0)."""
-    host = os.environ.get("GESTOR_HOST") or "127.0.0.1"
-    port = int(os.environ.get("GESTOR_PORT") or DEFAULT_PORT)
+    """Endereço de escuta: 127.0.0.1 por padrão; AIM_HOST existe para containers (0.0.0.0)."""
+    host = os.environ.get("AIM_HOST") or "127.0.0.1"
+    port = int(os.environ.get("AIM_PORT") or DEFAULT_PORT)
     if "--host" in sys.argv:
         host = sys.argv[sys.argv.index("--host") + 1]
     if "--port" in sys.argv:
@@ -2299,13 +2302,13 @@ def main():
     url = f"http://{'127.0.0.1' if host == '0.0.0.0' else host}:{port}/"
     if "--no-open" not in sys.argv:
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()
-    print(f"Gestor Local em {url}  (Ctrl+C para parar)")
+    print(f"AI Manager Local em {url}  (Ctrl+C para parar)")
     try:
         server = ThreadingHTTPServer((host, port), Handler)
     except OSError as exc:
         if exc.errno == errno.EADDRINUSE:
             raise SystemExit(
-                f"A porta {port} já está em uso (provavelmente outra instância do Gestor Local).\n"
+                f"A porta {port} já está em uso (provavelmente outra instância do AI Manager Local).\n"
                 f"  para a instância atual:  just stop\n"
                 f"  ou use outra porta:      just run-nobrowser --port={port + 1}  (ou passe --port {port + 1})"
             ) from exc

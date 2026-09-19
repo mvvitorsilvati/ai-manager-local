@@ -9,7 +9,7 @@ import pytest
 
 import app
 
-H = {"Content-Type": "application/json", "X-Gestor": "1"}
+H = {"Content-Type": "application/json", "X-AIM": "1"}
 
 
 @pytest.fixture
@@ -135,3 +135,26 @@ def test_raiz_sem_build_orienta_a_buildar(servidor, tmp_path, monkeypatch):
     status, body = request(f"{servidor.url}/")
     assert status == 503
     assert b"just build" in body
+
+
+def test_serve_arquivo_estatico_do_dist(servidor, tmp_path, monkeypatch):
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_bytes(b"<html>spa</html>")
+    (dist / "favicon.svg").write_bytes(b"<svg></svg>")
+    monkeypatch.setattr(app, "DIST_DIR", dist)
+
+    status, body = request(f"{servidor.url}/favicon.svg")
+    assert status == 200
+    assert body == b"<svg></svg>"
+
+
+def test_rota_do_spa_cai_no_index(servidor, tmp_path, monkeypatch):
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_bytes(b"<html>spa</html>")
+    monkeypatch.setattr(app, "DIST_DIR", dist)
+
+    status, body = request(f"{servidor.url}/ia")
+    assert status == 200
+    assert b"<html>spa</html>" in body

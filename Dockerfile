@@ -17,8 +17,8 @@ COPY --from=ghcr.io/astral-sh/uv:0.12 /uv /uvx /bin/
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     PYTHONUNBUFFERED=1 \
-    GESTOR_HOST=0.0.0.0 \
-    GESTOR_PORT=4747
+    AIM_HOST=0.0.0.0 \
+    AIM_PORT=4747
 
 WORKDIR /app
 COPY backend/pyproject.toml backend/uv.lock backend/

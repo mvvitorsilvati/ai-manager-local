@@ -1,8 +1,8 @@
-# Gestor Local
+# AI Manager Local
 
 Painel web local (somente no seu Mac) para visualizar e editar as configurações das IAs instaladas na máquina: **opencode**, **Claude Code**, **Codex**, **GitHub Copilot CLI**, **Gemini/Antigravity** e os arquivos de configuração **dentro dos seus projetos** (`~/Projetos`).
 
-[![QA](https://github.com/mvvitorsilvati/gestor-local/actions/workflows/qa.yaml/badge.svg)](https://github.com/mvvitorsilvati/gestor-local/actions/workflows/qa.yaml)
+[![QA](https://github.com/mvvitorsilvati/ai-management-local/actions/workflows/qa.yaml/badge.svg)](https://github.com/mvvitorsilvati/ai-management-local/actions/workflows/qa.yaml)
 
 Roda 100% local (`127.0.0.1`), sem telemetria e sem enviar nada para fora — exceto as consultas de uso/limites das contas (Claude, Codex e Copilot), que chamam as APIs oficiais usando as credenciais que já existem na sua máquina.
 
@@ -38,7 +38,7 @@ Roda 100% local (`127.0.0.1`), sem telemetria e sem enviar nada para fora — ex
 - **MCPs**: ativar/desativar direto no card (opencode e Codex editam o config com backup; Copilot e Gemini usam o CLI), autenticar/sair via OAuth (Claude, opencode e Codex) e **Ver config** em todos — inclusive os do Claude, que vivem em `~/.claude.json` (fonte especial somente leitura de caminho)
 - **Atalhos de teclado**: `⌘K` busca, `⌘E` editar, `⌘S` salvar, `Esc` fecha painéis/cancela a edição
 - **Histórico**: botão voltar do mouse/navegador navega entre seções e fecha o viewer, com guarda para alterações não salvas
-- **Auditoria**: lista as últimas gravações do painel (save/restore) com data, caminho e backup, lidas de `~/.gestor_local/audit.log`
+- **Auditoria**: lista as últimas gravações do painel (save/restore) com data, caminho e backup, lidas de `~/.ai_management_local/audit.log`
 
 ## Stack
 
@@ -64,8 +64,8 @@ Para os cards de uso (opcional): `gh` autenticado (Copilot) e Claude Code logado
 ## Instalação
 
 ```bash
-git clone git@github.com:mvvitorsilvati/gestor-local.git
-cd gestor-local
+git clone git@github.com:mvvitorsilvati/ai-management-local.git
+cd ai-management-local
 
 # instala backend (uv sync) e frontend (pnpm install)
 just setup
@@ -91,9 +91,9 @@ cp .env.example .env
 
 | Variável | Padrão | Descrição |
 |---|---|---|
-| `GESTOR_PROJECTS_DIR` | `~/Projetos` | diretório onde o painel procura os seus projetos (aceita `~`) |
-| `GESTOR_PORT` | `4747` | porta do servidor local (a flag `--port` tem precedência) |
-| `GESTOR_HOST` | `127.0.0.1` | interface de escuta; use `0.0.0.0` apenas em container (a flag `--host` tem precedência) |
+| `AIM_PROJECTS_DIR` | `~/Projetos` | diretório onde o painel procura os seus projetos (aceita `~`) |
+| `AIM_PORT` | `4747` | porta do servidor local (a flag `--port` tem precedência) |
+| `AIM_HOST` | `127.0.0.1` | interface de escuta; use `0.0.0.0` apenas em container (a flag `--host` tem precedência) |
 
 O `.env` fica na raiz do repositório, é carregado com [python-dotenv](https://github.com/theskumar/python-dotenv) **sem sobrescrever** variáveis já exportadas no ambiente, e não entra no Git (apenas o `.env.example`). Alterou? Reinicie o servidor (`just stop && just run`).
 
@@ -118,20 +118,20 @@ just stop       # encerra a instância que estiver na porta 4747
 | `just format` | oxfmt (frontend) + `ruff check --fix` (backend) |
 | `just check` | lint + testes |
 | `just hooks` | liga os git hooks versionados (pre-commit roda `just check`) |
-| `just docker-build` | build da imagem `localhost/gestor-local-py-3.14:0.1.0` |
+| `just docker-build` | build da imagem `localhost/ai-management-local-py-3.14:0.1.0` |
 | `just docker-run` | sobe o painel em container montando o seu `$HOME` |
 | `just docker-test` | roda a suíte de testes dentro da imagem (sem rede) |
 
 ### Rodando em container (Docker/Podman)
 
 ```bash
-just docker-build   # podman build -t localhost/gestor-local-py-3.14:0.1.0 .
+just docker-build   # podman build -t localhost/ai-management-local-py-3.14:0.1.0 .
 just docker-run     # http://127.0.0.1:4747
 ```
 
 Ou com Compose: `podman compose up --build` (ou `docker compose up --build`).
 
-O container monta o seu `$HOME` em `/host-home` (com `HOME` apontando para lá), então as fontes escaneadas, os backups e o `audit.log` continuam sendo os seus. A porta é publicada **só no loopback** do host (`127.0.0.1:4747`); dentro do container a API escuta em `0.0.0.0` via `GESTOR_HOST`.
+O container monta o seu `$HOME` em `/host-home` (com `HOME` apontando para lá), então as fontes escaneadas, os backups e o `audit.log` continuam sendo os seus. A porta é publicada **só no loopback** do host (`127.0.0.1:4747`); dentro do container a API escuta em `0.0.0.0` via `AIM_HOST`.
 
 Limitações no modo container: Keychain do macOS (credenciais do Claude Code) e "abrir no Finder" não existem; o card de uso do Claude depende de `~/.claude/.credentials.json`. Para rodar os testes dentro da imagem (usa a venv embutida, sem rede): `just docker-test`.
 
@@ -156,15 +156,15 @@ just dev
 
 ### Edição e backups
 
-- Ao salvar, o arquivo anterior vai para `~/.gestor_local/backups/<fonte>/<caminho>/<timestamp>-<nome>` (mantém as 10 versões mais recentes)
+- Ao salvar, o arquivo anterior vai para `~/.ai_management_local/backups/<fonte>/<caminho>/<timestamp>-<nome>` (mantém as 10 versões mais recentes)
 - Se o arquivo tiver mudado no disco desde que foi aberto, o salvamento é bloqueado com `409` e você escolhe entre **sobrescrever** ou **recarregar do disco**
-- Toda escrita é registrada em `~/.gestor_local/audit.log` e feita de forma atômica (`os.replace`)
+- Toda escrita é registrada em `~/.ai_management_local/audit.log` e feita de forma atômica (`os.replace`)
 - A validação de sintaxe roda antes de gravar: JSON, JSONC (com comentários) e TOML inválidos são recusados com `422`
 
 ## Arquitetura
 
 ```
-gestor-local/
+ai-management-local/
 ├── Dockerfile                # multi-stage: build do front (Node) + runtime (Python 3.14 + uv)
 ├── docker-compose.yml        # sobe o painel montando o $HOME
 ├── .dockerignore
@@ -193,7 +193,7 @@ gestor-local/
 Navegador (React SPA em /)  ──HTTP/JSON──▶  backend/app.py (127.0.0.1:4747)
         │                                        │
         │  /api/catalog, /api/file, ...          ├─ lê o filesystem (fontes + projetos)
-        │  POST /api/save (X-Gestor: 1)          ├─ escreve com backup/atômico/auditoria
+        │  POST /api/save (X-AIM: 1)          ├─ escreve com backup/atômico/auditoria
         ▼                                        └─ consulta as APIs de uso (Claude/Codex/Copilot)
    web/dist (build)  ◀── servido pelo mesmo processo
 ```
@@ -202,8 +202,8 @@ O backend escaneia as fontes a cada requisição de catálogo (sem banco de dado
 
 ### Segurança
 
-- Servidor escuta apenas `127.0.0.1` por padrão; em container, `GESTOR_HOST=0.0.0.0` com a porta publicada somente no loopback do host
-- Todo `POST` exige o header `X-Gestor: 1` (bloqueia CSRF de páginas externas)
+- Servidor escuta apenas `127.0.0.1` por padrão; em container, `AIM_HOST=0.0.0.0` com a porta publicada somente no loopback do host
+- Todo `POST` exige o header `X-AIM: 1` (bloqueia CSRF de páginas externas)
 - `resolve_file` garante que qualquer caminho resolvido está dentro de uma fonte permitida (sem traversal) e nega binários/extensões excluídas
 - A API nunca devolve headers/segredos extraídos de configs (ex.: `Authorization` de MCPs)
 
@@ -240,7 +240,7 @@ O backend escaneia as fontes a cada requisição de catálogo (sem banco de dado
 | GitHub Copilot CLI | `~/.copilot` | `settings.json`, `mcp-config.json`, `hooks/`, `skills/` |
 | Gemini / Antigravity | `~/.gemini` | `GEMINI.md`, `settings.json`, `config/`, `skills/` |
 | Cursor | `~/.cursor` | `mcp.json` global, `.cursor/`, `.cursorrules`/`.windsurfrules` nos projetos (aparece só se existir) |
-| Projetos | `GESTOR_PROJECTS_DIR` (padrão `~/Projetos`) | detecta repos (`.git` ou nível raso) e varre só os caminhos de configuração + `docs/` |
+| Projetos | `AIM_PROJECTS_DIR` (padrão `~/Projetos`) | detecta repos (`.git` ou nível raso) e varre só os caminhos de configuração + `docs/` |
 
 ### Adicionar uma IA nova
 
@@ -267,7 +267,7 @@ cd web && pnpm test                            # Vitest (6 testes)
 
 ### Testes E2E (Playwright)
 
-Sobem o app de verdade: build do frontend + backend real (uv) com `GESTOR_PROJECTS_DIR` apontando para uma fixture em `web/e2e/.tmp` (copiada de `web/e2e/fixtures` a cada execução, então o teste de salvar não altera arquivos versionados).
+Sobem o app de verdade: build do frontend + backend real (uv) com `AIM_PROJECTS_DIR` apontando para uma fixture em `web/e2e/.tmp` (copiada de `web/e2e/fixtures` a cada execução, então o teste de salvar não altera arquivos versionados).
 
 ```bash
 just e2e                     # build + playwright test
@@ -323,7 +323,7 @@ O backend responde `503` pedindo o build quando `web/dist` não existe. Rode `ju
 - opencode (Zen/Go) e Gemini/Antigravity não expõem uso localmente; o consumo do Zen aparece só no console da opencode
 
 **Os projetos não aparecem / aparecem de outro diretório**
-Confira `GESTOR_PROJECTS_DIR` no `.env` (o valor atual aparece no subtítulo da tela *Projetos*) e reinicie o servidor.
+Confira `AIM_PROJECTS_DIR` no `.env` (o valor atual aparece no subtítulo da tela *Projetos*) e reinicie o servidor.
 
 **Edição recusada com 409**
 O arquivo mudou no disco (outra ferramenta, IA ou IDE). Escolha *recarregar do disco* ou *sobrescrever*; nada é perdido — a versão anterior vira backup.

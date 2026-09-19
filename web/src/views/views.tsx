@@ -1,5 +1,15 @@
 import { useQuery } from "@tanstack/react-query"
-import { Search as SearchIcon, X } from "lucide-react"
+import {
+  CircleCheck,
+  CircleX,
+  Cloud,
+  Globe,
+  Server,
+  Search as SearchIcon,
+  Terminal,
+  X,
+  type LucideIcon,
+} from "lucide-react"
 import { useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 
@@ -14,6 +24,35 @@ import { api, type Catalog, type FileEntry, type Mcp, type Plugin, type SearchRe
 import { cn } from "@/lib/utils"
 
 const secClass = "mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground"
+
+const MCP_TYPE: Record<string, { icon: LucideIcon; className: string }> = {
+  local: { icon: Terminal, className: "border-violet-400/40 text-violet-400" },
+  remote: { icon: Cloud, className: "border-sky-400/40 text-sky-400" },
+  http: { icon: Globe, className: "border-amber-400/40 text-amber-400" },
+}
+
+function McpTypeBadge({ type }: { type: string }) {
+  const style = MCP_TYPE[type] ?? { icon: Server, className: "text-muted-foreground" }
+  const Icon = style.icon
+  return (
+    <Badge variant="outline" className={cn("gap-1 font-normal", style.className)}>
+      <Icon className="size-3" />
+      {type}
+    </Badge>
+  )
+}
+
+function StatusIcon({ enabled }: { enabled: boolean }) {
+  return enabled ? (
+    <span title="ativo" className="shrink-0">
+      <CircleCheck className="size-4 text-emerald-500" />
+    </span>
+  ) : (
+    <span title="inativo" className="shrink-0">
+      <CircleX className="size-4 text-red-500" />
+    </span>
+  )
+}
 
 function Section({
   title,
@@ -257,17 +296,13 @@ export function McpsView() {
               <div key={m.name + m.detail} className="border-border rounded-lg border p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{m.name}</span>
-                  <Badge variant="secondary" className="font-normal">
-                    {m.type}
-                  </Badge>
+                  <McpTypeBadge type={m.type} />
                   {m.scope && (
                     <Badge variant="outline" className="font-normal">
                       {m.scope}
                     </Badge>
                   )}
-                  <Badge variant="outline" className={cn("font-normal", !m.enabled && "opacity-50")}>
-                    {m.enabled ? "ativo" : "inativo"}
-                  </Badge>
+                  <StatusIcon enabled={m.enabled} />
                 </div>
                 {m.detail && (
                   <div className="text-muted-foreground mt-1.5 truncate font-mono text-[11px]">{m.detail}</div>
@@ -301,9 +336,7 @@ export function PluginsView() {
                       {p.scope}
                     </Badge>
                   )}
-                  <Badge variant="outline" className={cn("font-normal", !p.enabled && "opacity-50")}>
-                    {p.enabled ? "ativo" : "inativo"}
-                  </Badge>
+                  <StatusIcon enabled={p.enabled} />
                 </div>
                 {p.detail && <div className="text-muted-foreground mt-1.5 truncate text-[11px]">{p.detail}</div>}
               </div>

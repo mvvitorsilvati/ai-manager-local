@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
+const html = fs.readFileSync(path.join(__dirname, "..", "..", "index.html"), "utf8");
 const src = html.match(/function treeFromFiles[\s\S]*?\n}/)[0];
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const CAT_LABEL = {context:"contexto", skill:"skill", agent:"agente", config:"config"};

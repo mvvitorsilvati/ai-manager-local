@@ -1,4 +1,4 @@
-import { ChevronRight } from "lucide-react"
+import { Folder, FolderOpen } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { CatIcon } from "@/components/bits"
@@ -37,7 +37,7 @@ function Level({ node, depth, onOpen }: { node: TreeNode; depth: number; onOpen:
   return (
     <div className={cn(depth > 0 && "ml-2.5 border-l border-border pl-1.5")}>
       {dirs.map(([name, child]) => (
-        <Folder key={name} name={name} node={child} depth={depth} onOpen={onOpen} />
+        <FolderNode key={name} name={name} node={child} depth={depth} onOpen={onOpen} />
       ))}
       {files.map((entry) => (
         <button
@@ -57,7 +57,7 @@ function Level({ node, depth, onOpen }: { node: TreeNode; depth: number; onOpen:
   )
 }
 
-function Folder({
+function FolderNode({
   name,
   node,
   depth,
@@ -75,9 +75,11 @@ function Folder({
         onClick={() => setOpen((v) => !v)}
         className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-1.5 rounded-md px-2 py-1 font-mono text-xs"
       >
-        <ChevronRight
-          className={cn("size-3 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")}
-        />
+        {open ? (
+          <FolderOpen className="text-muted-foreground size-3.5 shrink-0" />
+        ) : (
+          <Folder className="text-muted-foreground size-3.5 shrink-0" />
+        )}
         <span className="truncate">{name}</span>
         <span className="text-muted-foreground ml-auto shrink-0 text-[10.5px]">{countTree(node)}</span>
       </button>

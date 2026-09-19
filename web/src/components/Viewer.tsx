@@ -4,8 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { Copy, FolderOpen, History, Pencil, RotateCcw, X } from "lucide-react"
 import { api, GESTOR_HEADERS, type Backup } from "@/lib/api"
-import { RENDERABLE_RE, IMAGE_RE } from "@/hooks/useCatalog"
-import { baseName, fmtBytes, fmtDT } from "@/lib/format"
+import { RENDERABLE_RE, IMAGE_RE, useCatalog } from "@/hooks/useCatalog"
+import { baseName, fmtBytes, fmtDT, resolveRelative } from "@/lib/format"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
@@ -21,7 +21,8 @@ export function Viewer() {
   const r = params.get("r") ?? ""
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { data, isLoading } = useQuery({
+  const { data: catalog } = useCatalog()
+  const { data, isLoading, error } = useQuery({
     queryKey: ["file", s, r],
     queryFn: () => api.file(s, r),
   })
@@ -49,6 +50,17 @@ export function Viewer() {
   }, [blocker])
 
   const close = () => navigate(-1)
+
+  function openRelative(href: string) {
+    let target = href.split("#")[0]
+    try { target = decodeURIComponent(target) } catch { /* href já decodificado */ }
+    const rel = resolveRelative(r, target)
+    if (!catalog?.files.some((f) => f.s === s && f.r === rel)) {
+      toast.error(`Arquivo não encontrado: ${rel}`)
+      return
+    }
+    navigate(`/f?s=${encodeURIComponent(s)}&r=${encodeURIComponent(rel)}`)
+  }
 
   async function save(force = false) {
     if (data === undefined || buffer === null) return
@@ -163,7 +175,11 @@ export function Viewer() {
         )}
 
         <div className="relative flex-1 overflow-auto p-4">
-          {isLoading || !data ? (
+          {error ? (
+            <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+              Não foi possível abrir: {(error as Error).message}
+            </div>
+          ) : isLoading || !data ? (
             <Skeleton className="h-64 w-full" />
           ) : mode === "edit" ? (
             <CodeEditor value={text} path={r} onChange={setBuffer} onSave={() => save()} />
@@ -182,7 +198,7 @@ export function Viewer() {
               {tryPretty(text, r)}
             </pre>
           ) : (
-            <Markdown content={text} />
+            <Markdown content={text} onLink={openRelative} />
           )}
 
           {backups !== null && (

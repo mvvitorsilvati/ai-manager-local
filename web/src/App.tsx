@@ -1,5 +1,5 @@
 import { useRef } from "react"
-import { NavLink, Route, Routes, useLocation } from "react-router-dom"
+import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom"
 import {
   BookOpen, Cpu, FileText, Files, Folder, Layers, LayoutGrid,
   Package, RefreshCw, Server, Shield, Terminal, Zap, type LucideIcon,
@@ -122,6 +122,17 @@ export default function App() {
             <Route path="/projetos" element={<ProjectsView />} />
             <Route path="/arquivos" element={<FilesView />} />
             <Route path="/busca" element={<SearchView />} />
+            <Route
+              path="*"
+              element={
+                <div className="space-y-1">
+                  <h2 className="text-lg font-semibold">Página não encontrada</h2>
+                  <p className="text-sm text-muted-foreground">
+                    <Link to="/" className="text-primary underline">Voltar para a visão geral</Link>
+                  </p>
+                </div>
+              }
+            />
           </Routes>
           {isViewer && <Viewer />}
         </section>

@@ -17,3 +17,14 @@ export const ago = (seconds: number) => {
 }
 
 export const baseName = (p: string) => p.split("/").pop() ?? p
+
+export const resolveRelative = (basePath: string, href: string) => {
+  const parts = [...basePath.split("/").slice(0, -1), ...href.split("/")]
+  const out: string[] = []
+  for (const part of parts) {
+    if (!part || part === ".") continue
+    if (part === "..") out.pop()
+    else out.push(part)
+  }
+  return out.join("/")
+}

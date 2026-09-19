@@ -93,6 +93,22 @@ def test_collect_mcps_inclui_arquivo_de_origem(tmp_path, monkeypatch):
     assert mcps[0]["file"] == {"s": "opencode", "r": "opencode.jsonc"}
 
 
+def test_collect_mcps_inclui_os_do_claude_por_projeto(tmp_path, monkeypatch):
+    (tmp_path / ".claude.json").write_text(json.dumps({
+        "mcpServers": {"global-http": {"url": "https://x"}},
+        "projects": {
+            "/Users/x/Projetos/meu-projeto": {"mcpServers": {"playwright": {"command": "npx"}}},
+        },
+    }))
+    monkeypatch.setattr(app, "HOME", tmp_path)
+    monkeypatch.setattr(app, "all_tools", lambda: [])
+
+    mcps = {m["name"]: m for m in app.collect_mcps()}
+    assert mcps["global-http"]["file"] == {"s": "claude-global", "r": ".claude.json"}
+    assert mcps["playwright"]["scope"] == "meu-projeto"
+    assert mcps["playwright"]["type"] == "local"
+
+
 def test_discovery_encontra_ia_com_mcp_json(tmp_path, monkeypatch):
     trae = tmp_path / ".trae"
     trae.mkdir()
@@ -110,6 +126,19 @@ def test_discovery_encontra_ia_com_mcp_json(tmp_path, monkeypatch):
     assert trae_mcps[0]["file"] == {"s": "trae", "r": "mcp.json"}
 
 
+def test_discovery_encontra_ia_em_application_support(tmp_path, monkeypatch):
+    trae = tmp_path / "Library" / "Application Support" / "Trae" / "User"
+    trae.mkdir(parents=True)
+    (trae / "mcp.json").write_text('{"mcpServers": {"linear": {"url": "https://x"}}}')
+    monkeypatch.setattr(app, "HOME", tmp_path)
+    monkeypatch.setattr(app, "_discovery_cache", (0.0, []))
+    monkeypatch.setattr(app, "_index_cache", (0.0, ({}, {})))
+
+    found = {t["id"]: t for t in app.discovered_tools()}
+    assert found["trae"]["mcp"]["rel"] == "User/mcp.json"
+    assert app.tool_for({"project": True}, "Trae/mcp.json", "mcp.json") == "trae"
+
+
 def test_discovery_ignora_dirs_sem_assinatura(tmp_path, monkeypatch):
     (tmp_path / ".qualquercoisa").mkdir()
     (tmp_path / ".outra" / "sub").mkdir(parents=True)
@@ -118,6 +147,18 @@ def test_discovery_ignora_dirs_sem_assinatura(tmp_path, monkeypatch):
     monkeypatch.setattr(app, "_discovery_cache", (0.0, []))
 
     assert app.discovered_tools() == []
+
+
+def test_resolve_file_claude_global_apenas_o_arquivo(tmp_path, monkeypatch):
+    arquivo = tmp_path / ".claude.json"
+    arquivo.write_text("{}")
+    monkeypatch.setattr(app, "CLAUDE_GLOBAL_FILE", arquivo)
+
+    assert app.resolve_file("claude-global", ".claude.json") == arquivo
+    with pytest.raises(ValueError):
+        app.resolve_file("claude-global", "outro.json")
+    with pytest.raises(ValueError):
+        app.resolve_file("claude-global", "../.ssh/id_rsa")
 
 
 def test_run_mcp_action_rejeita_desconhecido(monkeypatch):

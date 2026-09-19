@@ -201,41 +201,81 @@ _project_sources: dict[str, dict] = {}
 _project_lock = threading.Lock()
 
 
+MAX_DISCOVERY_DIRS = 400
+MCP_SKIP_DIRS = {"node_modules", "Cache", "CachedData", "GPUCache", "Code Cache", "blob_storage", "logs"}
+
+
+def _find_mcp_manifest(base: Path, depth: int, budget: list[int]) -> Path | None:
+    if depth < 0 or budget[0] <= 0:
+        return None
+    budget[0] -= 1
+    for candidate in MCP_DISCOVERY_FILES:
+        manifest = base / candidate
+        if manifest.is_file():
+            data = load_json(manifest)
+            if isinstance(data, dict) and isinstance(data.get("mcpServers"), dict):
+                return manifest
+    try:
+        children = [p for p in sorted(base.iterdir()) if p.is_dir() and p.name not in MCP_SKIP_DIRS]
+    except OSError:
+        return None
+    for child in children:
+        found = _find_mcp_manifest(child, depth - 1, budget)
+        if found:
+            return found
+    return None
+
+
+def _slug(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
 def discovered_tools() -> list[dict]:
-    """Descobre IAs não mapeadas: `~/.<ia>/mcp.json` (ou variantes) com mcpServers."""
+    """Descobre IAs não mapeadas: `~/.<ia>/mcp.json` ou `<App Support>/<IA>/**/mcp.json` com mcpServers."""
     global _discovery_cache
     now = time.time()
     stamp, cached = _discovery_cache
     if now - stamp < DISCOVERY_TTL_SECONDS:
         return cached
     known = {t["id"] for t in TOOLS}
-    found = []
+    candidates: list[tuple[str, str, Path, int]] = []
     try:
-        children = sorted(HOME.iterdir())
+        for child in sorted(HOME.iterdir()):
+            if child.name.startswith(".") and child.name != ".Trash" and child.is_dir():
+                name = child.name.lstrip(".")
+                if name:
+                    candidates.append((name, name.capitalize(), child, 0))
     except OSError:
-        children = []
-    for child in children:
-        if not child.name.startswith(".") or child.name == ".Trash" or not child.is_dir():
-            continue
-        name = child.name.lstrip(".")
+        pass
+    app_support = HOME / "Library" / "Application Support"
+    if app_support.is_dir():
+        try:
+            for child in sorted(app_support.iterdir()):
+                if child.is_dir():
+                    candidates.append((_slug(child.name), child.name, child, 3))
+        except OSError:
+            pass
+    budget = [MAX_DISCOVERY_DIRS]
+    found = []
+    for name, label, base, depth in candidates:
         if not name or name in known:
             continue
-        for candidate in MCP_DISCOVERY_FILES:
-            manifest = child / candidate
-            if not manifest.is_file():
-                continue
-            data = load_json(manifest)
-            if isinstance(data, dict) and isinstance(data.get("mcpServers"), dict):
-                found.append({
-                    "id": name,
-                    "label": name.capitalize(),
-                    "root": str(child),
-                    "discovered": True,
-                    "dirs": (child.name,),
-                    "files": (),
-                    "mcp": {"rel": candidate, "container": "mcpServers", "kind": "json"},
-                })
-                break
+        manifest = _find_mcp_manifest(base, depth, budget)
+        if manifest is None:
+            continue
+        found.append({
+            "id": name,
+            "label": label,
+            "root": str(base),
+            "discovered": True,
+            "dirs": (base.name,),
+            "files": (),
+            "mcp": {
+                "rel": manifest.relative_to(base).as_posix(),
+                "container": "mcpServers",
+                "kind": "json",
+            },
+        })
     _discovery_cache = (now, found)
     return found
 
@@ -596,8 +636,20 @@ def collect_mcps() -> list[dict]:
         out.append({
             "name": name, "source": "claude",
             "type": cfg.get("type", "remote" if cfg.get("url") else "local"),
-            "detail": _mcp_detail(cfg), "enabled": True, "file": None,
+            "detail": _mcp_detail(cfg), "enabled": True,
+            "file": {"s": "claude-global", "r": ".claude.json"},
         })
+    for project_path, project_cfg in (cl.get("projects") or {}).items():
+        if not isinstance(project_cfg, dict):
+            continue
+        for name, cfg in (project_cfg.get("mcpServers") or {}).items():
+            cfg = cfg if isinstance(cfg, dict) else {}
+            out.append({
+                "name": name, "source": "claude", "scope": Path(project_path).name,
+                "type": cfg.get("type", "remote" if cfg.get("url") else "local"),
+                "detail": _mcp_detail(cfg), "enabled": True,
+                "file": {"s": "claude-global", "r": ".claude.json"},
+            })
     return out
 
 
@@ -1128,6 +1180,7 @@ OPENCODE_PACKAGES = HOME / ".cache" / "opencode" / "packages"
 CLAUDE_MARKETPLACES = HOME / ".claude" / "plugins" / "known_marketplaces.json"
 CLAUDE_INSTALLED_PLUGINS = HOME / ".claude" / "plugins" / "installed_plugins.json"
 CLAUDE_SETTINGS = HOME / ".claude" / "settings.json"
+CLAUDE_GLOBAL_FILE = HOME / ".claude.json"
 NPM_REGISTRY = "https://registry.npmjs.org"
 VERSION_RE = re.compile(r"\d+\.\d+\.\d+")
 VERSIONS_CACHE_SECONDS = 600
@@ -1281,7 +1334,20 @@ def claude_plugin_updates() -> list[dict]:
             "update": update,
             "auto_update": bool(auto) if marketplace else None,
         })
+    for entry in out:
+        command = plugin_update_command("claude", entry["name"])
+        entry["command"] = " ".join(command) if command else None
     return out
+
+
+def plugin_update_command(source: str, name: str) -> list[str] | None:
+    if source == "claude":
+        binary = shutil.which("claude")
+        return [binary, "plugin", "update", name, "-y"] if binary else None
+    if source == "opencode":
+        binary = shutil.which("opencode")
+        return [binary, "plugin", name, "-g", "--force"] if binary else None
+    return None
 
 
 def plugin_updates() -> list[dict]:
@@ -1290,6 +1356,7 @@ def plugin_updates() -> list[dict]:
     for raw in oc.get("plugin") or []:
         name = str(raw)
         installed, latest = opencode_plugin_version(name), npm_latest(name)
+        command = plugin_update_command("opencode", name)
         out.append({
             "source": "opencode",
             "name": name,
@@ -1297,6 +1364,7 @@ def plugin_updates() -> list[dict]:
             "latest": latest,
             "update": has_update(latest, installed),
             "auto_update": None,
+            "command": " ".join(command) if command else None,
         })
     out.extend(claude_plugin_updates())
     return out
@@ -1373,20 +1441,16 @@ def run_update(tool: str) -> dict:
 
 
 def run_plugin_update(source: str, name: str) -> dict:
-    if source == "claude":
-        if name not in claude_known_plugins():
-            raise ApiError("plugin não encontrado", 404)
-        binary = shutil.which("claude")
-        if not binary:
-            raise ApiError("binário claude não encontrado no PATH", 400)
-        return _run_command([binary, "plugin", "update", name, "-y"])
-    if source == "opencode":
-        if name not in opencode_plugins():
-            raise ApiError("plugin não encontrado", 404)
-        binary = shutil.which("opencode")
-        if not binary:
-            raise ApiError("binário opencode não encontrado no PATH", 400)
-        return _run_command([binary, "plugin", name, "-g", "--force"])
+    if source == "claude" and name in claude_known_plugins():
+        pass
+    elif source == "opencode" and name in opencode_plugins():
+        pass
+    else:
+        raise ApiError("plugin não encontrado", 404)
+    command = plugin_update_command(source, name)
+    if command is None:
+        raise ApiError(f"binário {source} não encontrado no PATH", 400)
+    return _run_command(command)
     raise ApiError("atualização automática disponível apenas para plugins do Claude Code e do opencode", 400)
 
 
@@ -1796,6 +1860,12 @@ def file_info(path: Path) -> dict:
 
 
 def resolve_file(source_id: str, rel: str) -> Path:
+    if source_id == "claude-global":
+        if rel != ".claude.json":
+            raise ValueError("arquivo fora da fonte")
+        if CLAUDE_GLOBAL_FILE.is_file():
+            return CLAUDE_GLOBAL_FILE
+        raise ValueError("arquivo não encontrado")
     source = source_by_id(source_id)
     if not source:
         raise ValueError("fonte desconhecida")
@@ -1891,6 +1961,24 @@ def atomic_write(path: Path, content: str):
         os.replace(tmp, path)
     finally:
         tmp.unlink(missing_ok=True)
+
+
+def read_audit(limit: int = 200) -> list[dict]:
+    if not AUDIT_LOG.is_file():
+        return []
+    try:
+        lines = AUDIT_LOG.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return []
+    out = []
+    for line in reversed(lines[-limit:]):
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(entry, dict):
+            out.append(entry)
+    return out
 
 
 def append_audit(action: str, path: Path, size: int, backup: Path | None = None):
@@ -2042,6 +2130,13 @@ class Handler(BaseHTTPRequestHandler):
             return
         if url.path == "/api/incidents":
             self._json(incidents_snapshot(force=params.get("refresh", ["0"])[0] == "1"))
+            return
+        if url.path == "/api/audit":
+            try:
+                limit = max(1, min(int(params.get("limit", ["200"])[0]), 1000))
+            except ValueError:
+                limit = 200
+            self._json(read_audit(limit))
             return
         if url.path == "/api/backups":
             try:

@@ -5,6 +5,7 @@ import {
   FileText,
   Files,
   Folder,
+  History,
   Layers,
   LayoutGrid,
   Package,
@@ -12,13 +13,13 @@ import {
   Server,
   Shield,
   Terminal,
-  TriangleAlert,
   Zap,
   type LucideIcon,
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom"
 
+import { IncidentIcon } from "@/components/bits"
 import { CollapseAllButton } from "@/components/collapse"
 import { ToolIcon } from "@/components/ToolIcon"
 import { Badge } from "@/components/ui/badge"
@@ -39,6 +40,7 @@ import {
   SearchInput,
   SearchView,
   SkillsView,
+  AuditView,
   ToolsView,
 } from "@/views/views"
 
@@ -56,11 +58,9 @@ export const NAV: NavItem[] = [
   { to: "/mcps", label: "MCPs", icon: Server },
   { to: "/plugins", label: "Plugins", icon: Package },
   { to: "/projetos", label: "Projetos", icon: Folder },
+  { to: "/auditoria", label: "Auditoria", icon: History },
   { to: "/arquivos", label: "Arquivos", icon: Files },
 ]
-
-const severityClass = (indicator?: string | null) =>
-  indicator === "critical" || indicator === "major" || indicator === "high" ? "text-red-500" : "text-amber-400"
 
 export default function App() {
   const { data: catalog, refetch, isFetching } = useCatalog()
@@ -161,11 +161,7 @@ export default function App() {
                     >
                       <span className="truncate">{s.label}</span>
                       <ExternalLink className="size-3 shrink-0 opacity-60" />
-                      {incident && incident.ok === false && (
-                        <span title={incident.description ?? "incidente ativo"} className="shrink-0">
-                          <TriangleAlert className={cn("size-3.5", severityClass(incident.indicator))} />
-                        </span>
-                      )}
+                      <IncidentIcon incident={incident} />
                     </a>
                   ) : (
                     <span className="truncate">{s.label}</span>
@@ -198,6 +194,7 @@ export default function App() {
             <Route path="/plugins" element={<PluginsView />} />
             <Route path="/projetos" element={<ProjectsView />} />
             <Route path="/arquivos" element={<FilesView />} />
+            <Route path="/auditoria" element={<AuditView />} />
             <Route path="/busca" element={<SearchView />} />
             <Route
               path="*"

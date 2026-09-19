@@ -275,7 +275,7 @@ O arquivo mudou no disco (outra ferramenta, IA ou IDE). Escolha *recarregar do d
 
 ## Como contribuir
 
-1. Crie uma branch a partir de `master`:
+1. Crie uma branch a partir de `develop`:
    ```bash
    git checkout -b feat/minha-mudanca
    ```

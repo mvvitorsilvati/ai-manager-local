@@ -10,7 +10,12 @@ const TOOL_LABEL: Record<string, string> = { claude: "Claude Code", codex: "Code
 
 export function UsageCard({ tool }: { tool: string }) {
   const queryClient = useQueryClient()
-  const { data, isFetching } = useQuery({ queryKey: ["usage"], queryFn: () => api.usage(), staleTime: 30_000 })
+  const { data, isFetching } = useQuery({
+    queryKey: ["usage"],
+    queryFn: () => api.usage(),
+    staleTime: 30_000,
+    refetchInterval: 5 * 60_000,
+  })
   const usage =
     tool === "claude" ? data?.claude : tool === "codex" ? data?.codex : tool === "copilot" ? data?.copilot : null
 

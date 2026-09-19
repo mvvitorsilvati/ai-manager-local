@@ -22,7 +22,12 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const { data: catalog, isLoading } = useCatalog()
   const recent = catalog ? [...catalog.files].sort((a, b) => b.t - a.t).slice(0, 10) : []
-  const { data: usage } = useQuery({ queryKey: ["usage"], queryFn: () => api.usage(), staleTime: 30_000 })
+  const { data: usage } = useQuery({
+    queryKey: ["usage"],
+    queryFn: () => api.usage(),
+    staleTime: 30_000,
+    refetchInterval: 5 * 60_000,
+  })
   const { data: authors } = useQuery({
     queryKey: ["authors", recent.map((f) => f.s + f.r).join("|")],
     queryFn: () => api.authors(recent.map((f) => ({ s: f.s, r: f.r }))),

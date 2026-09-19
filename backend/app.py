@@ -1072,7 +1072,7 @@ COPILOT_USER_URL = "https://api.github.com/user"
 COPILOT_HEADERS = {
     "Accept": "application/json",
     "Editor-Version": "vscode/1.99.0",
-    "User-Agent": "ai-management-local",
+    "User-Agent": "ai-manager-local",
 }
 COPILOT_LABELS = {"premium_interactions": "Premium requests", "chat": "Chat", "completions": "Completions"}
 COPILOT_WINDOW_ORDER = ("premium_interactions", "chat", "completions")

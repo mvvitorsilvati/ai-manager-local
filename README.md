@@ -2,7 +2,7 @@
 
 Painel web local (somente no seu Mac) para visualizar e editar as configurações das IAs instaladas na máquina: **opencode**, **Claude Code**, **Codex**, **GitHub Copilot CLI**, **Gemini/Antigravity** e os arquivos de configuração **dentro dos seus projetos** (`~/Projetos`).
 
-[![QA](https://github.com/mvvitorsilvati/ai-management-local/actions/workflows/qa.yaml/badge.svg)](https://github.com/mvvitorsilvati/ai-management-local/actions/workflows/qa.yaml)
+[![QA](https://github.com/mvvitorsilvati/ai-manager-local/actions/workflows/qa.yaml/badge.svg)](https://github.com/mvvitorsilvati/ai-manager-local/actions/workflows/qa.yaml)
 
 Roda 100% local (`127.0.0.1`), sem telemetria e sem enviar nada para fora — exceto as consultas de uso/limites das contas (Claude, Codex e Copilot), que chamam as APIs oficiais usando as credenciais que já existem na sua máquina.
 
@@ -64,8 +64,8 @@ Para os cards de uso (opcional): `gh` autenticado (Copilot) e Claude Code logado
 ## Instalação
 
 ```bash
-git clone git@github.com:mvvitorsilvati/ai-management-local.git
-cd ai-management-local
+git clone git@github.com:mvvitorsilvati/ai-manager-local.git
+cd ai-manager-local
 
 # instala backend (uv sync) e frontend (pnpm install)
 just setup
@@ -118,14 +118,14 @@ just stop       # encerra a instância que estiver na porta 4747
 | `just format` | oxfmt (frontend) + `ruff check --fix` (backend) |
 | `just check` | lint + testes |
 | `just hooks` | liga os git hooks versionados (pre-commit roda `just check`) |
-| `just docker-build` | build da imagem `localhost/ai-management-local-py-3.14:0.1.0` |
+| `just docker-build` | build da imagem `localhost/ai-manager-local-py-3.14:0.1.0` |
 | `just docker-run` | sobe o painel em container montando o seu `$HOME` |
 | `just docker-test` | roda a suíte de testes dentro da imagem (sem rede) |
 
 ### Rodando em container (Docker/Podman)
 
 ```bash
-just docker-build   # podman build -t localhost/ai-management-local-py-3.14:0.1.0 .
+just docker-build   # podman build -t localhost/ai-manager-local-py-3.14:0.1.0 .
 just docker-run     # http://127.0.0.1:4747
 ```
 
@@ -164,7 +164,7 @@ just dev
 ## Arquitetura
 
 ```
-ai-management-local/
+ai-manager-local/
 ├── Dockerfile                # multi-stage: build do front (Node) + runtime (Python 3.14 + uv)
 ├── docker-compose.yml        # sobe o painel montando o $HOME
 ├── .dockerignore

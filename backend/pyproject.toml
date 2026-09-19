@@ -1,0 +1,23 @@
+[project]
+name = "gestor-local-backend"
+version = "0.1.0"
+description = "Backend do Gestor Local: API de configurações locais das IAs + serving do frontend"
+requires-python = ">=3.14"
+dependencies = ["trio>=0.34"]
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = ["ruff>=0.14", "pyright>=1.1.400"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B"]
+
+[tool.pyright]
+typeCheckingMode = "basic"
+pythonVersion = "3.14"

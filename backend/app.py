@@ -17,14 +17,13 @@ import subprocess
 import sys
 import threading
 import time
+import tomllib
 import webbrowser
-
-import trio
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-import tomllib
+import trio
 
 HOME = Path.home()
 DEFAULT_PORT = 4747
@@ -463,7 +462,7 @@ def collect_mcps() -> list[dict]:
     for project, pcfg in (cl.get("projects") or {}).items():
         if not isinstance(pcfg, dict):
             continue
-        for name, cfg in (pcfg.get("mcpServers") or {}).items():
+        for name in (pcfg.get("mcpServers") or {}):
             out.append({
                 "name": name, "source": "claude",
                 "type": "local", "detail": f"projeto: {Path(project).name}",
@@ -808,12 +807,12 @@ def validate_content(path: Path, content: str):
         try:
             json.loads(strip_jsonc(content) if suffix == ".jsonc" else content)
         except json.JSONDecodeError as exc:
-            raise ApiError(f"JSON inválido (linha {exc.lineno}, coluna {exc.colno}): {exc.msg}", 422)
+            raise ApiError(f"JSON inválido (linha {exc.lineno}, coluna {exc.colno}): {exc.msg}", 422) from exc
     elif suffix == ".toml":
         try:
             tomllib.loads(content)
         except tomllib.TOMLDecodeError as exc:
-            raise ApiError(f"TOML inválido: {exc}", 422)
+            raise ApiError(f"TOML inválido: {exc}", 422) from exc
 
 
 def save_file(source_id: str, rel: str, content: str, expected_mtime: int | None = None,

@@ -99,6 +99,14 @@ def test_conflito_de_mtime_retorna_409(servidor):
     assert json.loads(body)["conflict"] is True
 
 
+def test_usage_responde_com_dados_do_claude(servidor, monkeypatch):
+    monkeypatch.setattr(app, "claude_usage", lambda: {"available": True, "windows": [], "credits": None})
+    app._usage_cache = (0.0, {})
+    status, body = request(f"{servidor.url}/api/usage")
+    assert status == 200
+    assert json.loads(body)["claude"]["available"] is True
+
+
 def test_authors_fora_de_repo_retorna_vazio(servidor):
     status, body = request(f"{servidor.url}/api/authors", {"files": [{"s": "teste", "r": "a.md"}]})
     assert status == 200

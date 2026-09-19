@@ -23,8 +23,17 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-import httpx
-import trio
+try:
+    import httpx
+    import trio
+except ModuleNotFoundError as exc:  # guarda de ambiente: dependências vivem na venv do uv
+    raise SystemExit(
+        f"Dependência ausente: {exc.name}\n\n"
+        "Rode com a venv do projeto (uv):\n"
+        "  na pasta backend:  uv run app.py --no-open\n"
+        "  na raiz:           uv run --project backend backend/app.py --no-open\n\n"
+        "Ou sincronize as dependências: uv sync (em backend/)"
+    ) from exc
 
 HOME = Path.home()
 DEFAULT_PORT = 4747

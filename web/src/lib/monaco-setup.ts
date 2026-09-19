@@ -1,9 +1,9 @@
-import * as monaco from "monaco-editor"
 import { loader } from "@monaco-editor/react"
+import * as monaco from "monaco-editor"
 import EditorWorker from "monaco-editor/editor/editor.worker?worker"
-import JsonWorker from "monaco-editor/language/json/json.worker?worker"
 import CssWorker from "monaco-editor/language/css/css.worker?worker"
 import HtmlWorker from "monaco-editor/language/html/html.worker?worker"
+import JsonWorker from "monaco-editor/language/json/json.worker?worker"
 import TsWorker from "monaco-editor/language/typescript/ts.worker?worker"
 
 ;(self as unknown as { MonacoEnvironment: monaco.Environment }).MonacoEnvironment = {

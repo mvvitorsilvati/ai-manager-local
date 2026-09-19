@@ -1,12 +1,19 @@
 import { describe, expect, it } from "vitest"
+
+import { languageFor } from "@/components/CodeEditor"
 import { buildTree, countTree, type TreeEntry } from "@/components/FileTree"
 import { splitFrontmatter } from "@/components/Markdown"
-import { languageFor } from "@/components/CodeEditor"
 import type { FileEntry } from "@/lib/api"
 
 const file = (r: string, n = r.split("/").pop()!): FileEntry => ({
-  s: "src", r, n, d: r.includes("/") ? r.slice(0, r.lastIndexOf("/")) : "",
-  z: 1, t: 0, c: "doc", k: "opencode",
+  s: "src",
+  r,
+  n,
+  d: r.includes("/") ? r.slice(0, r.lastIndexOf("/")) : "",
+  z: 1,
+  t: 0,
+  c: "doc",
+  k: "opencode",
 })
 
 describe("buildTree", () => {

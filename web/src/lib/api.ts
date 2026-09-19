@@ -24,7 +24,14 @@ export type Catalog = {
   plugins: Plugin[]
 }
 
-export type GitInfo = { author: string; email: string; date: string; sha: string; committer: string; coauthors: string[] }
+export type GitInfo = {
+  author: string
+  email: string
+  date: string
+  sha: string
+  committer: string
+  coauthors: string[]
+}
 
 export type FileData = {
   content: string
@@ -65,12 +72,13 @@ export const api = {
   backups: (s: string, r: string) =>
     fetch(`/api/backups?s=${encodeURIComponent(s)}&r=${encodeURIComponent(r)}`).then(parse<Backup[]>),
   save: (body: { s: string; r: string; content: string; mtime_ns?: string; force?: boolean }) =>
-    fetch("/api/save", { method: "POST", headers: GESTOR_HEADERS, body: JSON.stringify(body) })
-      .then(parse<SaveResult>),
+    fetch("/api/save", { method: "POST", headers: GESTOR_HEADERS, body: JSON.stringify(body) }).then(parse<SaveResult>),
   authors: (files: { s: string; r: string }[]) =>
-    fetch("/api/authors", { method: "POST", headers: GESTOR_HEADERS, body: JSON.stringify({ files }) })
-      .then(parse<AuthorInfo[]>),
+    fetch("/api/authors", { method: "POST", headers: GESTOR_HEADERS, body: JSON.stringify({ files }) }).then(
+      parse<AuthorInfo[]>,
+    ),
   restore: (body: { s: string; r: string; backup: string }) =>
-    fetch("/api/restore", { method: "POST", headers: GESTOR_HEADERS, body: JSON.stringify(body) })
-      .then(parse<SaveResult>),
+    fetch("/api/restore", { method: "POST", headers: GESTOR_HEADERS, body: JSON.stringify(body) }).then(
+      parse<SaveResult>,
+    ),
 }

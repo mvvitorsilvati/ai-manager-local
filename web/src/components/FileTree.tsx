@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react"
 import { ChevronRight } from "lucide-react"
+import { useMemo, useState } from "react"
+
 import { CatIcon } from "@/components/bits"
 import { CAT_LABEL } from "@/hooks/useCatalog"
 import type { FileEntry } from "@/lib/api"
@@ -32,9 +33,7 @@ export const countTree = (node: TreeNode): number =>
 
 function Level({ node, depth, onOpen }: { node: TreeNode; depth: number; onOpen: (f: FileEntry) => void }) {
   const dirs = [...node.dirs.entries()].sort((a, b) => a[0].localeCompare(b[0], "pt-BR"))
-  const files = [...node.files].sort((a, b) =>
-    (a.label ?? a.f.n).localeCompare(b.label ?? b.f.n, "pt-BR"),
-  )
+  const files = [...node.files].sort((a, b) => (a.label ?? a.f.n).localeCompare(b.label ?? b.f.n, "pt-BR"))
   return (
     <div className={cn(depth > 0 && "ml-2.5 border-l border-border pl-1.5")}>
       {dirs.map(([name, child]) => (
@@ -45,11 +44,11 @@ function Level({ node, depth, onOpen }: { node: TreeNode; depth: number; onOpen:
           key={entry.f.s + "|" + entry.f.r}
           onClick={() => onOpen(entry.f)}
           title={entry.f.r}
-          className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left font-mono text-xs hover:bg-accent hover:text-accent-foreground"
+          className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 rounded-md px-2 py-1 text-left font-mono text-xs"
         >
           <CatIcon cat={entry.f.c} className="size-3.5 shrink-0 opacity-70" />
           <span className="truncate">{entry.label ?? entry.f.n}</span>
-          <span className="ml-auto shrink-0 text-[10.5px] text-muted-foreground">
+          <span className="text-muted-foreground ml-auto shrink-0 text-[10.5px]">
             {CAT_LABEL[entry.f.c] ?? entry.f.c}
           </span>
         </button>
@@ -58,17 +57,29 @@ function Level({ node, depth, onOpen }: { node: TreeNode; depth: number; onOpen:
   )
 }
 
-function Folder({ name, node, depth, onOpen }: { name: string; node: TreeNode; depth: number; onOpen: (f: FileEntry) => void }) {
+function Folder({
+  name,
+  node,
+  depth,
+  onOpen,
+}: {
+  name: string
+  node: TreeNode
+  depth: number
+  onOpen: (f: FileEntry) => void
+}) {
   const [open, setOpen] = useState(false)
   return (
     <div>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 font-mono text-xs hover:bg-accent hover:text-accent-foreground"
+        className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-1.5 rounded-md px-2 py-1 font-mono text-xs"
       >
-        <ChevronRight className={cn("size-3 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} />
+        <ChevronRight
+          className={cn("size-3 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")}
+        />
         <span className="truncate">{name}</span>
-        <span className="ml-auto shrink-0 text-[10.5px] text-muted-foreground">{countTree(node)}</span>
+        <span className="text-muted-foreground ml-auto shrink-0 text-[10.5px]">{countTree(node)}</span>
       </button>
       {open && <Level node={node} depth={depth + 1} onOpen={onOpen} />}
     </div>
@@ -77,6 +88,6 @@ function Folder({ name, node, depth, onOpen }: { name: string; node: TreeNode; d
 
 export function FileTree({ entries, onOpen }: { entries: TreeEntry[]; onOpen: (f: FileEntry) => void }) {
   const root = useMemo(() => buildTree(entries), [entries])
-  if (!entries.length) return <p className="px-2 py-1 text-xs text-muted-foreground">Nada aqui.</p>
+  if (!entries.length) return <p className="text-muted-foreground px-2 py-1 text-xs">Nada aqui.</p>
   return <Level node={root} depth={0} onOpen={onOpen} />
 }

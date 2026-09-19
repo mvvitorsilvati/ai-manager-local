@@ -7,7 +7,12 @@ export const fmtDT = (ms: number) =>
 export const ago = (seconds: number) => {
   const diff = seconds * 1000 - Date.now()
   const steps: [Intl.RelativeTimeFormatUnit, number][] = [
-    ["year", 31536e6], ["month", 2592e6], ["day", 864e5], ["hour", 36e5], ["minute", 6e4], ["second", 1000],
+    ["year", 31536e6],
+    ["month", 2592e6],
+    ["day", 864e5],
+    ["hour", 36e5],
+    ["minute", 6e4],
+    ["second", 1000],
   ]
   const rtf = new Intl.RelativeTimeFormat("pt-BR", { numeric: "auto" })
   for (const [unit, ms] of steps) {

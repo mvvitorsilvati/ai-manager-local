@@ -208,6 +208,34 @@ def test_run_update_rejeita_ferramenta_desconhecida():
         app.run_update("cursor")
 
 
+def test_run_update_detecta_quando_nada_mudou(monkeypatch):
+    monkeypatch.setattr(app, "update_command", lambda tool: ["brew", "upgrade", "x"])
+    monkeypatch.setattr(app, "cli_version", lambda binary: "1.0.0")
+    monkeypatch.setattr(
+        app, "_run_command",
+        lambda command: {"ok": True, "command": " ".join(command), "output": "already up to date"},
+    )
+
+    result = app.run_update("claude")
+    assert result["ok"] is False
+    assert result["changed"] is False
+    assert "nada mudou" in result["message"]
+    assert result["installed"] == "1.0.0"
+
+
+def test_run_update_detecta_atualizacao(monkeypatch):
+    versions = iter(["1.0.0", "1.1.0"])
+    monkeypatch.setattr(app, "update_command", lambda tool: ["brew", "upgrade", "x"])
+    monkeypatch.setattr(app, "cli_version", lambda binary: next(versions))
+    monkeypatch.setattr(app, "_run_command", lambda command: {"ok": True, "command": "x", "output": ""})
+
+    result = app.run_update("claude")
+    assert result["ok"] is True
+    assert result["changed"] is True
+    assert result["installed"] == "1.1.0"
+    assert "atualizado para v1.1.0" in result["message"]
+
+
 def test_run_command_captura_saida(monkeypatch):
     class Proc:
         returncode = 1

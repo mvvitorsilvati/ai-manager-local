@@ -114,7 +114,14 @@ export type VersionsResponse = {
   plugins: PluginUpdate[]
 }
 
-export type UpdateResult = { ok: boolean; command: string; output: string }
+export type UpdateResult = {
+  ok: boolean
+  command: string
+  output: string
+  message?: string | null
+  changed?: boolean | null
+  installed?: string | null
+}
 
 export type Incident = { ok: boolean | null; indicator: string | null; description: string | null }
 

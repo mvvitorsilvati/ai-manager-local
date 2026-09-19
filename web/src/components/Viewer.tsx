@@ -28,7 +28,7 @@ export function Viewer() {
     queryFn: () => api.file(s, r),
   })
 
-  const [mode, setMode] = useState<Mode>("render")
+  const [mode, setMode] = useState<Mode>(() => (RENDERABLE_RE.test(r) ? "render" : "raw"))
   const [buffer, setBuffer] = useState<string | null>(null)
   const [backups, setBackups] = useState<Backup[] | null>(null)
   const [saving, setSaving] = useState(false)
@@ -36,12 +36,7 @@ export function Viewer() {
   const isImage = IMAGE_RE.test(r)
   const canRender = RENDERABLE_RE.test(r)
   const dirty = buffer !== null && data !== undefined && buffer !== data.content
-
-  useEffect(() => {
-    setBuffer(null)
-    setBackups(null)
-    setMode(RENDERABLE_RE.test(r) ? "render" : "raw")
-  }, [s, r])
+  const text = buffer ?? data?.content ?? ""
 
   const blocker = useBlocker(dirty)
   useEffect(() => {
@@ -154,8 +149,6 @@ export function Viewer() {
     window.addEventListener("keydown", onKey, true)
     return () => window.removeEventListener("keydown", onKey, true)
   })
-
-  const text = buffer ?? data?.content ?? ""
 
   return (
     <Sheet

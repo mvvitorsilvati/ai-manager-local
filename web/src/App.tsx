@@ -16,7 +16,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react"
-import { useEffect, useRef } from "react"
+import { useEffect, useState } from "react"
 import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom"
 
 import { CollapseAllButton } from "@/components/collapse"
@@ -81,8 +81,8 @@ export default function App() {
   }, [])
   const location = useLocation()
   const isViewer = location.pathname === "/f"
-  const lastLocation = useRef(location)
-  if (!isViewer) lastLocation.current = location
+  const [lastLocation, setLastLocation] = useState(location)
+  if (!isViewer && lastLocation !== location) setLastLocation(location)
 
   const nav = NAV.map((item) => {
     let count: number | null = null
@@ -185,7 +185,7 @@ export default function App() {
           </Button>
         </header>
         <section className="flex-1 overflow-auto p-6">
-          <Routes location={isViewer ? lastLocation.current : location}>
+          <Routes location={isViewer ? lastLocation : location}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/ia" element={<ToolsView />} />
             <Route path="/contextos" element={<CategoryView cat="context" />} />
@@ -213,7 +213,7 @@ export default function App() {
               }
             />
           </Routes>
-          {isViewer && <Viewer />}
+          {isViewer && <Viewer key={location.search} />}
         </section>
       </main>
       <Toaster />

@@ -12,7 +12,7 @@ const TOOL_LABEL: Record<string, string> = { claude: "Claude Code", codex: "Code
 
 export function UsageCard({ tool }: { tool: string }) {
   const queryClient = useQueryClient()
-  const { data, isFetching, isPending } = useQuery({
+  const { data, isFetching, isPending, dataUpdatedAt } = useQuery({
     queryKey: ["usage"],
     queryFn: () => api.usage(),
     staleTime: 30_000,
@@ -39,7 +39,7 @@ export function UsageCard({ tool }: { tool: string }) {
         : "bg-emerald-500"
 
   const resetLine = (iso: string) => {
-    const future = Date.parse(iso) > Date.now()
+    const future = Date.parse(iso) > dataUpdatedAt
     return `${future ? "Reinicia" : "Reiniciada"} ${until(iso)} (${fmtDT(Date.parse(iso))})`
   }
 

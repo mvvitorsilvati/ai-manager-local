@@ -113,6 +113,13 @@ details.src>summary .ico,details.tnode>summary .ico{display:inline-block;margin-
 .mermaid{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:12px;overflow:auto;margin:12px 0;text-align:center}
 .mermaid svg{max-width:100%;height:auto}
 .preview{max-width:100%;max-height:70vh;border:1px solid var(--border);border-radius:8px;background:var(--panel2);padding:8px}
+.editor{width:100%;min-height:65vh;background:#0a0e13;border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:12.5px;line-height:1.55;padding:14px;resize:vertical;outline:none}
+.editor:focus{border-color:var(--accent)}
+#backups{position:absolute;left:18px;right:18px;bottom:18px;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;max-height:45vh;overflow:auto;z-index:5;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+#backups.hidden{display:none}
+.bk-head{display:flex;justify-content:space-between;align-items:center;font-weight:600;margin-bottom:6px}
+.bk-row{display:flex;align-items:center;gap:12px;padding:6px 0;border-top:1px solid var(--border);font-size:12.5px}
+.bk-row>span:first-child{flex:1}
 #toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:9px 16px;font-size:12.5px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}
 #toast.show{opacity:1}
 .hit{font-family:var(--mono);font-size:11.5px;color:var(--muted);padding:2px 0;white-space:pre-wrap;word-break:break-all}
@@ -147,6 +154,10 @@ details.src>summary .ico,details.tnode>summary .ico{display:inline-block;margin-
       <div class="actions">
         <button class="btn" id="btn-render">Render</button>
         <button class="btn" id="btn-raw">Raw</button>
+        <button class="btn" id="btn-edit">Editar</button>
+        <button class="btn" id="btn-save" style="display:none">Salvar</button>
+        <button class="btn" id="btn-cancel" style="display:none">Cancelar</button>
+        <button class="btn" id="btn-backups">Backups</button>
         <button class="btn" id="btn-copy">Copiar caminho</button>
         <button class="btn" id="btn-reveal">Finder</button>
         <button class="btn icon" id="btn-close">×</button>
@@ -154,6 +165,7 @@ details.src>summary .ico,details.tnode>summary .ico{display:inline-block;margin-
     </div>
     <div class="fmeta" id="fmeta"></div>
     <div class="content" id="content"></div>
+    <div id="backups" class="hidden"></div>
   </div>
 </div>
 
@@ -189,7 +201,7 @@ const fileIcon = (c) => ICONS[c] || ICONS.file;
 const isDoc = (f) => f.r.split("/").includes("docs");
 const RENDERABLE = /\.(md|markdown|jsonc?|png|jpe?g|gif|webp|ico|svg)$/i;
 
-const state = {catalog:null, sources:{}, files:[], byDir:new Map(), view:"dashboard", cat:null, lastView:"dashboard", query:"", results:[], open:null, mode:"render"};
+const state = {catalog:null, sources:{}, files:[], byDir:new Map(), view:"dashboard", cat:null, lastView:"dashboard", query:"", results:[], open:null, mode:"render", buffer:null};
 
 function ago(ts){
   const d = ts*1000 - Date.now(), abs = Math.abs(d);
@@ -269,6 +281,8 @@ function pushHistory(){
 }
 
 function closeDrawer(){
+  if (isDirty() && !confirm("Descartar alterações não salvas?")) return;
+  state.buffer = null;
   if (state.open && history.state && history.state.file) history.back();
   else { state.open = null; $("#drawer").classList.add("hidden"); }
 }
@@ -283,6 +297,8 @@ window.addEventListener("popstate", (e) => {
     if (!cur || cur.s !== st.file.s || cur.r !== st.file.r) openFile(st.file.s, st.file.r, st.file.name, {push: false});
     if (changed){ renderNav(); render(); }
   } else {
+    if (isDirty() && !confirm("Descartar alterações não salvas?")){ history.forward(); return; }
+    state.buffer = null;
     state.open = null;
     $("#drawer").classList.add("hidden");
     if (changed){ renderNav(); render(); }
@@ -513,9 +529,70 @@ async function openFile(s, r, name, opts){
     if (!res.ok) { toast(data.error || "Erro ao abrir"); return; }
     state.open = {s, r, name: name || baseName(r), ...data};
     state.mode = RENDERABLE.test(r) ? "render" : "raw";
+    state.buffer = null;
+    $("#backups").classList.add("hidden");
     renderDrawer();
     if (!opts || opts.push !== false) pushHistory();
   } catch(e){ toast("Erro ao abrir arquivo"); }
+}
+
+const isDirty = () => state.buffer !== null && state.open && state.buffer !== state.open.content;
+const post = (url, body) => fetch(url, {method:"POST", headers:{"Content-Type":"application/json","X-Gestor":"1"}, body: JSON.stringify(body)});
+
+function updateDirty(){
+  if (state.open) $("#fname").textContent = state.open.name + (isDirty() ? " •" : "");
+}
+
+function applySaved(d){
+  state.open.content = state.buffer;
+  state.buffer = null;
+  state.open.mtime = d.mtime;
+  state.open.mtime_ns = d.mtime_ns;
+  state.open.size = d.size;
+  const idx = state.fileIndex.get(state.open.s + "|" + state.open.r);
+  if (idx != null) { state.files[idx].z = d.size; state.files[idx].t = d.mtime; }
+  state.mode = "render";
+  renderDrawer();
+  toast("Salvo — backup criado");
+}
+
+async function saveFile(){
+  const o = state.open;
+  if (!o || state.buffer === null) return;
+  let res = await post("/api/save", {s:o.s, r:o.r, content:state.buffer, mtime_ns:o.mtime_ns});
+  let data = await res.json();
+  if (res.status === 409){
+    if (!confirm("O arquivo foi alterado fora do painel.\n\nOK = sobrescrever com a sua versão\nCancelar = recarregar do disco")){
+      await openFile(o.s, o.r, o.name, {push:false});
+      toast("Recarregado do disco");
+      return;
+    }
+    res = await post("/api/save", {s:o.s, r:o.r, content:state.buffer, force:true});
+    data = await res.json();
+  }
+  if (!res.ok){ toast(data.error || "Erro ao salvar"); return; }
+  applySaved(data);
+}
+
+async function showBackups(){
+  const o = state.open;
+  if (!o) return;
+  const list = await (await fetch(`/api/backups?s=${encodeURIComponent(o.s)}&r=${encodeURIComponent(o.r)}`)).json();
+  const box = $("#backups");
+  box.classList.remove("hidden");
+  box.innerHTML = `<div class="bk-head"><span>Backups</span><button class="btn icon" id="bk-close">×</button></div>` +
+    (Array.isArray(list) && list.length
+      ? list.map((v)=>`<div class="bk-row"><span>${fmtDT(v.mtime*1000)}</span><span>${fmtBytes(v.size)}</span><button class="btn" data-restore="${esc(v.name)}">Restaurar</button></div>`).join("")
+      : `<p class="sub" style="margin:6px 0">Nenhum backup ainda.</p>`);
+  box.querySelector("#bk-close").addEventListener("click", ()=>box.classList.add("hidden"));
+  box.querySelectorAll("[data-restore]").forEach((b)=>b.addEventListener("click", async ()=>{
+    if (!confirm("Restaurar esta versão? O estado atual vira backup antes.")) return;
+    const res = await post("/api/restore", {s:o.s, r:o.r, backup:b.dataset.restore});
+    const data = await res.json();
+    if (!res.ok){ toast(data.error || "Erro ao restaurar"); return; }
+    await openFile(o.s, o.r, o.name, {push:false});
+    toast("Backup restaurado");
+  }));
 }
 
 function initMermaid(){
@@ -542,7 +619,6 @@ window.__mermaidOnload = () => { initMermaid(); renderMermaid(); };
 function renderDrawer(){
   const o = state.open;
   $("#drawer").classList.remove("hidden");
-  $("#fname").textContent = o.name;
   $("#fpath").textContent = o.abs;
   $("#fmeta").innerHTML = [
     srcBadge(o.s),
@@ -556,22 +632,34 @@ function renderDrawer(){
   const isImage = /\.(png|jpe?g|gif|webp|ico|svg)$/i.test(o.r);
   const isBinaryImage = isImage && !/\.svg$/i.test(o.r);
   const canRender = isImage || /\.(md|markdown|jsonc?)$/i.test(o.r);
+  const editing = state.mode === "edit";
+  $("#fname").textContent = o.name + (isDirty() ? " •" : "");
   $("#btn-render").style.display = canRender ? "" : "none";
   $("#btn-raw").style.display = canRender && !isBinaryImage ? "" : "none";
+  $("#btn-edit").style.display = isBinaryImage ? "none" : "";
+  $("#btn-save").style.display = state.buffer !== null ? "" : "none";
+  $("#btn-cancel").style.display = state.buffer !== null ? "" : "none";
   $("#btn-render").style.outline = state.mode==="render" ? "1px solid var(--accent)" : "none";
   $("#btn-raw").style.outline = state.mode==="raw" ? "1px solid var(--accent)" : "none";
+  const text = state.buffer !== null ? state.buffer : o.content;
   const el = $("#content");
-  if (isImage && state.mode === "render"){
+  if (editing){
+    el.innerHTML = `<textarea class="editor" id="editor" spellcheck="false"></textarea>`;
+    const ta = el.querySelector("#editor");
+    ta.value = text;
+    ta.addEventListener("input", () => { state.buffer = ta.value; updateDirty(); });
+    ta.focus();
+  } else if (isImage && state.mode === "render"){
     el.innerHTML = `<img class="preview" alt="${esc(o.name)}" src="/api/raw?s=${encodeURIComponent(o.s)}&r=${encodeURIComponent(o.r)}">`;
   } else if (state.mode === "raw" || !canRender){
-    el.innerHTML = `<pre class="raw">${esc(o.content)}</pre>`;
+    el.innerHTML = `<pre class="raw">${esc(state.buffer !== null ? text : tryPretty(text))}</pre>`;
   } else if (/\.jsonc?$/i.test(o.r)){
-    el.innerHTML = `<pre class="raw">${esc(tryPretty(o.content))}</pre>`;
+    el.innerHTML = `<pre class="raw">${esc(tryPretty(text))}</pre>`;
   } else {
-    el.innerHTML = `<div class="md">${md(o.content)}</div>`;
+    el.innerHTML = `<div class="md">${md(text)}</div>`;
   }
   el.scrollTop = 0;
-  renderMermaid();
+  if (!editing) renderMermaid();
 }
 
 function tryPretty(text){
@@ -679,11 +767,29 @@ $("#btn-close").addEventListener("click", closeDrawer);
 $("#backdrop").addEventListener("click", closeDrawer);
 $("#drawer").addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
 document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s"){
+    if (state.buffer !== null){ e.preventDefault(); saveFile(); }
+    return;
+  }
   if (e.key === "Escape"){ if (!$("#drawer").classList.contains("hidden")) closeDrawer(); else if (state.view === "search") go("dashboard"); }
   if (e.key === "/" && document.activeElement !== $("#search")){ e.preventDefault(); $("#search").focus(); }
 });
-$("#btn-render").addEventListener("click", () => { state.mode = "render"; renderDrawer(); });
-$("#btn-raw").addEventListener("click", () => { state.mode = "raw"; renderDrawer(); });
+$("#btn-render").addEventListener("click", () => { if (state.open) { state.mode = "render"; renderDrawer(); } });
+$("#btn-raw").addEventListener("click", () => { if (state.open) { state.mode = "raw"; renderDrawer(); } });
+$("#btn-edit").addEventListener("click", () => {
+  if (!state.open) return;
+  if (state.buffer === null) state.buffer = state.open.content;
+  state.mode = "edit";
+  renderDrawer();
+});
+$("#btn-save").addEventListener("click", saveFile);
+$("#btn-cancel").addEventListener("click", () => {
+  if (!state.open) return;
+  state.buffer = null;
+  state.mode = RENDERABLE.test(state.open.r) ? "render" : "raw";
+  renderDrawer();
+});
+$("#btn-backups").addEventListener("click", showBackups);
 $("#btn-copy").addEventListener("click", async () => {
   if (!state.open) return;
   try { await navigator.clipboard.writeText(state.open.abs); toast("Caminho copiado"); }

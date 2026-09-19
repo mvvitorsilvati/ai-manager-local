@@ -118,13 +118,20 @@ def test_authors_fora_de_repo_retorna_vazio(servidor):
     assert json.loads(body) == []
 
 
-def test_legacy_serve_o_vanilla(servidor):
-    status, body = request(f"{servidor.url}/legacy")
-    assert status == 200
-    assert "Gestor Local" in body.decode()
+def test_raiz_serve_html(servidor, tmp_path, monkeypatch):
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_bytes(b"<html><body>build</body></html>")
+    monkeypatch.setattr(app, "DIST_DIR", dist)
 
-
-def test_raiz_serve_html(servidor):
     status, body = request(f"{servidor.url}/")
     assert status == 200
     assert b"<html" in body.lower()
+
+
+def test_raiz_sem_build_orienta_a_buildar(servidor, tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "DIST_DIR", tmp_path / "sem-dist")
+
+    status, body = request(f"{servidor.url}/")
+    assert status == 503
+    assert b"just build" in body

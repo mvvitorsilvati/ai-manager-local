@@ -3,7 +3,6 @@ import {
   Cpu,
   File as FileIcon,
   FileText,
-  Folder,
   Image as ImageIcon,
   Shield,
   Terminal,
@@ -56,8 +55,4 @@ export function CatBadge({ cat }: { cat: string }) {
       {CAT_LABEL[cat] ?? cat}
     </Badge>
   )
-}
-
-export function FolderIcon({ className }: { className?: string }) {
-  return <Folder className={className} />
 }

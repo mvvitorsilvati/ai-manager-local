@@ -259,7 +259,39 @@ class GitInfoTest(unittest.TestCase):
             assert info is not None
             self.assertEqual(info["author"], "Teste")
             self.assertEqual(info["email"], "t@t")
+            self.assertEqual(info["committer"], "Teste")
             self.assertTrue(info["sha"])
+
+    @unittest.skipUnless(shutil.which("git"), "git indisponível")
+    def test_trio_de_autores_inclui_coautor_dos_trailers(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            subprocess.run(["git", "init", "-q", tmp], check=True, capture_output=True)
+            p = Path(tmp) / "a.md"
+            p.write_text("x")
+            subprocess.run(["git", "-C", tmp, "add", "a.md"], check=True, capture_output=True)
+            subprocess.run([
+                "git", "-C", tmp, "-c", "user.name=Committer", "-c", "user.email=c@t",
+                "commit", "-q", "-m", "x\n\nCo-Authored-By: Claude Opus 5 <noreply@anthropic.com>",
+            ], check=True, capture_output=True)
+            info = app.git_last_commit(p)
+            assert info is not None
+            self.assertEqual(info["committer"], "Committer")
+            self.assertEqual(info["coauthors"], ["Claude Opus 5 <noreply@anthropic.com>"])
+
+    @unittest.skipUnless(shutil.which("git"), "git indisponível")
+    def test_authors_for_em_lote(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            subprocess.run(["git", "init", "-q", tmp], check=True, capture_output=True)
+            (Path(tmp) / "a.md").write_text("x")
+            subprocess.run(["git", "-C", tmp, "add", "a.md"], check=True, capture_output=True)
+            subprocess.run(["git", "-C", tmp, "-c", "user.name=Ana", "-c", "user.email=a@t",
+                            "commit", "-q", "-m", "x"], check=True, capture_output=True)
+            app.SOURCE_BY_ID["teste"] = {"id": "teste", "label": "t", "root": tmp,
+                                         "exclude_dirs": set(), "exclude_files": set()}
+            self.addCleanup(lambda: app.SOURCE_BY_ID.pop("teste", None))
+            result = app.authors_for([{"s": "teste", "r": "a.md"}, {"s": "teste", "r": "nao.md"}])
+            self.assertEqual(len(result), 1)
+            self.assertEqual(result[0]["author"], "Ana")
 
     def test_file_info_traz_dono_criacao_e_tamanho(self):
         with tempfile.TemporaryDirectory() as tmp:

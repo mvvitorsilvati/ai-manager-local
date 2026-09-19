@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 
-import { CatIcon, SourceBadge, VersionBadges } from "@/components/bits"
+import { CatIcon, IncidentIcon, SourceBadge, VersionBadges } from "@/components/bits"
 import { CopyCommandButton } from "@/components/CopyCommandButton"
 import { ToolIcon } from "@/components/ToolIcon"
 import { Card } from "@/components/ui/card"
@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { UpdateButton } from "@/components/UpdateButton"
 import { UsageCard } from "@/components/UsageCard"
 import { useCatalog } from "@/hooks/useCatalog"
+import { useIncidents } from "@/hooks/useIncidents"
 import { useVersions } from "@/hooks/useVersions"
 import { api } from "@/lib/api"
 import { ago } from "@/lib/format"
@@ -24,6 +25,7 @@ export default function Dashboard() {
     refetchInterval: 5 * 60_000,
   })
   const { data: versions, isPending: versionsPending } = useVersions()
+  const { data: incidents } = useIncidents()
   const { data: authors } = useQuery({
     queryKey: ["authors", recent.map((f) => f.s + f.r).join("|")],
     queryFn: () => api.authors(recent.map((f) => ({ s: f.s, r: f.r }))),
@@ -115,6 +117,7 @@ export default function Dashboard() {
                   >
                     <ToolIcon id={id} className="size-4 shrink-0" />
                     <span className="w-36 shrink-0 truncate font-medium">{label}</span>
+                    <IncidentIcon incident={incidents?.sources[id]} />
                     <VersionBadges installed={v.installed} latest={v.latest} update={v.update} />
                     {v.update === true && <UpdateButton body={{ tool: id }} label={label} />}
                     {v.update === true && v.command && <CopyCommandButton command={v.command} label={label} />}

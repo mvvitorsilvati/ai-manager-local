@@ -23,7 +23,7 @@ Roda 100% local (`127.0.0.1`), sem telemetria e sem enviar nada para fora — ex
 
 ## O que faz
 
-- **Navegação por tipo**: Contextos, Skills, Agentes, Comandos, Regras, Docs, MCPs, Plugins e o navegador de Arquivos
+- **Navegação por tipo**: Contextos, Skills, Agentes, Comandos, Regras, Docs, MCPs, Plugins, o navegador de Arquivos e a Auditoria
 - **Navegação por IA**: seleciona a ferramenta (opencode, Claude, Codex, Copilot, Gemini, Compartilhado) e vê tudo daquela IA, global e por projeto
 - **Projetos**: detecta repositórios em `~/Projetos` e mostra `.claude/`, `.opencode/`, `.codex/`, `.gemini/`, `.agents/`, `AGENTS.md`, `CLAUDE.md`, `.mcp.json`, `opencode.json`, `.cursorrules`, `.github/copilot-instructions.md` e a pasta `docs/`
 - **Árvores com metadados**: itens, nome, MIME, extensão e tamanho (arquivo e total por diretório)
@@ -35,9 +35,10 @@ Roda 100% local (`127.0.0.1`), sem telemetria e sem enviar nada para fora — ex
 - **Uso das IAs**: cards com a conta autenticada e limites/reset do Claude Code (janelas 5h/7d ou créditos), Codex (5h/7d, lidos do último rollout) e GitHub Copilot (premium requests + reset mensal)
 - **Versões e atualizações**: versão instalada de cada CLI vs. a última publicada no npm, com botão **Atualizar** (via brew, npm ou o próprio updater) e **Copiar comando** para rodar a atualização no seu terminal; se o canal de instalação ainda não tiver versão nova, o painel avisa "Nada mudou" em vez de dar sucesso falso; nos plugins, versão instalada, atualização disponível, indicação visual de **update automático** (verde, ícone de sincronismo) ou **manual** (âmbar, ícone de mão) — clicável para alternar no `settings.json` do Claude Code
 - **Status pages**: os links das IAs na sidebar mostram um ícone de alerta (âmbar/vermelho) quando há incidente ativo, consultando as APIs de status (Anthropic, OpenAI, GitHub, Google Cloud e Cursor)
-- **MCPs**: ativar/desativar direto no card (opencode e Codex editam o config com backup; Copilot e Gemini usam o CLI) e autenticar/sair via OAuth (Claude, opencode e Codex)
+- **MCPs**: ativar/desativar direto no card (opencode e Codex editam o config com backup; Copilot e Gemini usam o CLI), autenticar/sair via OAuth (Claude, opencode e Codex) e **Ver config** em todos — inclusive os do Claude, que vivem em `~/.claude.json` (fonte especial somente leitura de caminho)
 - **Atalhos de teclado**: `⌘K` busca, `⌘E` editar, `⌘S` salvar, `Esc` fecha painéis/cancela a edição
 - **Histórico**: botão voltar do mouse/navegador navega entre seções e fecha o viewer, com guarda para alterações não salvas
+- **Auditoria**: lista as últimas gravações do painel (save/restore) com data, caminho e backup, lidas de `~/.gestor_local/audit.log`
 
 ## Stack
 
@@ -197,6 +198,7 @@ O backend escaneia as fontes a cada requisição de catálogo (sem banco de dado
 | GET | `/api/usage[?refresh=1]` | uso/limites de Claude, Codex e Copilot (cache 60 s) |
 | GET | `/api/versions[?refresh=1]` | versões instaladas/últimas das CLIs, contas autenticadas e atualizações de plugins (cache 10 min) |
 | GET | `/api/incidents[?refresh=1]` | incidentes ativos nas status pages das IAs (cache 5 min) |
+| GET | `/api/audit[?limit=200]` | últimas gravações do painel (save/restore) do `audit.log` |
 | POST | `/api/save` | salva `{s, r, content, mtime_ns?, force?}` (409 em conflito, 422 em sintaxe inválida) |
 | POST | `/api/restore` | restaura `{s, r, backup}` (o estado atual vira backup antes) |
 | POST | `/api/authors` | autores (autor/committer/co-autores) em lote para a lista de recentes |
@@ -222,7 +224,7 @@ O backend escaneia as fontes a cada requisição de catálogo (sem banco de dado
 
 O registro `TOOLS` em `backend/app.py` é o ponto único de parametrização: uma entrada define o diretório global (`root`), os caminhos de projeto (`dirs`/`files`), o arquivo de MCP (`mcp.rel` + `kind`/`container`), o CLI (`cli`, para versão/update), autenticação (`mcp_login`/`mcp_logout`, `mcp_enable`/`mcp_disable`) e a status page (`status`). A sidebar e a tela "Por IA" só exibem o que está configurado (diretório existente).
 
-Além do registro, o painel faz **auto-discovery** de IAs não mapeadas: qualquer `~/.<ia>/mcp.json` (ou `.mcp.json`/`mcp_config.json`) com `mcpServers` vira uma fonte automaticamente, com MCPs listados e liga/desliga pelo painel (ícone genérico até você adicionar a marca no `ToolIcon`).
+Além do registro, o painel faz **auto-discovery** de IAs não mapeadas: qualquer `~/.<ia>/mcp.json` (ou `.mcp.json`/`mcp_config.json`) com `mcpServers` — e também `~/Library/Application Support/<IA>/**/mcp.json` (Trae, Kiro e afins) — vira uma fonte automaticamente, com MCPs listados e liga/desliga pelo painel (ícone genérico até você adicionar a marca no `ToolIcon`).
 
 Exclusões automáticas: binários e caches por extensão (`.pyc`, `.zip`, `.pdf`, fontes, áudio, SQLite e seus `-wal/-shm/-journal`), históricos `.jsonl`, diretórios de sessão/cache (`sessions/`, `projects/`, `cache/`, `worktrees/`, `session-state/`, `run/`) e arquivos de credenciais (`auth.json`).
 

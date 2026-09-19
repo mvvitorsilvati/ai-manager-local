@@ -17,9 +17,10 @@ def test_walk_ignora_binarios_e_inclui_sem_extensao(tmp_path):
     (tmp_path / "cache.pyc").write_text("x")
     (tmp_path / "Makefile").write_text("all:")
     src = {"id": "agents", "root": str(tmp_path), "exclude_dirs": set(), "exclude_files": set()}
-    rels = {f["r"] for f in app.walk_source(src)}
-    assert {"assets/logo.png", "Makefile"} <= rels
-    assert "cache.pyc" not in rels
+    entries = {f["r"]: f for f in app.walk_source(src)}
+    assert {"assets/logo.png", "Makefile"} <= set(entries)
+    assert "cache.pyc" not in entries
+    assert entries["assets/logo.png"]["m"] == "image/png"
 
 
 # ---------------------------------------------------------------- resolve_file

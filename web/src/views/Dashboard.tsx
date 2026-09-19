@@ -3,6 +3,8 @@ import { useCatalog } from "@/hooks/useCatalog"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { CatIcon } from "@/components/bits"
+import { ago } from "@/lib/format"
 
 const SRC_COLOR: Record<string, string> = {
   opencode: "#6ea8fe", agents: "#f783ac", claude: "#d0a2ff", codex: "#8ce99a", gemini: "#ffd43b",
@@ -50,6 +52,25 @@ export default function Dashboard() {
             <span className="text-xs text-muted-foreground">{label}</span>
           </Card>
         ))}
+      </div>
+
+      <div>
+        <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Modificados recentemente</h3>
+        <div className="overflow-hidden rounded-lg border border-border">
+          {[...files].sort((a, b) => b.t - a.t).slice(0, 10).map((f) => (
+            <button
+              key={f.s + f.r}
+              onClick={() => navigate(`/f?s=${encodeURIComponent(f.s)}&r=${encodeURIComponent(f.r)}`)}
+              className="flex w-full items-center gap-2 border-b border-border px-3 py-2 text-left text-sm last:border-0 hover:bg-accent"
+            >
+              <CatIcon cat={f.c} className="size-3.5 shrink-0 opacity-70" />
+              <span className="truncate">{f.n}</span>
+              <span className="ml-auto shrink-0 font-mono text-[11px] text-muted-foreground">
+                {f.r} · {ago(f.t)}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <div>

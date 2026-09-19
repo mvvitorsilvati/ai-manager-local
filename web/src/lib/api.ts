@@ -175,7 +175,7 @@ export const api = {
   update: (body: { tool: string } | { source: string; name: string }) =>
     unwrap<UpdateResult>(client.post("/api/update", body)),
   incidents: (refresh = false) =>
-    unwrap<IncidentsResponse>(client.get("/api/incidents", { params: refresh ? { refresh: "1" } : {}})),
+    unwrap<IncidentsResponse>(client.get("/api/incidents", { params: refresh ? { refresh: "1" } : {} })),
   audit: (limit = 200) => unwrap<AuditEntry[]>(client.get("/api/audit", { params: { limit } })),
   setPluginAutoUpdate: (name: string, auto: boolean) =>
     unwrap<{ ok: boolean; auto_update: boolean }>(client.post("/api/plugin-auto-update", { name, auto })),

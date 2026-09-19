@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Markdown } from "@/components/Markdown"
+import { CodeEditor } from "@/components/CodeEditor"
 
 type Mode = "render" | "raw" | "edit"
 
@@ -165,13 +166,7 @@ export function Viewer() {
           {isLoading || !data ? (
             <Skeleton className="h-64 w-full" />
           ) : mode === "edit" ? (
-            <textarea
-              autoFocus
-              spellCheck={false}
-              value={text}
-              onChange={(e) => setBuffer(e.target.value)}
-              className="h-full min-h-[65vh] w-full resize-y rounded-lg border border-border bg-card p-3.5 font-mono text-xs leading-relaxed outline-none focus:border-primary"
-            />
+            <CodeEditor value={text} path={r} onChange={setBuffer} onSave={() => save()} />
           ) : isImage && mode === "render" ? (
             <img
               alt={baseName(r)}

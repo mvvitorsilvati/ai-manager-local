@@ -10,6 +10,11 @@ setup:
     cd backend && uv sync
     cd web && pnpm install
 
+# para a instância que estiver rodando na porta 4747
+stop:
+    @pid=$(lsof -nP -i :4747 -t 2>/dev/null | head -1); \
+    if [ -n "$pid" ]; then kill "$pid" && echo "instância na 4747 encerrada (pid $pid)"; else echo "nenhuma instância rodando na 4747"; fi
+
 # sobe o backend (API + app buildado) em http://127.0.0.1:4747
 run:
     uv run --project backend backend/app.py

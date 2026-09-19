@@ -1,33 +1,29 @@
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 
-import { CatIcon } from "@/components/bits"
-import { Badge } from "@/components/ui/badge"
+import { CatIcon, SourceBadge, VersionBadges } from "@/components/bits"
+import { CopyCommandButton } from "@/components/CopyCommandButton"
+import { ToolIcon } from "@/components/ToolIcon"
 import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { UpdateButton } from "@/components/UpdateButton"
 import { UsageCard } from "@/components/UsageCard"
 import { useCatalog } from "@/hooks/useCatalog"
+import { useVersions } from "@/hooks/useVersions"
 import { api } from "@/lib/api"
 import { ago } from "@/lib/format"
-
-const SRC_COLOR: Record<string, string> = {
-  opencode: "#6ea8fe",
-  agents: "#f783ac",
-  claude: "#d0a2ff",
-  codex: "#8ce99a",
-  gemini: "#ffd43b",
-}
 
 export default function Dashboard() {
   const navigate = useNavigate()
   const { data: catalog, isLoading } = useCatalog()
   const recent = catalog ? [...catalog.files].sort((a, b) => b.t - a.t).slice(0, 10) : []
-  const { data: usage } = useQuery({
+  const { data: usage, isPending: usagePending } = useQuery({
     queryKey: ["usage"],
     queryFn: () => api.usage(),
     staleTime: 30_000,
     refetchInterval: 5 * 60_000,
   })
+  const { data: versions, isPending: versionsPending } = useVersions()
   const { data: authors } = useQuery({
     queryKey: ["authors", recent.map((f) => f.s + f.r).join("|")],
     queryFn: () => api.authors(recent.map((f) => ({ s: f.s, r: f.r }))),
@@ -82,13 +78,52 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {(usage?.claude || usage?.codex || usage?.copilot) && (
+      {(usagePending || usage?.claude || usage?.codex || usage?.copilot) && (
         <div>
           <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">Uso das IAs</h3>
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {usage?.claude && <UsageCard tool="claude" />}
             {usage?.codex && <UsageCard tool="codex" />}
             {usage?.copilot && <UsageCard tool="copilot" />}
+            {usagePending && (
+              <>
+                <Skeleton className="h-32" />
+                <Skeleton className="h-32" />
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {(versionsPending || versions) && (
+        <div>
+          <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">Versões das IAs</h3>
+          <div className="border-border overflow-hidden rounded-lg border">
+            {!versions &&
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="border-border border-b px-3 py-2.5 last:border-0">
+                  <Skeleton className="h-5 w-full" />
+                </div>
+              ))}
+            {versions?.tools &&
+              Object.entries(versions.tools).map(([id, v]) => {
+                const label = catalog.tools.find((t) => t.id === id)?.label ?? id
+                return (
+                  <div
+                    key={id}
+                    className="border-border flex items-center gap-3 border-b px-3 py-2 text-sm last:border-0"
+                  >
+                    <ToolIcon id={id} className="size-4 shrink-0" />
+                    <span className="w-36 shrink-0 truncate font-medium">{label}</span>
+                    <VersionBadges installed={v.installed} latest={v.latest} update={v.update} />
+                    {v.update === true && <UpdateButton body={{ tool: id }} label={label} />}
+                    {v.update === true && v.command && <CopyCommandButton command={v.command} label={label} />}
+                    {v.account && (
+                      <span className="text-muted-foreground ml-auto truncate text-[11px]">{v.account}</span>
+                    )}
+                  </div>
+                )
+              })}
           </div>
         </div>
       )}
@@ -133,9 +168,7 @@ export default function Dashboard() {
                 .map((s) => (
                   <tr key={s.id} className="border-border border-b last:border-0">
                     <td className="px-3 py-2">
-                      <Badge variant="outline" style={{ borderColor: SRC_COLOR[s.id], color: SRC_COLOR[s.id] }}>
-                        {s.label}
-                      </Badge>
+                      <SourceBadge source={s} />
                     </td>
                     <td className="text-muted-foreground px-3 py-2 font-mono text-xs">{s.root}</td>
                     <td className="px-3 py-2">{files.filter((f) => f.s === s.id).length}</td>

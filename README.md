@@ -30,7 +30,10 @@ Roda 100% local (`127.0.0.1`), sem telemetria e sem enviar nada para fora — ex
 - **Viewer**: Markdown renderizado (com Mermaid), JSON formatado, imagens, texto bruto e metadados (criado/modificado, dono, autor do último commit via git)
 - **Edição com segurança**: editor Monaco, backup automático (10 versões por arquivo), conflito detectado se o arquivo mudar por fora (`409`), restauração pela interface e log de auditoria
 - **Busca global** por nome e por conteúdo, com destaque das linhas encontradas
-- **Uso das IAs**: cards com limites/reset do Claude Code (janelas 5h/7d ou créditos), Codex (5h/7d, lidos do último rollout) e GitHub Copilot (premium requests + reset mensal)
+- **Uso das IAs**: cards com a conta autenticada e limites/reset do Claude Code (janelas 5h/7d ou créditos), Codex (5h/7d, lidos do último rollout) e GitHub Copilot (premium requests + reset mensal)
+- **Versões e atualizações**: versão instalada de cada CLI vs. a última publicada no npm, com botão **Atualizar** (via brew, npm ou o próprio updater) e **Copiar comando** para rodar a atualização no seu terminal; nos plugins, versão instalada, atualização disponível, indicação visual de **update automático** (verde, ícone de sincronismo) ou **manual** (âmbar, ícone de mão) — clicável para alternar no `settings.json` do Claude Code
+- **Status pages**: os links das IAs na sidebar mostram um ícone de alerta (âmbar/vermelho) quando há incidente ativo, consultando as APIs de status (Anthropic, OpenAI, GitHub, Google Cloud e Cursor)
+- **MCPs**: ativar/desativar direto no card (opencode e Codex editam o config com backup; Copilot e Gemini usam o CLI) e autenticar/sair via OAuth (Claude, opencode e Codex)
 - **Atalhos de teclado**: `⌘K` busca, `⌘E` editar, `⌘S` salvar, `Esc` fecha painéis/cancela a edição
 - **Histórico**: botão voltar do mouse/navegador navega entre seções e fecha o viewer, com guarda para alterações não salvas
 
@@ -196,10 +199,15 @@ O backend escaneia as fontes a cada requisição de catálogo (sem banco de dado
 | GET | `/api/search?q=` | busca por nome e conteúdo |
 | GET | `/api/backups?s=&r=` | versões de backup do arquivo |
 | GET | `/api/usage[?refresh=1]` | uso/limites de Claude, Codex e Copilot (cache 60 s) |
+| GET | `/api/versions[?refresh=1]` | versões instaladas/últimas das CLIs, contas autenticadas e atualizações de plugins (cache 10 min) |
+| GET | `/api/incidents[?refresh=1]` | incidentes ativos nas status pages das IAs (cache 5 min) |
 | POST | `/api/save` | salva `{s, r, content, mtime_ns?, force?}` (409 em conflito, 422 em sintaxe inválida) |
 | POST | `/api/restore` | restaura `{s, r, backup}` (o estado atual vira backup antes) |
 | POST | `/api/authors` | autores (autor/committer/co-autores) em lote para a lista de recentes |
 | POST | `/api/reveal` | abre o arquivo no Finder (macOS) |
+| POST | `/api/update` | atualiza uma CLI (`{tool}`) ou um plugin (`{source, name}`) para a versão mais recente |
+| POST | `/api/plugin-auto-update` | liga/desliga o update automático de um marketplace (`{name, auto}`) no `settings.json` do Claude Code |
+| POST | `/api/mcp` | ativa/desativa (`enable`/`disable`) ou autentica/desconecta (`login`/`logout`) um MCP (`{source, name, action}`) |
 
 ## Fontes escaneadas
 

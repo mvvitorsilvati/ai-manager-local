@@ -58,6 +58,29 @@ test("busca (⌘K) encontra o arquivo e abre no viewer", async ({ page }) => {
   await expect(page.getByText("Agente fictício para a fixture de E2E")).toBeVisible()
 })
 
+test("Recolher tudo fecha as seções e Expandir tudo reabre", async ({ page }) => {
+  await abrirProjeto(page)
+  await expect(page.getByRole("button", { name: /CLAUDE\.md/ })).toBeVisible()
+
+  await page.getByRole("button", { name: "Recolher tudo" }).click()
+  await expect(page.getByRole("button", { name: /CLAUDE\.md/ })).toHaveCount(0)
+
+  await page.getByRole("button", { name: "Expandir tudo" }).click()
+  await expect(page.getByRole("button", { name: /CLAUDE\.md/ })).toBeVisible()
+})
+
+test("busca filtra os itens da tela fora da visão geral", async ({ page }) => {
+  await page.goto("/projetos")
+  await expect(page.getByRole("button", { name: /CLAUDE\.md/ })).toBeVisible()
+
+  await page.getByPlaceholder(/Filtrar/).fill("zzz-nao-existe")
+  await expect(page.getByText(/Nenhum item corresponde/)).toBeVisible()
+  await expect(page.getByRole("button", { name: /CLAUDE\.md/ })).toHaveCount(0)
+
+  await page.getByPlaceholder(/Filtrar/).fill("CLAUDE.md")
+  await expect(page.getByRole("button", { name: /CLAUDE\.md/ })).toBeVisible()
+})
+
 test("edita no Monaco e salva com ⌘S", async ({ page }) => {
   await abrirArquivo(page, "CLAUDE\\.md")
   await page.getByRole("button", { name: /Editar/ }).click()

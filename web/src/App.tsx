@@ -1,6 +1,7 @@
 import {
   BookOpen,
   Cpu,
+  ExternalLink,
   FileText,
   Files,
   Folder,
@@ -11,17 +12,21 @@ import {
   Server,
   Shield,
   Terminal,
+  TriangleAlert,
   Zap,
   type LucideIcon,
 } from "lucide-react"
 import { useEffect, useRef } from "react"
 import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom"
 
+import { CollapseAllButton } from "@/components/collapse"
+import { ToolIcon } from "@/components/ToolIcon"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Toaster } from "@/components/ui/sonner"
 import { Viewer } from "@/components/Viewer"
 import { useCatalog } from "@/hooks/useCatalog"
+import { useIncidents } from "@/hooks/useIncidents"
 import { cn } from "@/lib/utils"
 import Dashboard from "@/views/Dashboard"
 import {
@@ -54,8 +59,20 @@ export const NAV: NavItem[] = [
   { to: "/arquivos", label: "Arquivos", icon: Files },
 ]
 
+const STATUS_URL: Record<string, string> = {
+  claude: "https://status.anthropic.com",
+  codex: "https://status.openai.com",
+  copilot: "https://www.githubstatus.com",
+  gemini: "https://status.cloud.google.com",
+  cursor: "https://status.cursor.com",
+}
+
+const severityClass = (indicator?: string | null) =>
+  indicator === "critical" || indicator === "major" || indicator === "high" ? "text-red-500" : "text-amber-400"
+
 export default function App() {
   const { data: catalog, refetch, isFetching } = useCatalog()
+  const { data: incidents } = useIncidents()
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -135,14 +152,40 @@ export default function App() {
         <div className="border-border text-muted-foreground truncate border-t px-4 py-3 text-[11px]">
           {catalog?.sources
             .filter((s) => !s.project)
-            .map((s) => (
-              <div key={s.id}>{s.label}</div>
-            ))}
+            .map((s) => {
+              const status = STATUS_URL[s.id]
+              const incident = incidents?.sources[s.id]
+              return (
+                <div key={s.id} className="flex items-center gap-1.5">
+                  <ToolIcon id={s.id} className="size-3.5" />
+                  {status ? (
+                    <a
+                      href={status}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={`Página de status · ${status}`}
+                      className="hover:text-foreground inline-flex min-w-0 items-center gap-1 underline-offset-2 hover:underline"
+                    >
+                      <span className="truncate">{s.label}</span>
+                      <ExternalLink className="size-3 shrink-0 opacity-60" />
+                      {incident && incident.ok === false && (
+                        <span title={incident.description ?? "incidente ativo"} className="shrink-0">
+                          <TriangleAlert className={cn("size-3.5", severityClass(incident.indicator))} />
+                        </span>
+                      )}
+                    </a>
+                  ) : (
+                    <span className="truncate">{s.label}</span>
+                  )}
+                </div>
+              )
+            })}
         </div>
       </aside>
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="border-border bg-card flex gap-3 border-b p-3.5">
           <SearchInput />
+          <CollapseAllButton />
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={cn("size-4", isFetching && "animate-spin")} />
             Atualizar

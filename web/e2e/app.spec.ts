@@ -4,7 +4,22 @@ import path from "node:path"
 import { expect, test, type Page } from "@playwright/test"
 
 const MOD = process.platform === "darwin" ? "Meta" : "Control"
+const NOVO_TEXTO = "# Editado pelo E2E"
 const FIXTURE = path.resolve(import.meta.dirname, ".tmp/projetos/meu-projeto")
+
+/**
+ * Escreve no Monaco de forma determinística: colar é atômico, enquanto
+ * `keyboard.type` digita tecla a tecla e o Monaco acaba perdendo caracteres.
+ */
+async function escreverNoEditor(page: Page, texto: string) {
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
+  await page.evaluate(
+    (t) => (navigator as unknown as { clipboard: { writeText: (v: string) => Promise<void> } }).clipboard.writeText(t),
+    texto,
+  )
+  await page.keyboard.press(`${MOD}+v`)
+  await expect(page.locator(".monaco-editor .view-lines")).toContainText(texto)
+}
 
 async function abrirProjeto(page: Page) {
   await page.goto("/projetos")
@@ -50,19 +65,22 @@ test("edita no Monaco e salva com ⌘S", async ({ page }) => {
   const editor = page.locator(".monaco-editor .view-lines")
   await editor.click()
   await page.keyboard.press(`${MOD}+a`)
-  await page.keyboard.type("# Editado pelo E2E")
-  await expect(editor).toContainText("Editado pelo E2E")
+  await escreverNoEditor(page, NOVO_TEXTO)
+  await expect(editor).toContainText(NOVO_TEXTO)
   await page.keyboard.press(`${MOD}+s`)
 
   await expect(page.getByText("Salvo — backup criado")).toBeVisible()
-  expect(readFileSync(path.join(FIXTURE, "CLAUDE.md"), "utf8")).toContain("Editado pelo E2E")
+  expect(readFileSync(path.join(FIXTURE, "CLAUDE.md"), "utf8")).toContain(NOVO_TEXTO)
 })
 
 test("Esc cancela a edição sem fechar o viewer", async ({ page }) => {
+  // com alterações pendentes o app pede confirmação; aceita o descarte
+  page.on("dialog", (dialog) => dialog.accept())
+
   await abrirArquivo(page, "CLAUDE\\.md")
   await page.getByRole("button", { name: /Editar/ }).click()
   await page.locator(".monaco-editor .view-lines").click()
-  await page.keyboard.type("# rascunho")
+  await escreverNoEditor(page, "# rascunho")
 
   await page.keyboard.press("Escape")
 

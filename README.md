@@ -240,7 +240,7 @@ just e2e                     # build + playwright test
 cd web && pnpm test:e2e      # sem rebuild
 ```
 
-Cobrem: carregar a visão geral, listar o projeto fixture e abrir arquivo no viewer, busca por ⌘K, edição no Monaco com ⌘S (conferindo o arquivo no disco) e Esc cancelando a edição.
+Cobrem: carregar a visão geral, listar o projeto fixture e abrir arquivo no viewer, busca por ⌘K, edição no Monaco com ⌘S (conferindo o arquivo no disco) e Esc cancelando a edição. A digitação usa colagem (o `keyboard.type` perde teclas no Monaco) e, no CI, testes *flaky* reprovam o job (`failOnFlakyTests`).
 
 Se o download do chromium estiver bloqueado na sua rede, use o Chrome do sistema:
 

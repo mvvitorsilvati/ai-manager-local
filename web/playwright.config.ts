@@ -15,6 +15,8 @@ export default defineConfig({
   workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
+  // flaky (falhou e passou no retry) reprova o job — evita mascarar instabilidade
+  failOnFlakyTests: !!process.env.CI,
   reporter: process.env.CI ? [["github"], ["list"]] : [["list"]],
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,

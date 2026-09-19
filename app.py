@@ -633,7 +633,7 @@ def file_info(path: Path) -> dict:
         "abs": str(path),
         "size": st.st_size,
         "mtime": int(st.st_mtime),
-        "mtime_ns": int(st.st_mtime_ns),
+        "mtime_ns": str(st.st_mtime_ns),
         "created": int(getattr(st, "st_birthtime", st.st_ctime)),
         "owner": owner,
         "group": group,
@@ -790,7 +790,7 @@ def save_file(source_id: str, rel: str, content: str, expected_mtime: int | None
     if not force and not _same_mtime(before, expected_mtime, expected_mtime_ns):
         raise ConflictError(
             "o arquivo foi alterado fora do painel desde que foi aberto",
-            {"mtime": int(before.st_mtime), "mtime_ns": int(before.st_mtime_ns), "size": before.st_size},
+            {"mtime": int(before.st_mtime), "mtime_ns": str(before.st_mtime_ns), "size": before.st_size},
         )
     validate_content(path, content)
     backup = create_backup(path, source_id, rel)

@@ -178,11 +178,15 @@ class SaveFileTest(unittest.TestCase):
         self.assertEqual((self.root / "a.md").read_text(), "original")
 
     def test_conflito_no_mesmo_segundo_usa_nanossegundos(self):
-        stale_ns = (self.root / "a.md").stat().st_mtime_ns
+        stale_ns = str((self.root / "a.md").stat().st_mtime_ns)
         self._save(content="primeira")  # sobrescreve dentro do mesmo segundo
         with self.assertRaises(app.ConflictError):
             self._save(content="segunda", expected_mtime=None, expected_mtime_ns=stale_ns)
         self.assertEqual((self.root / "a.md").read_text(), "primeira")
+
+    def test_mtime_ns_vai_como_string_no_file_info(self):
+        info = app.file_info(self.root / "a.md")
+        self.assertIsInstance(info["mtime_ns"], str)
 
     def test_force_ignora_conflito(self):
         self._save(expected_mtime=123, force=True)

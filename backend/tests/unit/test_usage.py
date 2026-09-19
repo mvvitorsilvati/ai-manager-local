@@ -1,3 +1,5 @@
+import json
+
 import httpx
 
 import app
@@ -84,3 +86,37 @@ def test_claude_usage_parseia_resposta(monkeypatch):
     assert usage["available"] is True
     assert usage["credits"]["percent"] == 95
     assert len(usage["windows"]) == 3
+
+
+def test_parse_codex_rate_limits_rotula_janelas():
+    windows = app.parse_codex_rate_limits({
+        "primary": {"used_percent": 83.0, "window_minutes": 300, "resets_at": 1789743133},
+        "secondary": {"used_percent": 49.0, "window_minutes": 10080, "resets_at": 1789837486},
+    })
+    assert windows[0]["label"] == "Sessão (5h)"
+    assert windows[0]["utilization"] == 83.0
+    assert windows[0]["resets_at"] == "2026-09-18T14:52:13+00:00"
+    assert windows[1]["label"] == "Semanal (7d)"
+
+
+def test_codex_usage_le_ultimo_rollout(tmp_path, monkeypatch):
+    day = tmp_path / "sessions" / "2026" / "09" / "18"
+    day.mkdir(parents=True)
+    rollout = day / "rollout-teste.jsonl"
+    rate = {
+        "primary": {"used_percent": 10.0, "window_minutes": 300, "resets_at": 1789743133},
+        "plan_type": "plus",
+        "credits": {"balance": "0"},
+    }
+    rollout.write_text('{"payload":{"type":"turn"}}\n' + json.dumps({"payload": {"rate_limits": rate}}) + "\n")
+    monkeypatch.setattr(app, "CODEX_SESSIONS", tmp_path / "sessions")
+    usage = app.codex_usage()
+    assert usage is not None
+    assert usage["plan"] == "plus"
+    assert usage["windows"][0]["utilization"] == 10.0
+    assert usage["updated_at"] > 0
+
+
+def test_codex_usage_sem_sessoes_retorna_none(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "CODEX_SESSIONS", tmp_path / "nao-existe")
+    assert app.codex_usage() is None

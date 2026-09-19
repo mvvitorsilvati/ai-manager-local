@@ -602,32 +602,38 @@ def collect_mcps() -> list[dict]:
 
 
 def collect_plugins() -> list[dict]:
-    out = []
+    merged: dict[tuple[str, str], dict] = {}
 
-    oc = load_jsonc(HOME / ".config/opencode/opencode.jsonc") or {}
+    def add(name: str, source: str, enabled: bool | None = None, detail: str = "") -> None:
+        entry = merged.setdefault((source, name), {"name": name, "source": source, "enabled": True, "detail": ""})
+        if enabled is not None:
+            entry["enabled"] = enabled
+        if detail and not entry["detail"]:
+            entry["detail"] = detail
+
+    oc = load_jsonc(OPENCODE_CONFIG) or {}
     for name in oc.get("plugin") or []:
-        out.append({"name": str(name), "source": "opencode", "enabled": True, "detail": ""})
+        add(str(name), "opencode")
 
-    cl_settings = load_json(HOME / ".claude/settings.json") or {}
+    cl_settings = load_json(CLAUDE_SETTINGS) or {}
     for name, enabled in (cl_settings.get("enabledPlugins") or {}).items():
-        out.append({"name": name, "source": "claude", "enabled": bool(enabled), "detail": ""})
-    installed = load_json(HOME / ".claude/plugins/installed_plugins.json") or {}
+        add(name, "claude", bool(enabled))
+    installed = load_json(CLAUDE_INSTALLED_PLUGINS) or {}
     for name, entries in (installed.get("plugins") or {}).items():
-        detail = _flatten(entries)
-        out.append({"name": name, "source": "claude", "enabled": True, "detail": detail})
+        add(name, "claude", None, _flatten(entries))
 
     cx = load_toml(HOME / ".codex/config.toml") or {}
     for name, cfg in (cx.get("plugins") or {}).items():
         enabled = cfg.get("enabled", True) if isinstance(cfg, dict) else True
-        out.append({"name": name, "source": "codex", "enabled": bool(enabled), "detail": ""})
+        add(name, "codex", bool(enabled))
     for name in (cx.get("marketplaces") or {}):
-        out.append({"name": name, "source": "codex", "enabled": True, "detail": "marketplace"})
+        add(name, "codex", None, "marketplace")
 
     gm = load_json(HOME / ".gemini/config/config.json") or {}
     for name, cfg in (gm.get("plugins") or {}).items():
         enabled = cfg.get("enabled", True) if isinstance(cfg, dict) else True
-        out.append({"name": name, "source": "gemini", "enabled": bool(enabled), "detail": ""})
-    return out
+        add(name, "gemini", bool(enabled))
+    return list(merged.values())
 
 
 def mcps_from_config(path: Path) -> list[dict]:

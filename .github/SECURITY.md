@@ -2,13 +2,13 @@
 
 ## Escopo
 
-O Gestor Local roda **apenas na sua máquina** (`127.0.0.1`), sem autenticação e sem enviar dados para fora — exceto as consultas de uso (Claude, Codex, Copilot), que usam as credenciais já existentes no seu sistema.
+O AI Manager Local roda **apenas na sua máquina** (`127.0.0.1`), sem autenticação e sem enviar dados para fora — exceto as consultas de uso (Claude, Codex, Copilot), que usam as credenciais já existentes no seu sistema.
 
 Faz parte do escopo de segurança:
 
 - Path traversal / leitura fora das fontes permitidas (`resolve_file`)
 - Escrita indevida (bypass de backup, corrupção de arquivo, sobrescrita concorrente)
-- CSRF contra o servidor local (rotas `POST` e o header `X-Gestor`)
+- CSRF contra o servidor local (rotas `POST` e o header `X-AIM`)
 - Vazamento de segredos pela API (tokens de MCP, credenciais, headers)
 - Injeção (XSS) no frontend pela renderização de arquivos e busca
 
@@ -25,6 +25,6 @@ Retorno esperado: confirmação de recebimento em alguns dias e uma correção a
 ## Boas práticas ao contribuir
 
 - Nunca comite credenciais, tokens, `auth.json`, `.env`, backups ou logs de auditoria
-- Toda rota `POST` deve exigir o header `X-Gestor: 1` e passar pelo `resolve_file`
+- Toda rota `POST` deve exigir o header `X-AIM: 1` e passar pelo `resolve_file`
 - Nunca devolva segredos extraídos de arquivos de configuração pela API
 - Escrita de arquivos sempre com backup + validação de sintaxe + `os.replace` atômico

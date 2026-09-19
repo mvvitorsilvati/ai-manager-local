@@ -1,4 +1,4 @@
-# Gestor Local — tarefas do projeto (backend uv + front pnpm)
+# AI Manager Local — tarefas do projeto (backend uv + front pnpm)
 set shell := ["bash", "-uc"]
 
 # lista as tarefas disponíveis
@@ -75,19 +75,19 @@ check: lint test
 # ------------------------------------------------------------------ container
 # build da imagem (tag padrão do time: localhost/<repo>-py-<versão>:<versão do pyproject>)
 docker-build:
-    podman build -t localhost/gestor-local-py-3.14:0.1.0 .
+    podman build -t localhost/ai-management-local-py-3.14:0.1.0 .
 
 # sobe o painel em http://127.0.0.1:4747 montando o seu HOME (fontes, backups e audit)
 docker-run:
-    podman run --rm --name gestor-local \
+    podman run --rm --name ai-management-local \
       -p 127.0.0.1:4747:4747 \
-      -e HOME=/host-home -e GESTOR_HOST=0.0.0.0 \
+      -e HOME=/host-home -e AIM_HOST=0.0.0.0 \
       -v "$HOME":/host-home \
-      localhost/gestor-local-py-3.14:0.1.0
+      localhost/ai-management-local-py-3.14:0.1.0
 
 # roda a suíte de testes dentro da imagem (usa a venv embutida, sem rede)
 docker-test:
-    podman run --rm --name gestor-local-test \
+    podman run --rm --name ai-management-local-test \
       -v "$PWD":/workspace -w /workspace/backend \
-      localhost/gestor-local-py-3.14:0.1.0 \
+      localhost/ai-management-local-py-3.14:0.1.0 \
       /app/backend/.venv/bin/python -m pytest

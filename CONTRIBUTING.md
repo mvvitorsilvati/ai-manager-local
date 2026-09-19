@@ -23,8 +23,8 @@ git push -u origin feat/minha-mudanca
 ## Preparando o ambiente
 
 ```bash
-git clone git@github.com:mvvitorsilvati/gestor-local.git
-cd gestor-local
+git clone git@github.com:mvvitorsilvati/ai-management-local.git
+cd ai-management-local
 just setup     # uv sync (backend) + pnpm install (frontend)
 just build     # build do frontend servido pelo backend
 ```
@@ -65,7 +65,7 @@ Um commit = uma mudança coerente. Não misture formatação com lógica.
 Regras:
 
 - Prefira a **biblioteca padrão**; dependência nova precisa de justificativa (hoje: `trio`, `httpx`, `python-dotenv`)
-- Toda rota `POST` já passa pelo header `X-Gestor` e pelo `resolve_file` (path guard) — não escreva I/O direto sem essas checagens
+- Toda rota `POST` já passa pelo header `X-AIM` e pelo `resolve_file` (path guard) — não escreva I/O direto sem essas checagens
 - Nunca devolva segredos extraídos de configs (headers de MCP, tokens) pela API
 
 **Testes** — escolha o nível certo:

@@ -111,8 +111,8 @@ export default function App() {
     <div className="bg-background text-foreground flex h-screen">
       <aside className="border-border bg-card flex w-64 shrink-0 flex-col border-r">
         <div className="flex items-center gap-2 px-4 py-4 font-bold tracking-tight">
-          <span className="from-primary size-2.5 rounded-full bg-gradient-to-br to-emerald-400" />
-          Gestor Local
+          <img src="/favicon.svg" alt="" className="size-5 shrink-0 rounded-md" />
+          AI Manager Local
         </div>
         <nav className="flex-1 space-y-0.5 overflow-auto px-2 pb-2">
           {nav.map(({ to, label, icon: Icon, count, end }) => (

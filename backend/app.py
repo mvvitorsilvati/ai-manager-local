@@ -2100,11 +2100,11 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path in ("/", "/index.html", "/novo", "/novo/"):
             self._send(503, (
-                "<html><body style=\"font-family:sans-serif;padding:2rem\">"
-                "<h2>Gestor Local sem build do frontend</h2>"
-                "<p>Rode <code>just build</code> (ou <code>pnpm build</code> em <code>web/</code>) e recarregue.</p>"
-                "</body></html>"
-            ).encode("utf-8"), "text/html; charset=utf-8")
+                b"<html><body style=\"font-family:sans-serif;padding:2rem\">"
+                b"<h2>Gestor Local sem build do frontend</h2>"
+                b"<p>Rode <code>just build</code> (ou <code>pnpm build</code> em <code>web/</code>) e recarregue.</p>"
+                b"</body></html>"
+            ), "text/html; charset=utf-8")
             return
         self._json({"error": "não encontrado"}, 404)
 

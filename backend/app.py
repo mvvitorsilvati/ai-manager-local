@@ -812,6 +812,77 @@ def codex_usage() -> dict | None:
     }
 
 
+COPILOT_USAGE_URL = "https://api.github.com/copilot_internal/user"
+COPILOT_HEADERS = {
+    "Accept": "application/json",
+    "Editor-Version": "vscode/1.99.0",
+    "User-Agent": "gestor-local",
+}
+COPILOT_LABELS = {"premium_interactions": "Premium requests", "chat": "Chat", "completions": "Completions"}
+COPILOT_WINDOW_ORDER = ("premium_interactions", "chat", "completions")
+
+
+def github_token() -> str | None:
+    for env in ("GITHUB_TOKEN", "GH_TOKEN"):
+        value = os.environ.get(env)
+        if value:
+            return value
+    try:
+        proc = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        proc = None
+    if proc is not None and proc.returncode == 0 and proc.stdout.strip():
+        return proc.stdout.strip()
+    hosts = HOME / ".config" / "gh" / "hosts.yml"
+    if hosts.is_file():
+        match = re.search(r"oauth_token:\s*(\S+)", hosts.read_text(errors="replace"))
+        if match:
+            return match.group(1)
+    return None
+
+
+def parse_copilot_quota(payload: dict) -> dict:
+    reset = payload.get("quota_reset_date")
+    resets_at = f"{reset}T00:00:00+00:00" if isinstance(reset, str) else None
+    snapshots = payload.get("quota_snapshots") or {}
+    windows: list[dict] = []
+    unlimited: list[str] = []
+    keys = [k for k in COPILOT_WINDOW_ORDER if k in snapshots] + [k for k in snapshots if k not in COPILOT_WINDOW_ORDER]
+    for key in keys:
+        snap = snapshots.get(key)
+        if not isinstance(snap, dict):
+            continue
+        label = COPILOT_LABELS.get(key, key)
+        if snap.get("unlimited"):
+            unlimited.append(label)
+            continue
+        remaining = snap.get("percent_remaining")
+        utilization = round(100 - remaining, 1) if isinstance(remaining, (int, float)) else None
+        windows.append({"label": label, "utilization": utilization, "resets_at": resets_at})
+    return {
+        "available": True,
+        "plan": payload.get("copilot_plan"),
+        "windows": windows,
+        "unlimited": unlimited,
+    }
+
+
+def copilot_usage() -> dict | None:
+    token = github_token()
+    if not token:
+        return None
+    try:
+        headers = {**COPILOT_HEADERS, "Authorization": f"token {token}"}
+        response = httpx.get(COPILOT_USAGE_URL, headers=headers, timeout=10)
+        response.raise_for_status()
+        payload = response.json()
+    except (httpx.HTTPError, ValueError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return parse_copilot_quota(payload)
+
+
 def usage_snapshot(force: bool = False) -> dict:
     global _usage_cache
     now = time.time()
@@ -819,7 +890,7 @@ def usage_snapshot(force: bool = False) -> dict:
         stamp, cached = _usage_cache
         if not force and now - stamp < USAGE_CACHE_SECONDS:
             return cached
-    snapshot = {"claude": claude_usage(), "codex": codex_usage()}
+    snapshot = {"claude": claude_usage(), "codex": codex_usage(), "copilot": copilot_usage()}
     with _usage_lock:
         _usage_cache = (now, snapshot)
     return snapshot

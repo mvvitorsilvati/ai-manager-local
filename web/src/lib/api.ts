@@ -69,8 +69,9 @@ export type ToolUsage = {
   credits?: UsageCredits | null
   plan?: string | null
   updated_at?: number
+  unlimited?: string[]
 }
-export type UsageResponse = { claude: ToolUsage | null; codex: ToolUsage | null }
+export type UsageResponse = { claude: ToolUsage | null; codex: ToolUsage | null; copilot: ToolUsage | null }
 export type Backup = { name: string; size: number; mtime: number }
 export type SaveResult = { ok: boolean; mtime: number; mtime_ns: string; size: number; created: number; backup: string }
 export type SaveConflict = { error: string; conflict: true; mtime: number; mtime_ns: string; size: number }

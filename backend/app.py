@@ -147,6 +147,17 @@ SOURCES = [
         "exclude_files": {"auth.json", "models_cache.json", "chrome-native-hosts-v2.json"},
     },
     {
+        "id": "copilot",
+        "label": "GitHub Copilot CLI",
+        "root": "~/.copilot",
+        "tool": "copilot",
+        "exclude_dirs": {"history-session-state", "sidebar-sessions-state", "session-state", "run", "ide", "logs"},
+        "exclude_files": {
+            "data.db", "data.db-shm", "data.db-wal",
+            "command-history-state.json", "open-sessions-state.json", "vscode.session.metadata.cache.json",
+        },
+    },
+    {
         "id": "gemini",
         "label": "Gemini / Antigravity",
         "root": "~/.gemini",
@@ -462,6 +473,15 @@ def collect_mcps() -> list[dict]:
             "detail": _mcp_detail(cfg), "enabled": cfg.get("enabled", True),
         })
 
+    cp = load_json(HOME / ".copilot" / "mcp-config.json") or {}
+    for name, cfg in (cp.get("mcpServers") or {}).items():
+        cfg = cfg if isinstance(cfg, dict) else {}
+        out.append({
+            "name": name, "source": "copilot",
+            "type": cfg.get("type", "remote" if cfg.get("url") else "local"),
+            "detail": _mcp_detail(cfg), "enabled": cfg.get("enabled", True),
+        })
+
     cl = load_json(HOME / ".claude.json") or {}
     for name, cfg in (cl.get("mcpServers") or {}).items():
         cfg = cfg if isinstance(cfg, dict) else {}
@@ -515,7 +535,7 @@ def mcps_from_config(path: Path) -> list[dict]:
     name = path.name
     if name in ("opencode.json", "opencode.jsonc"):
         servers = (load_jsonc(path) or {}).get("mcp") or {}
-    elif name in ("mcp.json", ".mcp.json"):
+    elif name in ("mcp.json", ".mcp.json", "mcp-config.json"):
         servers = (load_json(path) or {}).get("mcpServers") or {}
     elif name == "config.toml":
         servers = (load_toml(path) or {}).get("mcp_servers") or {}

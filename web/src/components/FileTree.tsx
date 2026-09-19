@@ -62,12 +62,10 @@ function Level({ node, depth, onOpen }: { node: TreeNode; depth: number; onOpen:
           title={entry.f.r}
           className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 rounded-md px-2 py-1 text-left font-mono text-xs"
         >
-          <CatIcon cat={entry.f.c} className="size-3.5 shrink-0 opacity-70" />
-          <span className="truncate">{entry.label ?? entry.f.n}</span>
-          <span className={cn("text-muted-foreground ml-auto text-[10.5px]", COL_SIZE)}>
-            {fmtBytes(entry.f.z || 0)}
-          </span>
           <span className={COL_ITEMS} />
+          <CatIcon cat={entry.f.c} className="size-3.5 shrink-0 opacity-70" />
+          <span className="min-w-0 flex-1 truncate">{entry.label ?? entry.f.n}</span>
+          <span className={cn("text-muted-foreground text-[10.5px]", COL_SIZE)}>{fmtBytes(entry.f.z || 0)}</span>
           <span className={cn("text-muted-foreground text-[10.5px]", COL_MIME)} title={mimeLabel(entry.f)}>
             {mimeLabel(entry.f)}
           </span>
@@ -94,16 +92,16 @@ function FolderNode({
     <div>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-1.5 rounded-md px-2 py-1 font-mono text-xs"
+        className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left font-mono text-xs"
       >
+        <span className={cn("text-muted-foreground text-[10.5px]", COL_ITEMS)}>{countTree(node)}</span>
         {open ? (
           <FolderOpen className="text-muted-foreground size-3.5 shrink-0" />
         ) : (
           <Folder className="text-muted-foreground size-3.5 shrink-0" />
         )}
-        <span className="truncate">{name}</span>
-        <span className={cn("text-muted-foreground ml-auto text-[10.5px]", COL_SIZE)}>{fmtBytes(sizeTree(node))}</span>
-        <span className={cn("text-muted-foreground text-[10.5px]", COL_ITEMS)}>{countTree(node)}</span>
+        <span className="min-w-0 flex-1 truncate">{name}</span>
+        <span className={cn("text-muted-foreground text-[10.5px]", COL_SIZE)}>{fmtBytes(sizeTree(node))}</span>
         <span className={COL_MIME} />
         <span className={COL_EXT} />
       </button>
@@ -118,9 +116,9 @@ export function FileTree({ entries, onOpen }: { entries: TreeEntry[]; onOpen: (f
   return (
     <div>
       <div className="text-muted-foreground border-border mb-1 flex items-center gap-2 border-b px-2 pb-1 text-[10px] tracking-wider uppercase">
+        <span className={COL_ITEMS}>itens</span>
         <span className="flex-1">nome</span>
         <span className={COL_SIZE}>tamanho</span>
-        <span className={COL_ITEMS}>itens</span>
         <span className={COL_MIME}>mime</span>
         <span className={COL_EXT}>ext</span>
       </div>

@@ -139,8 +139,8 @@ export function Viewer() {
               </>
             )}
             <Button size="sm" variant="outline" onClick={openBackups}><History className="size-3.5" />Backups</Button>
-            <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(data?.abs ?? r); toast.success("Caminho copiado") }}><Copy className="size-3.5" /></Button>
-            <Button size="sm" variant="outline" onClick={() => fetch("/api/reveal", { method: "POST", headers: GESTOR_HEADERS, body: JSON.stringify({ s, r }) })}><FolderOpen className="size-3.5" /></Button>
+            <Button size="sm" variant="outline" title="Copiar caminho" onClick={() => { navigator.clipboard.writeText(data?.abs ?? r); toast.success("Caminho copiado") }}><Copy className="size-3.5" /></Button>
+            <Button size="sm" variant="outline" title="Abrir no Finder" onClick={() => fetch("/api/reveal", { method: "POST", headers: GESTOR_HEADERS, body: JSON.stringify({ s, r }) })}><FolderOpen className="size-3.5" /></Button>
           </div>
         </div>
 

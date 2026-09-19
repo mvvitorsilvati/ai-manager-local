@@ -57,6 +57,7 @@ Roda 100% local (`127.0.0.1`), sem telemetria e sem enviar nada para fora — ex
 | Node.js | 22+ | build/dev do frontend (Vite 8) |
 | [pnpm](https://pnpm.io/) | 10+ | dependências do frontend |
 | [just](https://github.com/casey/just) | 1.x | atalhos de tarefas (opcional) |
+| Podman ou Docker | — | opcional, apenas para rodar em container |
 
 Para os cards de uso (opcional): `gh` autenticado (Copilot) e Claude Code logado (Keychain) — sem isso, o card simplesmente não aparece.
 
@@ -92,6 +93,7 @@ cp .env.example .env
 |---|---|---|
 | `GESTOR_PROJECTS_DIR` | `~/Projetos` | diretório onde o painel procura os seus projetos (aceita `~`) |
 | `GESTOR_PORT` | `4747` | porta do servidor local (a flag `--port` tem precedência) |
+| `GESTOR_HOST` | `127.0.0.1` | interface de escuta; use `0.0.0.0` apenas em container (a flag `--host` tem precedência) |
 
 O `.env` fica na raiz do repositório, é carregado com [python-dotenv](https://github.com/theskumar/python-dotenv) **sem sobrescrever** variáveis já exportadas no ambiente, e não entra no Git (apenas o `.env.example`). Alterou? Reinicie o servidor (`just stop && just run`).
 
@@ -116,6 +118,22 @@ just stop       # encerra a instância que estiver na porta 4747
 | `just format` | oxfmt (frontend) + `ruff check --fix` (backend) |
 | `just check` | lint + testes |
 | `just hooks` | liga os git hooks versionados (pre-commit roda `just check`) |
+| `just docker-build` | build da imagem `localhost/gestor-local-py-3.14:0.1.0` |
+| `just docker-run` | sobe o painel em container montando o seu `$HOME` |
+| `just docker-test` | roda a suíte de testes dentro da imagem (sem rede) |
+
+### Rodando em container (Docker/Podman)
+
+```bash
+just docker-build   # podman build -t localhost/gestor-local-py-3.14:0.1.0 .
+just docker-run     # http://127.0.0.1:4747
+```
+
+Ou com Compose: `podman compose up --build` (ou `docker compose up --build`).
+
+O container monta o seu `$HOME` em `/host-home` (com `HOME` apontando para lá), então as fontes escaneadas, os backups e o `audit.log` continuam sendo os seus. A porta é publicada **só no loopback** do host (`127.0.0.1:4747`); dentro do container a API escuta em `0.0.0.0` via `GESTOR_HOST`.
+
+Limitações no modo container: Keychain do macOS (credenciais do Claude Code) e "abrir no Finder" não existem; o card de uso do Claude depende de `~/.claude/.credentials.json`. Para rodar os testes dentro da imagem (usa a venv embutida, sem rede): `just docker-test`.
 
 ### Fluxo de desenvolvimento
 
@@ -147,6 +165,9 @@ just dev
 
 ```
 gestor-local/
+├── Dockerfile                # multi-stage: build do front (Node) + runtime (Python 3.14 + uv)
+├── docker-compose.yml        # sobe o painel montando o $HOME
+├── .dockerignore
 ├── backend/                  # API + serving do frontend
 │   ├── app.py                # servidor HTTP (stdlib), catálogo, escrita, uso das IAs
 │   ├── pyproject.toml        # deps (trio, httpx) + config de pytest/ruff/pyright
@@ -181,7 +202,7 @@ O backend escaneia as fontes a cada requisição de catálogo (sem banco de dado
 
 ### Segurança
 
-- Servidor escuta apenas `127.0.0.1`
+- Servidor escuta apenas `127.0.0.1` por padrão; em container, `GESTOR_HOST=0.0.0.0` com a porta publicada somente no loopback do host
 - Todo `POST` exige o header `X-Gestor: 1` (bloqueia CSRF de páginas externas)
 - `resolve_file` garante que qualquer caminho resolvido está dentro de uma fonte permitida (sem traversal) e nega binários/extensões excluídas
 - A API nunca devolve headers/segredos extraídos de configs (ex.: `Authorization` de MCPs)

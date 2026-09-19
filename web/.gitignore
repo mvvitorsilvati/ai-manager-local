@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# fixtures temporárias do Playwright
+e2e/.tmp/
+test-results/
+playwright-report/

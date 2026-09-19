@@ -6,6 +6,7 @@ Uso: python3 app.py [--port 4747] [--no-open]
 """
 from __future__ import annotations
 
+import errno
 import grp
 import json
 import mimetypes
@@ -1365,7 +1366,17 @@ def main():
     if "--no-open" not in sys.argv:
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()
     print(f"Gestor Local em {url}  (Ctrl+C para parar)")
-    ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
+    try:
+        server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    except OSError as exc:
+        if exc.errno == errno.EADDRINUSE:
+            raise SystemExit(
+                f"A porta {port} já está em uso (provavelmente outra instância do Gestor Local).\n"
+                f"  para a instância atual:  just stop\n"
+                f"  ou use outra porta:      just run-nobrowser --port={port + 1}  (ou passe --port {port + 1})"
+            ) from exc
+        raise
+    server.serve_forever()
 
 
 if __name__ == "__main__":

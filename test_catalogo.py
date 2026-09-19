@@ -134,6 +134,97 @@ class ExtensoesTest(unittest.TestCase):
                 app.resolve_file("teste", "pacote.zip")
 
 
+class SaveFileTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        (self.root / "a.md").write_text("original")
+        (self.root / "config.json").write_text("{}")
+        (self.root / "logo.png").write_text("png")
+        self.backups = Path(self.tmp.name + "-backups")
+        self.audit = Path(self.tmp.name + "-audit.log")
+        self._old = (app.BACKUP_DIR, app.AUDIT_LOG)
+        app.BACKUP_DIR, app.AUDIT_LOG = self.backups, self.audit
+        app.SOURCE_BY_ID["teste"] = {"id": "teste", "label": "t", "root": self.tmp.name,
+                                     "exclude_dirs": set(), "exclude_files": set()}
+        self.addCleanup(self._cleanup)
+
+    def _cleanup(self):
+        app.BACKUP_DIR, app.AUDIT_LOG = self._old
+        app.SOURCE_BY_ID.pop("teste", None)
+        shutil.rmtree(self.backups, ignore_errors=True)
+        self.audit.unlink(missing_ok=True)
+        self.tmp.cleanup()
+
+    def _save(self, rel="a.md", content="novo", **kw):
+        path = self.root / rel
+        if "expected_mtime" not in kw and path.is_file():
+            kw["expected_mtime"] = int(path.stat().st_mtime)
+        return app.save_file("teste", rel, content, **kw)
+
+    def test_salva_conteudo_e_cria_backup(self):
+        result = self._save()
+        self.assertEqual((self.root / "a.md").read_text(), "novo")
+        self.assertEqual(result["size"], 4)
+        backups = app.list_backups("teste", "a.md")
+        self.assertEqual(len(backups), 1)
+        self.assertTrue((self.backups).is_dir())
+        self.assertIn("save", self.audit.read_text())
+
+    def test_conflito_de_mtime(self):
+        with self.assertRaises(app.ConflictError) as ctx:
+            self._save(expected_mtime=123)
+        self.assertTrue(ctx.exception.info.get("mtime"))
+        self.assertEqual((self.root / "a.md").read_text(), "original")
+
+    def test_conflito_no_mesmo_segundo_usa_nanossegundos(self):
+        stale_ns = (self.root / "a.md").stat().st_mtime_ns
+        self._save(content="primeira")  # sobrescreve dentro do mesmo segundo
+        with self.assertRaises(app.ConflictError):
+            self._save(content="segunda", expected_mtime=None, expected_mtime_ns=stale_ns)
+        self.assertEqual((self.root / "a.md").read_text(), "primeira")
+
+    def test_force_ignora_conflito(self):
+        self._save(expected_mtime=123, force=True)
+        self.assertEqual((self.root / "a.md").read_text(), "novo")
+
+    def test_json_invalido_retorna_422(self):
+        with self.assertRaises(app.ApiError) as ctx:
+            self._save(rel="config.json", content="{oops}")
+        self.assertEqual(ctx.exception.status, 422)
+        self.assertEqual((self.root / "config.json").read_text(), "{}")
+
+    def test_binario_retorna_415(self):
+        with self.assertRaises(app.ApiError) as ctx:
+            self._save(rel="logo.png", content="x")
+        self.assertEqual(ctx.exception.status, 415)
+
+    def test_traversal_bloqueado(self):
+        with self.assertRaises(app.ApiError) as ctx:
+            self._save(rel="../fora.md", content="x")
+        self.assertEqual(ctx.exception.status, 400)
+
+    def test_prune_mantem_dez_versoes(self):
+        for i in range(12):
+            self._save(content=f"versao {i}")
+            (self.root / "a.md").touch()
+        self.assertEqual(len(app.list_backups("teste", "a.md")), app.BACKUP_KEEP)
+
+    def test_restaura_backup(self):
+        self._save(content="alterado")
+        (self.root / "a.md").touch()
+        versions = app.list_backups("teste", "a.md")
+        self.assertEqual(len(versions), 1)
+        result = app.restore_backup("teste", "a.md", versions[0]["name"])
+        self.assertTrue(result["ok"])
+        self.assertEqual((self.root / "a.md").read_text(), "original")
+
+    def test_restore_bloqueia_nome_invalido(self):
+        with self.assertRaises(app.ApiError) as ctx:
+            app.restore_backup("teste", "a.md", "../../etc/passwd")
+        self.assertEqual(ctx.exception.status, 400)
+
+
 class GitInfoTest(unittest.TestCase):
     def test_arquivo_fora_de_repo_nao_tem_commit(self):
         with tempfile.TemporaryDirectory() as tmp:

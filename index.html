@@ -691,7 +691,7 @@ $("#btn-copy").addEventListener("click", async () => {
 });
 $("#btn-reveal").addEventListener("click", async () => {
   if (!state.open) return;
-  await fetch("/api/reveal", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({s: state.open.s, r: state.open.r})});
+  await fetch("/api/reveal", {method:"POST", headers:{"Content-Type":"application/json","X-Gestor":"1"}, body: JSON.stringify({s: state.open.s, r: state.open.r})});
 });
 
 let searchTimer;

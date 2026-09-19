@@ -12,9 +12,11 @@ import mimetypes
 import os
 import pwd
 import re
+import shutil
 import subprocess
 import sys
 import threading
+import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -631,6 +633,7 @@ def file_info(path: Path) -> dict:
         "abs": str(path),
         "size": st.st_size,
         "mtime": int(st.st_mtime),
+        "mtime_ns": int(st.st_mtime_ns),
         "created": int(getattr(st, "st_birthtime", st.st_ctime)),
         "owner": owner,
         "group": group,
@@ -679,6 +682,184 @@ def search_catalog(query: str, limit_files: int = 80) -> list[dict]:
     return results
 
 
+# ---------------------------------------------------------------- escrita
+
+BACKUP_DIR = Path(os.path.expanduser("~/.gestor_local/backups"))
+AUDIT_LOG = Path(os.path.expanduser("~/.gestor_local/audit.log"))
+BACKUP_KEEP = 10
+MAX_SAVE_BYTES = 2_000_000
+GESTOR_HEADER = "X-Gestor"
+DIST_DIR = Path(__file__).parent / "web" / "dist"
+
+
+class ApiError(Exception):
+    def __init__(self, message: str, status: int = 400):
+        super().__init__(message)
+        self.status = status
+
+
+class ConflictError(ApiError):
+    def __init__(self, message: str, info: dict | None = None):
+        super().__init__(message, 409)
+        self.info = info or {}
+
+
+def create_backup(path: Path, source_id: str, rel: str) -> Path:
+    safe_source = source_id.replace(":", "_").replace("/", "_")
+    target_dir = BACKUP_DIR / safe_source / rel
+    target_dir.mkdir(parents=True, exist_ok=True)
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    backup = target_dir / f"{stamp}-{path.name}"
+    seq = 1
+    while backup.exists():
+        backup = target_dir / f"{stamp}-{seq}-{path.name}"
+        seq += 1
+    shutil.copy2(path, backup)
+    prune_backups(target_dir, path.name)
+    return backup
+
+
+def prune_backups(target_dir: Path, name: str, keep: int = BACKUP_KEEP):
+    suffix = "-" + name
+    versions = sorted(
+        (p for p in target_dir.iterdir() if p.is_file() and p.name.endswith(suffix)),
+        key=lambda p: p.stat().st_mtime, reverse=True,
+    )
+    for old in versions[keep:]:
+        old.unlink(missing_ok=True)
+
+
+def atomic_write(path: Path, content: str):
+    tmp = path.with_name(f".{path.name}.tmp-{os.getpid()}")
+    try:
+        tmp.write_text(content, encoding="utf-8")
+        shutil.copymode(path, tmp)
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+def append_audit(action: str, path: Path, size: int, backup: Path | None = None):
+    AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "action": action,
+        "path": str(path),
+        "size": size,
+        "backup": str(backup) if backup else None,
+    }
+    with open(AUDIT_LOG, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+def is_editable(path: Path) -> bool:
+    return path.suffix.lower() not in IMAGE_EXT and path.suffix.lower() not in EXCLUDED_EXT
+
+
+def _same_mtime(st, expected_mtime: int | None, expected_mtime_ns: int | None) -> bool:
+    if expected_mtime_ns is not None:
+        return int(st.st_mtime_ns) == int(expected_mtime_ns)
+    if expected_mtime is not None:
+        return int(st.st_mtime) == int(expected_mtime)
+    return True
+
+
+def validate_content(path: Path, content: str):
+    suffix = path.suffix.lower()
+    if suffix in (".json", ".jsonc"):
+        try:
+            json.loads(strip_jsonc(content) if suffix == ".jsonc" else content)
+        except json.JSONDecodeError as exc:
+            raise ApiError(f"JSON inválido (linha {exc.lineno}, coluna {exc.colno}): {exc.msg}", 422)
+    elif suffix == ".toml":
+        try:
+            tomllib.loads(content)
+        except tomllib.TOMLDecodeError as exc:
+            raise ApiError(f"TOML inválido: {exc}", 422)
+
+
+def save_file(source_id: str, rel: str, content: str, expected_mtime: int | None = None,
+              force: bool = False, expected_mtime_ns: int | None = None) -> dict:
+    try:
+        path = resolve_file(source_id, rel)
+    except ValueError as exc:
+        raise ApiError(str(exc), 400) from exc
+    if not is_editable(path):
+        raise ApiError("arquivo binário não pode ser editado pelo painel", 415)
+    before = path.stat()
+    if not force and not _same_mtime(before, expected_mtime, expected_mtime_ns):
+        raise ConflictError(
+            "o arquivo foi alterado fora do painel desde que foi aberto",
+            {"mtime": int(before.st_mtime), "mtime_ns": int(before.st_mtime_ns), "size": before.st_size},
+        )
+    validate_content(path, content)
+    backup = create_backup(path, source_id, rel)
+    atomic_write(path, content)
+    after = path.stat()
+    append_audit("save", path, after.st_size, backup)
+    return {
+        "ok": True,
+        "mtime": int(after.st_mtime),
+        "size": after.st_size,
+        "created": int(getattr(after, "st_birthtime", after.st_ctime)),
+        "backup": str(backup),
+    }
+
+
+def list_backups(source_id: str, rel: str) -> list[dict]:
+    try:
+        path = resolve_file(source_id, rel)
+    except ValueError as exc:
+        raise ApiError(str(exc), 400) from exc
+    safe_source = source_id.replace(":", "_").replace("/", "_")
+    target_dir = BACKUP_DIR / safe_source / rel
+    if not target_dir.is_dir():
+        return []
+    suffix = "-" + path.name
+    versions = []
+    for entry in target_dir.iterdir():
+        if entry.is_file() and entry.name.endswith(suffix):
+            st = entry.stat()
+            versions.append({"name": entry.name, "size": st.st_size, "mtime": int(st.st_mtime)})
+    return sorted(versions, key=lambda v: v["mtime"], reverse=True)
+
+
+def restore_backup(source_id: str, rel: str, backup_name: str) -> dict:
+    if Path(backup_name).name != backup_name or not backup_name:
+        raise ApiError("nome de backup inválido", 400)
+    try:
+        path = resolve_file(source_id, rel)
+    except ValueError as exc:
+        raise ApiError(str(exc), 400) from exc
+    safe_source = source_id.replace(":", "_").replace("/", "_")
+    source = BACKUP_DIR / safe_source / rel / backup_name
+    if not source.is_file() or not source.name.endswith("-" + path.name):
+        raise ApiError("backup não encontrado", 404)
+    content = source.read_text(encoding="utf-8", errors="replace")
+    validate_content(path, content)
+    backup = create_backup(path, source_id, rel)
+    atomic_write(path, content)
+    after = path.stat()
+    append_audit("restore", path, after.st_size, backup)
+    return {
+        "ok": True,
+        "mtime": int(after.st_mtime),
+        "size": after.st_size,
+        "created": int(getattr(after, "st_birthtime", after.st_ctime)),
+        "backup": str(backup),
+    }
+
+
+def dist_file(rel: str) -> Path | None:
+    base = DIST_DIR.resolve()
+    if not base.is_dir():
+        return None
+    candidate = (base / rel).resolve() if rel else base / "index.html"
+    if candidate.is_file() and (candidate == base or base in candidate.parents):
+        return candidate
+    return None
+
+
 class Handler(BaseHTTPRequestHandler):
     def _send(self, code: int, body: bytes, content_type: str):
         self.send_response(code)
@@ -698,9 +879,34 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         url = urlparse(self.path)
         params = parse_qs(url.query)
-        if url.path in ("/", "/index.html"):
+        path = url.path
+        if path in ("/", "/index.html", "/legacy"):
             html = (Path(__file__).parent / "index.html").read_bytes()
             self._send(200, html, "text/html; charset=utf-8")
+            return
+        if path.startswith("/assets/") or path in ("/novo", "/novo/") or path.startswith("/novo/"):
+            if path.startswith("/novo/"):
+                rel = path[len("/novo/"):]
+            elif path.startswith("/assets/"):
+                rel = path.lstrip("/")
+            else:
+                rel = ""
+            target = dist_file(rel)
+            if target is None and not path.startswith("/assets/"):
+                target = dist_file("")
+            if target is None:
+                self._json({"error": "build do frontend não encontrado — rode `pnpm build` em web/"}, 404)
+                return
+            ctype = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+            if ctype.startswith("text/") or ctype in ("application/javascript", "application/json", "image/svg+xml"):
+                ctype += "; charset=utf-8"
+            self._send(200, target.read_bytes(), ctype)
+            return
+        if url.path == "/api/backups":
+            try:
+                self._json(list_backups(params.get("s", [""])[0], params.get("r", [""])[0]))
+            except ApiError as exc:
+                self._json({"error": str(exc)}, exc.status)
             return
         if url.path == "/api/catalog":
             self._json(build_catalog())
@@ -744,19 +950,54 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         url = urlparse(self.path)
-        if url.path == "/api/reveal":
-            length = int(self.headers.get("Content-Length", 0))
+        if self.headers.get(GESTOR_HEADER) != "1":
+            self._json({"error": "header de segurança ausente"}, 403)
+            return
+        length = int(self.headers.get("Content-Length", 0))
+        if length > MAX_SAVE_BYTES:
+            self._json({"error": "conteúdo grande demais"}, 413)
+            return
+        payload = {}
+        if length:
             try:
-                payload = json.loads(self.rfile.read(length) or b"{}")
-                path = resolve_file(payload.get("s", ""), payload.get("r", ""))
-            except (ValueError, json.JSONDecodeError) as exc:
-                self._json({"error": str(exc)}, 400)
+                payload = json.loads(self.rfile.read(length))
+            except json.JSONDecodeError:
+                self._json({"error": "JSON inválido no corpo"}, 400)
                 return
-            if sys.platform != "darwin":
-                self._json({"error": "reveal disponível apenas no macOS"}, 400)
+        try:
+            if url.path == "/api/save":
+                content = payload.get("content")
+                if not isinstance(content, str):
+                    raise ApiError("conteúdo ausente", 400)
+                self._json(save_file(
+                    payload.get("s", ""), payload.get("r", ""), content,
+                    expected_mtime=payload.get("mtime"),
+                    force=bool(payload.get("force")),
+                    expected_mtime_ns=payload.get("mtime_ns"),
+                ))
                 return
-            subprocess.Popen(["open", "-R", str(path)])
-            self._json({"ok": True})
+            if url.path == "/api/restore":
+                self._json(restore_backup(
+                    payload.get("s", ""), payload.get("r", ""), payload.get("backup", ""),
+                ))
+                return
+            if url.path == "/api/reveal":
+                try:
+                    path = resolve_file(payload.get("s", ""), payload.get("r", ""))
+                except ValueError as exc:
+                    self._json({"error": str(exc)}, 400)
+                    return
+                if sys.platform != "darwin":
+                    self._json({"error": "reveal disponível apenas no macOS"}, 400)
+                    return
+                subprocess.Popen(["open", "-R", str(path)])
+                self._json({"ok": True})
+                return
+        except ConflictError as exc:
+            self._json({"error": str(exc), "conflict": True, **exc.info}, exc.status)
+            return
+        except ApiError as exc:
+            self._json({"error": str(exc)}, exc.status)
             return
         self._json({"error": "não encontrado"}, 404)
 

@@ -7,10 +7,9 @@ mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "strict" 
 
 function Mermaid({ code }: { code: string }) {
   const ref = useRef<HTMLDivElement>(null)
-  const [failed, setFailed] = useState(false)
+  const [failedCode, setFailedCode] = useState<string | null>(null)
 
   useEffect(() => {
-    setFailed(false)
     let cancelled = false
     const id = "m" + Math.random().toString(36).slice(2)
     mermaid
@@ -19,14 +18,15 @@ function Mermaid({ code }: { code: string }) {
         if (!cancelled && ref.current) ref.current.innerHTML = svg
       })
       .catch(() => {
-        if (!cancelled) setFailed(true)
+        if (!cancelled) setFailedCode(code)
       })
     return () => {
       cancelled = true
     }
   }, [code])
 
-  if (failed) return <pre className="border-border bg-card rounded-lg border p-4 font-mono text-xs">{code}</pre>
+  if (failedCode === code)
+    return <pre className="border-border bg-card rounded-lg border p-4 font-mono text-xs">{code}</pre>
   return <div ref={ref} className="border-border bg-card my-3 overflow-auto rounded-lg border p-3 text-center" />
 }
 

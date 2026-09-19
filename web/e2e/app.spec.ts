@@ -79,6 +79,11 @@ test("busca filtra os itens da tela fora da visão geral", async ({ page }) => {
 
   await page.getByPlaceholder(/Filtrar/).fill("CLAUDE.md")
   await expect(page.getByRole("button", { name: /CLAUDE\.md/ })).toBeVisible()
+
+  // conteúdo também entra no filtro (o termo só existe dentro do agente)
+  await page.getByPlaceholder(/Filtrar/).fill("fictício")
+  await expect(page.getByText(/Nenhum item corresponde/)).toHaveCount(0)
+  await expect(page.getByRole("button", { name: /\.claude/ })).toBeVisible()
 })
 
 test("edita no Monaco e salva com ⌘S", async ({ page }) => {

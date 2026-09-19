@@ -59,20 +59,13 @@ export const NAV: NavItem[] = [
   { to: "/arquivos", label: "Arquivos", icon: Files },
 ]
 
-const STATUS_URL: Record<string, string> = {
-  claude: "https://status.anthropic.com",
-  codex: "https://status.openai.com",
-  copilot: "https://www.githubstatus.com",
-  gemini: "https://status.cloud.google.com",
-  cursor: "https://status.cursor.com",
-}
-
 const severityClass = (indicator?: string | null) =>
   indicator === "critical" || indicator === "major" || indicator === "high" ? "text-red-500" : "text-amber-400"
 
 export default function App() {
   const { data: catalog, refetch, isFetching } = useCatalog()
   const { data: incidents } = useIncidents()
+  const statusUrlOf = (id: string) => catalog?.sources.find((s) => s.id === id)?.status_url ?? undefined
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -153,7 +146,7 @@ export default function App() {
           {catalog?.sources
             .filter((s) => !s.project)
             .map((s) => {
-              const status = STATUS_URL[s.id]
+              const status = statusUrlOf(s.id)
               const incident = incidents?.sources[s.id]
               return (
                 <div key={s.id} className="flex items-center gap-1.5">

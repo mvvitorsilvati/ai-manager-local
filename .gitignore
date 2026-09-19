@@ -6,3 +6,8 @@ dist/
 .DS_Store
 
 .venv/
+
+.env
+.coverage
+htmlcov/
+.pytest_cache/

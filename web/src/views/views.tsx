@@ -199,7 +199,9 @@ export function ProjectsView() {
   return (
     <div>
       <h2 className="text-lg font-semibold">Projetos</h2>
-      <p className="text-muted-foreground mb-5 text-sm">{catalog.projects.length} projeto(s) com configuração de IA</p>
+      <p className="text-muted-foreground mb-5 text-sm">
+        {catalog.projects.length} projeto(s) com configuração de IA em {catalog.project_base}
+      </p>
       {catalog.projects.map((p) => {
         const files = catalog.files.filter((f) => f.s === p.id)
         return (

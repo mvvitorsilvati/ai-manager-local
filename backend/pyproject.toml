@@ -5,6 +5,7 @@ description = "Backend do Gestor Local: API de configurações locais das IAs + 
 requires-python = ">=3.14"
 dependencies = [
     "httpx>=0.28.1",
+    "python-dotenv>=1.2.3",
     "trio>=0.34",
 ]
 
@@ -16,12 +17,19 @@ dev = [
     "ruff>=0.14",
     "pyright>=1.1.400",
     "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "-q"
+addopts = "-q --cov=app --cov-report=term-missing"
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if __name__ == .__main__.:"]
 
 [tool.ruff]
 line-length = 120

@@ -9,7 +9,16 @@ dependencies = ["trio>=0.34"]
 package = false
 
 [dependency-groups]
-dev = ["ruff>=0.14", "pyright>=1.1.400"]
+dev = [
+    "ruff>=0.14",
+    "pyright>=1.1.400",
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
 
 [tool.ruff]
 line-length = 120

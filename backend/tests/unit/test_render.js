@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
+const html = fs.readFileSync(path.join(__dirname, "..", "..", "index.html"), "utf8");
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 eval(html.match(/function inline\(raw\)[\s\S]*?\n}/)[0]);
 eval(html.match(/function md\(text\)[\s\S]*?\n}/)[0]);

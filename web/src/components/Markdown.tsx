@@ -28,7 +28,7 @@ export function splitFrontmatter(text: string): [string, string] {
   return match ? [match[1], text.slice(match[0].length)] : ["", text]
 }
 
-export function Markdown({ content }: { content: string }) {
+export function Markdown({ content, onLink }: { content: string; onLink?: (href: string) => void }) {
   const [fm, body] = splitFrontmatter(content)
   return (
     <div className="prose prose-invert max-w-none prose-headings:scroll-mt-4 prose-pre:border prose-pre:border-border prose-pre:bg-card prose-code:before:content-none prose-code:after:content-none">
@@ -40,6 +40,24 @@ export function Markdown({ content }: { content: string }) {
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
+          a({ href, children, ...props }) {
+            if (href && onLink && !/^(https?:|mailto:|#)/i.test(href)) {
+              return (
+                <a
+                  href={href}
+                  onClick={(e) => { e.preventDefault(); onLink(href) }}
+                  {...props}
+                >
+                  {children}
+                </a>
+              )
+            }
+            return (
+              <a href={href} target={href?.startsWith("http") ? "_blank" : undefined} rel="noreferrer" {...props}>
+                {children}
+              </a>
+            )
+          },
           code({ className, children, ...props }) {
             const lang = /language-(\w+)/.exec(className ?? "")?.[1]
             if (lang === "mermaid") return <Mermaid code={String(children).replace(/\n$/, "")} />

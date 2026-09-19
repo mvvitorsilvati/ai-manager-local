@@ -1,8 +1,16 @@
+import base64
 import json
 
 import httpx
+import pytest
 
 import app
+
+
+@pytest.fixture(autouse=True)
+def contas_isoladas(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "CLAUDE_ACCOUNT", tmp_path / "sem-claude.json")
+    monkeypatch.setattr(app, "CODEX_AUTH", tmp_path / "sem-auth.json")
 
 PAYLOAD_ENTERPRISE = {
     "five_hour": {"utilization": 12.5, "resets_at": "2026-09-19T18:00:00Z"},
@@ -17,6 +25,58 @@ PAYLOAD_ENTERPRISE = {
         "cap": {"resets_at": "2026-09-30T21:00:00Z"},
     },
 }
+
+
+def test_claude_account_le_email_do_oauth(tmp_path, monkeypatch):
+    path = tmp_path / ".claude.json"
+    path.write_text(json.dumps({"oauthAccount": {"emailAddress": "fulano@exemplo.com"}}))
+    monkeypatch.setattr(app, "CLAUDE_ACCOUNT", path)
+    assert app.claude_account() == "fulano@exemplo.com"
+
+
+def test_claude_account_sem_arquivo_retorna_none():
+    assert app.claude_account() is None
+
+
+def test_codex_account_decodifica_id_token(tmp_path, monkeypatch):
+    claims = base64.urlsafe_b64encode(json.dumps({"email": "fulano@exemplo.com"}).encode()).decode().rstrip("=")
+    path = tmp_path / "auth.json"
+    path.write_text(json.dumps({"tokens": {"id_token": f"cabecalho.{claims}.assinatura"}}))
+    monkeypatch.setattr(app, "CODEX_AUTH", path)
+    assert app.codex_account() == "fulano@exemplo.com"
+
+
+def test_codex_account_com_token_invalido_retorna_none(tmp_path, monkeypatch):
+    path = tmp_path / "auth.json"
+    path.write_text(json.dumps({"tokens": {"id_token": "nao-e-um-jwt"}}))
+    monkeypatch.setattr(app, "CODEX_AUTH", path)
+    assert app.codex_account() is None
+
+
+def test_github_account_prefere_email_e_cai_no_login(monkeypatch):
+    class Resp:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self.payload
+
+    monkeypatch.setattr(app.httpx, "get", lambda *a, **k: Resp({"email": "fulano@exemplo.com", "login": "fulano"}))
+    assert app.github_account("token") == "fulano@exemplo.com"
+
+    monkeypatch.setattr(app.httpx, "get", lambda *a, **k: Resp({"email": None, "login": "fulano"}))
+    assert app.github_account("token") == "fulano"
+
+
+def test_github_account_com_erro_http_retorna_none(monkeypatch):
+    def boom(*args, **kwargs):
+        raise httpx.ConnectError("sem rede")
+
+    monkeypatch.setattr(app.httpx, "get", boom)
+    assert app.github_account("token") is None
 
 
 def test_parse_usage_windows_inclui_five_hour_seven_day_e_limits():

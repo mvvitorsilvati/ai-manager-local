@@ -1,7 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { RefreshCw } from "lucide-react"
 
+import { ToolIcon } from "@/components/ToolIcon"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
 import { ago, fmtDT, until } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -10,7 +12,7 @@ const TOOL_LABEL: Record<string, string> = { claude: "Claude Code", codex: "Code
 
 export function UsageCard({ tool }: { tool: string }) {
   const queryClient = useQueryClient()
-  const { data, isFetching } = useQuery({
+  const { data, isFetching, isPending } = useQuery({
     queryKey: ["usage"],
     queryFn: () => api.usage(),
     staleTime: 30_000,
@@ -44,17 +46,35 @@ export function UsageCard({ tool }: { tool: string }) {
   return (
     <div className="bg-card border-border rounded-lg border p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold">
-          {TOOL_LABEL[tool] ?? tool}
-          {usage?.plan && <span className="text-muted-foreground ml-2 font-normal capitalize">· {usage.plan}</span>}
-        </h3>
+        <div className="min-w-0">
+          <h3 className="flex items-center gap-1.5 text-sm font-semibold">
+            <ToolIcon id={tool} className="size-4" />
+            {TOOL_LABEL[tool] ?? tool}
+            {usage?.plan && <span className="text-muted-foreground ml-2 font-normal capitalize">· {usage.plan}</span>}
+          </h3>
+          {usage?.account && (
+            <p className="text-muted-foreground truncate text-[11.5px]">Autenticado como {usage.account}</p>
+          )}
+        </div>
         <Button size="sm" variant="outline" onClick={refresh} disabled={isFetching}>
           <RefreshCw className={cn("size-3.5", isFetching && "animate-spin")} />
           Atualizar
         </Button>
       </div>
-      {!usage && <p className="text-muted-foreground text-xs">Sem dados de uso para esta ferramenta.</p>}
-      {usage && (
+      {isPending ? (
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-2 w-full" />
+          </div>
+          <div className="space-y-1.5">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-2 w-full" />
+          </div>
+        </div>
+      ) : !usage ? (
+        <p className="text-muted-foreground text-xs">Sem dados de uso para esta ferramenta.</p>
+      ) : (
         <div className="space-y-3">
           {usage.credits && (
             <div>

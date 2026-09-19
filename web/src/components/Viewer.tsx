@@ -113,7 +113,10 @@ export function Viewer() {
 
   return (
     <Sheet open onOpenChange={(o) => { if (!o) close() }}>
-      <SheetContent side="right" className="w-[min(960px,100%)] gap-0 p-0 sm:max-w-[960px]">
+      <SheetContent
+        side="right"
+        className="gap-0 p-0 data-[side=right]:w-[min(1100px,100%)] data-[side=right]:sm:max-w-[1100px]"
+      >
         <div className="flex items-start justify-between gap-4 border-b border-border px-4 py-3">
           <div className="min-w-0">
             <div className="truncate font-semibold">

@@ -197,10 +197,12 @@ export function DocsView() {
 
 export function ToolsView() {
   const { data: catalog } = useCatalog()
-  const [tool, setTool] = useState<string | null>(null)
+  const [params, setParams] = useSearchParams()
   const open = useOpenFile()
-  if (!catalog) return null
-  const selected = tool ?? catalog.tools[0]?.id
+  const fromUrl = params.get("tool")
+  const selected = (fromUrl && catalog?.tools.some((t) => t.id === fromUrl) ? fromUrl : null) ?? catalog?.tools[0]?.id
+  const setTool = (id: string) => setParams({ tool: id }, { replace: true })
+  if (!catalog || !selected) return null
   const files = catalog.files.filter((f) => f.k === selected)
   const groups = groupBy(files, (f) => f.s)
   const ordered = orderGroups(catalog, groups)

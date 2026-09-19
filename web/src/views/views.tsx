@@ -370,15 +370,21 @@ export function SearchInput() {
     <div className="relative flex-1">
       <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
       <Input
+        id="search"
         value={value}
         placeholder="Buscar por nome ou conteúdo (mín. 2 letras)…"
-        className="pl-9"
+        className="pr-14 pl-9"
         onChange={(e) => {
           setValue(e.target.value)
           const q = e.target.value.trim()
           if (q.length >= 2) navigate(`/busca?q=${encodeURIComponent(q)}`)
         }}
       />
+      {!value && (
+        <kbd className="border-border bg-muted text-muted-foreground pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 rounded border px-1.5 py-0.5 font-mono text-[10px]">
+          ⌘K
+        </kbd>
+      )}
       {value && (
         <button
           className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2"

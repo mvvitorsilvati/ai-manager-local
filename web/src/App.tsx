@@ -14,7 +14,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react"
-import { useRef } from "react"
+import { useEffect, useRef } from "react"
 import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom"
 
 import { Badge } from "@/components/ui/badge"
@@ -56,6 +56,19 @@ export const NAV: NavItem[] = [
 
 export default function App() {
   const { data: catalog, refetch, isFetching } = useCatalog()
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault()
+        const input = document.getElementById("search") as HTMLInputElement | null
+        input?.focus()
+        input?.select()
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
   const location = useLocation()
   const isViewer = location.pathname === "/f"
   const lastLocation = useRef(location)

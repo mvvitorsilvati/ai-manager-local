@@ -1,4 +1,4 @@
-import { Suspense, lazy, useRef } from "react"
+import { Suspense, lazy } from "react"
 
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -42,13 +42,9 @@ type Props = {
   value: string
   path: string
   onChange: (value: string) => void
-  onSave: () => void
 }
 
-export function CodeEditor({ value, path, onChange, onSave }: Props) {
-  const saveRef = useRef(onSave)
-  saveRef.current = onSave
-
+export function CodeEditor({ value, path, onChange }: Props) {
   return (
     <Suspense fallback={<Skeleton className="h-[68vh] w-full" />}>
       <div className="border-border h-[68vh] overflow-hidden rounded-lg border">
@@ -59,9 +55,6 @@ export function CodeEditor({ value, path, onChange, onSave }: Props) {
           path={path}
           value={value}
           onChange={(v) => onChange(v ?? "")}
-          onMount={(editor, monaco) => {
-            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => saveRef.current())
-          }}
           options={{
             minimap: { enabled: false },
             wordWrap: "on",

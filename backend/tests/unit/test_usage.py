@@ -120,3 +120,41 @@ def test_codex_usage_le_ultimo_rollout(tmp_path, monkeypatch):
 def test_codex_usage_sem_sessoes_retorna_none(tmp_path, monkeypatch):
     monkeypatch.setattr(app, "CODEX_SESSIONS", tmp_path / "nao-existe")
     assert app.codex_usage() is None
+
+
+def test_parse_copilot_quota_converte_percentual_e_ilimitados():
+    payload = {
+        "copilot_plan": "individual",
+        "quota_reset_date": "2026-10-01",
+        "quota_snapshots": {
+            "chat": {"unlimited": True, "percent_remaining": 100.0},
+            "completions": {"unlimited": True, "percent_remaining": 100.0},
+            "premium_interactions": {"unlimited": False, "percent_remaining": 25.0, "entitlement": 200},
+        },
+    }
+    usage = app.parse_copilot_quota(payload)
+    assert usage["plan"] == "individual"
+    assert usage["windows"] == [
+        {"label": "Premium requests", "utilization": 75.0, "resets_at": "2026-10-01T00:00:00+00:00"}
+    ]
+    assert usage["unlimited"] == ["Chat", "Completions"]
+
+
+def test_copilot_usage_sem_token_retorna_none(monkeypatch):
+    monkeypatch.setattr(app, "github_token", lambda: None)
+    assert app.copilot_usage() is None
+
+
+def test_copilot_usage_com_erro_http_retorna_none(monkeypatch):
+    monkeypatch.setattr(app, "github_token", lambda: "token")
+
+    def boom(*args, **kwargs):
+        raise httpx.ConnectError("sem rede")
+
+    monkeypatch.setattr(app.httpx, "get", boom)
+    assert app.copilot_usage() is None
+
+
+def test_github_token_prefere_variavel_de_ambiente(monkeypatch):
+    monkeypatch.setenv("GITHUB_TOKEN", "abc123")
+    assert app.github_token() == "abc123"

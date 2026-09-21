@@ -90,7 +90,8 @@ export type ToolUsage = {
   updated_at?: number
   unlimited?: string[]
 }
-export type UsageResponse = { claude: ToolUsage | null; codex: ToolUsage | null; copilot: ToolUsage | null }
+export type UsageTool = "claude" | "codex" | "copilot"
+export type UsageResponse = Partial<Record<UsageTool, ToolUsage | null>>
 
 export type ToolVersion = {
   installed: string | null
@@ -168,8 +169,10 @@ export const api = {
     unwrap<SaveResult>(client.post("/api/save", body)),
   restore: (body: { s: string; r: string; backup: string }) => unwrap<SaveResult>(client.post("/api/restore", body)),
   reveal: (s: string, r: string) => unwrap<{ ok: boolean }>(client.post("/api/reveal", { s, r })),
-  usage: (refresh = false) =>
-    unwrap<UsageResponse>(client.get("/api/usage", { params: refresh ? { refresh: "1" } : {} })),
+  usage: (refresh = false, tool?: UsageTool) =>
+    unwrap<UsageResponse>(
+      client.get("/api/usage", { params: { ...(refresh ? { refresh: "1" } : {}), ...(tool ? { tool } : {}) } }),
+    ),
   versions: (refresh = false) =>
     unwrap<VersionsResponse>(client.get("/api/versions", { params: refresh ? { refresh: "1" } : {} })),
   update: (body: { tool: string } | { source: string; name: string }) =>

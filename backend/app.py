@@ -1156,17 +1156,26 @@ def copilot_usage() -> dict | None:
     return {**parse_copilot_quota(payload), "account": github_account(token)}
 
 
-def usage_snapshot(force: bool = False) -> dict:
+def usage_providers() -> dict:
+    """Resolvido a cada chamada: os testes trocam `*_usage` por monkeypatch."""
+    return {"claude": claude_usage, "codex": codex_usage, "copilot": copilot_usage}
+
+
+def usage_snapshot(force: bool = False, tool: str | None = None) -> dict:
+    """Uso das IAs. Com `tool`, atualiza (e devolve) só aquela IA, preservando o cache das demais."""
     global _usage_cache
     now = time.time()
+    providers = usage_providers()
     with _usage_lock:
         stamp, cached = _usage_cache
-        if not force and now - stamp < USAGE_CACHE_SECONDS:
-            return cached
-    snapshot = {"claude": claude_usage(), "codex": codex_usage(), "copilot": copilot_usage()}
+        if not force and now - stamp < USAGE_CACHE_SECONDS and all(name in cached for name in providers):
+            return {tool: cached.get(tool)} if tool else cached
+    names = [tool] if tool in providers else list(providers)
+    fresh = {name: providers[name]() for name in names}
     with _usage_lock:
-        _usage_cache = (now, snapshot)
-    return snapshot
+        _, atual = _usage_cache
+        _usage_cache = (now, {**atual, **fresh})
+    return fresh
 
 
 # ---------------------------------------------------------------- versões & atualizações
@@ -2123,7 +2132,10 @@ class Handler(BaseHTTPRequestHandler):
         params = parse_qs(url.query)
         path = url.path
         if url.path == "/api/usage":
-            self._json(usage_snapshot(force=params.get("refresh", ["0"])[0] == "1"))
+            self._json(usage_snapshot(
+                force=params.get("refresh", ["0"])[0] == "1",
+                tool=params.get("tool", [""])[0] or None,
+            ))
             return
         if url.path == "/api/versions":
             self._json(versions_snapshot(force=params.get("refresh", ["0"])[0] == "1"))

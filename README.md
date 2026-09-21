@@ -217,7 +217,7 @@ O backend escaneia as fontes a cada requisição de catálogo (sem banco de dado
 | GET | `/api/raw?s=&r=` | bytes crus (imagens, até 20 MB) |
 | GET | `/api/search?q=` | busca por nome e conteúdo |
 | GET | `/api/backups?s=&r=` | versões de backup do arquivo |
-| GET | `/api/usage[?refresh=1]` | uso/limites de Claude, Codex e Copilot (cache 60 s) |
+| GET | `/api/usage[?refresh=1][&tool=claude\|codex\|copilot]` | uso/limites de Claude, Codex e Copilot (cache 60 s); `tool` limita o refresh a uma IA |
 | GET | `/api/versions[?refresh=1]` | versões instaladas/últimas das CLIs, contas autenticadas e atualizações de plugins (cache 10 min) |
 | GET | `/api/incidents[?refresh=1]` | incidentes ativos nas status pages das IAs (cache 5 min) |
 | GET | `/api/audit[?limit=200]` | últimas gravações do painel (save/restore) do `audit.log` |

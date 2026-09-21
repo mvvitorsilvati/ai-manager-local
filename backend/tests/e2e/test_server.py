@@ -111,6 +111,10 @@ def test_usage_responde_com_dados_do_claude(servidor, monkeypatch):
     assert "codex" in payload
     assert "copilot" in payload
 
+    status, body = request(f"{servidor.url}/api/usage?refresh=1&tool=codex")
+    assert status == 200
+    assert set(json.loads(body)) == {"codex"}
+
 
 def test_authors_fora_de_repo_retorna_vazio(servidor):
     status, body = request(f"{servidor.url}/api/authors", {"files": [{"s": "teste", "r": "a.md"}]})

@@ -218,3 +218,32 @@ def test_copilot_usage_com_erro_http_retorna_none(monkeypatch):
 def test_github_token_prefere_variavel_de_ambiente(monkeypatch):
     monkeypatch.setenv("GITHUB_TOKEN", "abc123")
     assert app.github_token() == "abc123"
+
+
+def test_usage_snapshot_com_tool_atualiza_so_a_ia_pedida(monkeypatch):
+    chamadas: list[str] = []
+
+    def provider(nome: str, payload: dict):
+        def fake():
+            chamadas.append(nome)
+            return payload
+
+        monkeypatch.setattr(app, f"{nome}_usage", fake)
+
+    provider("claude", {"available": True, "windows": []})
+    provider("codex", {"available": True, "plan": "plus", "windows": []})
+    provider("copilot", {"available": True, "windows": []})
+    monkeypatch.setattr(app, "_usage_cache", (0.0, {}))
+
+    assert set(app.usage_snapshot()) == {"claude", "codex", "copilot"}
+    chamadas.clear()
+
+    parcial = app.usage_snapshot(force=True, tool="codex")
+    assert set(parcial) == {"codex"}
+    assert parcial["codex"]["plan"] == "plus"
+    assert chamadas == ["codex"]
+
+    chamadas.clear()
+    assert set(app.usage_snapshot(tool="claude")) == {"claude"}
+    assert chamadas == []
+    assert set(app._usage_cache[1]) == {"claude", "codex", "copilot"}

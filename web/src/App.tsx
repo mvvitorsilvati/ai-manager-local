@@ -1,3 +1,4 @@
+import { useIsFetching, useQueryClient } from "@tanstack/react-query"
 import {
   BookOpen,
   Cpu,
@@ -28,6 +29,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { Viewer } from "@/components/Viewer"
 import { useCatalog } from "@/hooks/useCatalog"
 import { useIncidents } from "@/hooks/useIncidents"
+import { refreshUsage } from "@/hooks/useUsage"
 import { cn } from "@/lib/utils"
 import Dashboard from "@/views/Dashboard"
 import {
@@ -63,9 +65,17 @@ export const NAV: NavItem[] = [
 ]
 
 export default function App() {
-  const { data: catalog, refetch, isFetching } = useCatalog()
+  const queryClient = useQueryClient()
+  const { data: catalog } = useCatalog()
+  const isFetching = useIsFetching() > 0
   const { data: incidents } = useIncidents()
   const statusUrlOf = (id: string) => catalog?.sources.find((s) => s.id === id)?.status_url ?? undefined
+
+  // Atualizar global: invalida tudo e força o uso das IAs (o backend tem cache próprio de 60s)
+  const refreshAll = () => {
+    queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== "usage" })
+    refreshUsage(queryClient)
+  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -175,7 +185,7 @@ export default function App() {
         <header className="border-border bg-card flex gap-3 border-b p-3.5">
           <SearchInput />
           <CollapseAllButton />
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+          <Button variant="outline" size="sm" onClick={refreshAll} disabled={isFetching}>
             <RefreshCw className={cn("size-4", isFetching && "animate-spin")} />
             Atualizar
           </Button>

@@ -10,6 +10,7 @@ import { UpdateButton } from "@/components/UpdateButton"
 import { UsageCard } from "@/components/UsageCard"
 import { useCatalog } from "@/hooks/useCatalog"
 import { useIncidents } from "@/hooks/useIncidents"
+import { useUsage } from "@/hooks/useUsage"
 import { useVersions } from "@/hooks/useVersions"
 import { api } from "@/lib/api"
 import { ago } from "@/lib/format"
@@ -18,12 +19,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const { data: catalog, isLoading } = useCatalog()
   const recent = catalog ? [...catalog.files].sort((a, b) => b.t - a.t).slice(0, 10) : []
-  const { data: usage, isPending: usagePending } = useQuery({
-    queryKey: ["usage"],
-    queryFn: () => api.usage(),
-    staleTime: 30_000,
-    refetchInterval: 5 * 60_000,
-  })
+  const { data: usage, isPending: usagePending } = useUsage()
   const { data: versions, isPending: versionsPending } = useVersions()
   const { data: incidents } = useIncidents()
   const { data: authors } = useQuery({

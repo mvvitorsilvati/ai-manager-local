@@ -1,10 +1,10 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQueryClient } from "@tanstack/react-query"
 import { RefreshCw } from "lucide-react"
 
 import { ToolIcon } from "@/components/ToolIcon"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { api } from "@/lib/api"
+import { refreshUsage, useUsage } from "@/hooks/useUsage"
 import { ago, fmtDT, until } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -12,19 +12,11 @@ const TOOL_LABEL: Record<string, string> = { claude: "Claude Code", codex: "Code
 
 export function UsageCard({ tool }: { tool: string }) {
   const queryClient = useQueryClient()
-  const { data, isFetching, isPending, dataUpdatedAt } = useQuery({
-    queryKey: ["usage"],
-    queryFn: () => api.usage(),
-    staleTime: 30_000,
-    refetchInterval: 5 * 60_000,
-  })
+  const { data, isFetching, isPending, dataUpdatedAt } = useUsage()
   const usage =
     tool === "claude" ? data?.claude : tool === "codex" ? data?.codex : tool === "copilot" ? data?.copilot : null
 
-  const refresh = async () => {
-    const fresh = await api.usage(true)
-    queryClient.setQueryData(["usage"], fresh)
-  }
+  const refresh = () => refreshUsage(queryClient)
 
   const money = (value: number | null | undefined, currency: string | null | undefined) =>
     value == null

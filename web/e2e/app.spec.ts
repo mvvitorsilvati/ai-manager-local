@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs"
+import { readFileSync, rmSync, writeFileSync } from "node:fs"
 import path from "node:path"
 
 import { expect, test, type Page } from "@playwright/test"
@@ -114,4 +114,52 @@ test("Esc cancela a edição sem fechar o viewer", async ({ page }) => {
 
   await expect(page.locator(".monaco-editor")).toHaveCount(0)
   await expect(page.locator('[data-slot="sheet-content"]')).toBeVisible()
+})
+
+test("trocar de menu recarrega a lista e mostra arquivo criado fora do painel", async ({ page }) => {
+  // arquivo na raiz do projeto: aparece direto na árvore (sem depender de pasta expandida)
+  const novo = path.join(FIXTURE, "AGENTS.md")
+  await abrirProjeto(page)
+  await expect(page.getByRole("button", { name: /AGENTS\.md/ })).toHaveCount(0)
+
+  writeFileSync(novo, "# Criado durante o teste\n")
+  try {
+    await page.getByRole("link", { name: /Visão geral/ }).click()
+    await page.getByRole("link", { name: /Projetos/ }).click()
+
+    await expect(page.getByRole("button", { name: /AGENTS\.md/ })).toBeVisible()
+  } finally {
+    rmSync(novo, { force: true })
+  }
+})
+
+test("atualizar do card de uso recarrega só aquela IA", async ({ page }) => {
+  const toolUsage = (plan: string) => ({
+    available: true,
+    plan,
+    windows: [{ label: "Sessão (5h)", utilization: 10, resets_at: null }],
+    credits: null,
+  })
+  const chamadas: string[] = []
+  await page.route("**/api/usage*", (route) => {
+    const url = new URL(route.request().url())
+    chamadas.push(url.search)
+    const tool = url.searchParams.get("tool")
+    return route.fulfill({
+      json: tool
+        ? { [tool]: toolUsage(tool) }
+        : { claude: toolUsage("pro"), codex: toolUsage("plus"), copilot: toolUsage("individual") },
+    })
+  })
+
+  await page.goto("/")
+  const cardCodex = page.locator("div.bg-card").filter({ has: page.getByRole("heading", { name: /Codex/ }) })
+  await expect(cardCodex.getByRole("button", { name: "Atualizar" })).toBeVisible()
+
+  chamadas.length = 0
+  await cardCodex.getByRole("button", { name: "Atualizar" }).click()
+
+  await expect.poll(() => chamadas.filter((q) => q.includes("refresh=1"))).toHaveLength(1)
+  expect(chamadas[0]).toContain("tool=codex")
+  expect(chamadas.join(" ")).not.toContain("tool=copilot")
 })

@@ -94,6 +94,12 @@ export default function App() {
   const [lastLocation, setLastLocation] = useState(location)
   if (!isViewer && lastLocation !== location) setLastLocation(location)
 
+  // trocar de menu também recarrega tudo (novos arquivos aparecem sem precisar do botão do topo);
+  // o viewer não conta como troca de menu
+  useEffect(() => {
+    queryClient.invalidateQueries()
+  }, [queryClient, lastLocation.pathname])
+
   const nav = NAV.map((item) => {
     let count: number | null = null
     if (catalog) {

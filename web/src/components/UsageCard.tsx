@@ -1,10 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { RefreshCw } from "lucide-react"
+import { useState } from "react"
 
 import { ToolIcon } from "@/components/ToolIcon"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { refreshUsage, useUsage } from "@/hooks/useUsage"
+import { refreshToolUsage, useUsage } from "@/hooks/useUsage"
+import type { UsageTool } from "@/lib/api"
 import { ago, fmtDT, until } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -13,10 +15,20 @@ const TOOL_LABEL: Record<string, string> = { claude: "Claude Code", codex: "Code
 export function UsageCard({ tool }: { tool: string }) {
   const queryClient = useQueryClient()
   const { data, isFetching, isPending, dataUpdatedAt } = useUsage()
+  const [busy, setBusy] = useState(false)
   const usage =
     tool === "claude" ? data?.claude : tool === "codex" ? data?.codex : tool === "copilot" ? data?.copilot : null
 
-  const refresh = () => refreshUsage(queryClient)
+  // o card só gira quando ele mesmo foi clicado (busy) ou no refresh de tudo (isFetching)
+  const loading = busy || isFetching
+  const refresh = async () => {
+    setBusy(true)
+    try {
+      await refreshToolUsage(queryClient, tool as UsageTool)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const money = (value: number | null | undefined, currency: string | null | undefined) =>
     value == null
@@ -48,8 +60,8 @@ export function UsageCard({ tool }: { tool: string }) {
             <p className="text-muted-foreground truncate text-[11.5px]">Autenticado como {usage.account}</p>
           )}
         </div>
-        <Button size="sm" variant="outline" onClick={refresh} disabled={isFetching}>
-          <RefreshCw className={cn("size-3.5", isFetching && "animate-spin")} />
+        <Button size="sm" variant="outline" onClick={refresh} disabled={loading}>
+          <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
           Atualizar
         </Button>
       </div>

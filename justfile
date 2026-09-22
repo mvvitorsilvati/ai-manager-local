@@ -79,7 +79,7 @@ check: lint test
 # ------------------------------------------------------------------ container
 # build da imagem (tag padrão do time: localhost/<repo>-py-<versão>:<versão do pyproject>)
 docker-build:
-    podman build -t localhost/ai-manager-local-py-3.14:0.1.0 .
+    podman build -t localhost/ai-manager-local-py-3.14:1.0.0 .
 
 # sobe o painel em http://127.0.0.1:4747 montando o seu HOME (fontes, backups e audit)
 docker-run:
@@ -87,11 +87,11 @@ docker-run:
       -p 127.0.0.1:4747:4747 \
       -e HOME=/host-home -e AIM_HOST=0.0.0.0 \
       -v "$HOME":/host-home \
-      localhost/ai-manager-local-py-3.14:0.1.0
+      localhost/ai-manager-local-py-3.14:1.0.0
 
 # roda a suíte de testes dentro da imagem (usa a venv embutida, sem rede)
 docker-test:
     podman run --rm --name ai-manager-local-test \
       -v "$PWD":/workspace -w /workspace/backend \
-      localhost/ai-manager-local-py-3.14:0.1.0 \
+      localhost/ai-manager-local-py-3.14:1.0.0 \
       /app/backend/.venv/bin/python -m pytest

@@ -2,7 +2,7 @@ name: ai-manager-local
 
 services:
   app:
-    image: localhost/ai-manager-local-py-3.14:0.1.0
+    image: localhost/ai-manager-local-py-3.14:1.0.0
     build: .
     ports:
       # publica só no loopback do host; dentro do container a API escuta em 0.0.0.0

@@ -7,6 +7,7 @@ Painel web local (somente no seu Mac) para visualizar e editar as configuraçõe
 ![Linux](https://img.shields.io/badge/Linux-parcial-d29922?logo=linux&logoColor=white)
 ![WSL](https://img.shields.io/badge/WSL-parcial-d29922?logo=windows&logoColor=white)
 ![Docker/Podman](https://img.shields.io/badge/Docker%2FPodman-parcial-d29922?logo=docker&logoColor=white)
+![versão](https://img.shields.io/github/v/release/mvvitorsilvati/ai-manager-local?label=vers%C3%A3o&color=3fb950)
 ![status](https://img.shields.io/badge/status-manuten%C3%A7%C3%A3o%20ativa-3fb950)
 
 ![Python](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white)
@@ -173,14 +174,14 @@ just stop       # encerra a instância que estiver na porta 4747
 | `just format` | oxfmt (frontend) + `ruff check --fix` (backend) |
 | `just check` | lint + testes |
 | `just hooks` | liga os git hooks versionados (pre-commit roda `just check`) |
-| `just docker-build` | build da imagem `localhost/ai-manager-local-py-3.14:0.1.0` |
+| `just docker-build` | build da imagem `localhost/ai-manager-local-py-3.14:1.0.0` |
 | `just docker-run` | sobe o painel em container montando o seu `$HOME` |
 | `just docker-test` | roda a suíte de testes dentro da imagem (sem rede) |
 
 ### Rodando em container (Docker/Podman)
 
 ```bash
-just docker-build   # podman build -t localhost/ai-manager-local-py-3.14:0.1.0 .
+just docker-build   # podman build -t localhost/ai-manager-local-py-3.14:1.0.0 .
 just docker-run     # http://127.0.0.1:4747
 ```
 

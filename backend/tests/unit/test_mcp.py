@@ -97,7 +97,7 @@ def test_collect_mcps_inclui_os_do_claude_por_projeto(tmp_path, monkeypatch):
     (tmp_path / ".claude.json").write_text(json.dumps({
         "mcpServers": {"global-http": {"url": "https://x"}},
         "projects": {
-            "/Users/x/Projetos/sigaweb": {"mcpServers": {"playwright": {"command": "npx"}}},
+            "/Users/x/Projetos/meu-projeto": {"mcpServers": {"playwright": {"command": "npx"}}},
         },
     }))
     monkeypatch.setattr(app, "HOME", tmp_path)
@@ -105,7 +105,7 @@ def test_collect_mcps_inclui_os_do_claude_por_projeto(tmp_path, monkeypatch):
 
     mcps = {m["name"]: m for m in app.collect_mcps()}
     assert mcps["global-http"]["file"] == {"s": "claude-global", "r": ".claude.json"}
-    assert mcps["playwright"]["scope"] == "sigaweb"
+    assert mcps["playwright"]["scope"] == "meu-projeto"
     assert mcps["playwright"]["type"] == "local"
 
 

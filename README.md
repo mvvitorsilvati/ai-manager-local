@@ -3,6 +3,22 @@
 Painel web local (somente no seu Mac) para visualizar e editar as configurações das IAs instaladas na máquina: **opencode**, **Claude Code**, **Codex**, **GitHub Copilot CLI**, **Gemini/Antigravity** e os arquivos de configuração **dentro dos seus projetos** (`~/Projetos`).
 
 [![QA](https://github.com/mvvitorsilvati/ai-manager-local/actions/workflows/qa.yaml/badge.svg)](https://github.com/mvvitorsilvati/ai-manager-local/actions/workflows/qa.yaml)
+![macOS](https://img.shields.io/badge/macOS-completo-3fb950?logo=apple&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-parcial-d29922?logo=linux&logoColor=white)
+![WSL](https://img.shields.io/badge/WSL-parcial-d29922?logo=windows&logoColor=white)
+![Docker/Podman](https://img.shields.io/badge/Docker%2FPodman-parcial-d29922?logo=docker&logoColor=white)
+![status](https://img.shields.io/badge/status-manuten%C3%A7%C3%A3o%20ativa-3fb950)
+
+![Python](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white)
+![uv](https://img.shields.io/badge/uv-0.8%2B-DE5FE9)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-v4-06B6D4?logo=tailwindcss&logoColor=white)
+![testes](https://img.shields.io/badge/testes-pytest%20%2B%20Vitest%20%2B%20Playwright-0A9EDC)
+![licença](https://img.shields.io/badge/licen%C3%A7a-MIT-3DA639)
+
+**Sistemas operacionais:** macOS é o alvo completo (Keychain, Finder, apps nativos e seus ícones). Linux, WSL e container rodam o painel com o que é multiplataforma; as diferenças estão em [Limitações](#limitações). No WSL com as IAs instaladas no Windows, use `AIM_HOME` — veja [Usando no WSL](#usando-no-wsl-ias-instaladas-no-windows).
 
 **Site:** https://mvvitorsilvati.github.io/ai-manager-local/ (landing page servida pelo GitHub Pages a partir de `site/`)
 

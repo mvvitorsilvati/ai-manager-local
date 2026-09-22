@@ -101,28 +101,28 @@ def _escrever_marketplace(base, name: str, plugins: dict[str, str | None], snaps
 
 def test_claude_plugin_updates_compara_versao_declarada(tmp_path, monkeypatch):
     location_oficial = _escrever_marketplace(tmp_path, "claude-plugins-official", {"context7": "2.0.0"}, "abc123")
-    location_arco = _escrever_marketplace(tmp_path, "arco", {"core": "0.62.2"}, None)
+    location_exemplo = _escrever_marketplace(tmp_path, "exemplo", {"core": "0.62.2"}, None)
     installed = tmp_path / "installed.json"
     installed.write_text(json.dumps({"plugins": {
         "context7@claude-plugins-official": [{"version": "2.0.0"}],
-        "core@arco": [{"version": "0.61.0"}],
+        "core@exemplo": [{"version": "0.61.0"}],
     }}))
     marketplaces = tmp_path / "known.json"
     marketplaces.write_text(json.dumps({
         "claude-plugins-official": {"installLocation": location_oficial},
-        "arco": {"installLocation": location_arco},
+        "exemplo": {"installLocation": location_exemplo},
     }))
     settings = tmp_path / "settings.json"
-    settings.write_text(json.dumps({"extraKnownMarketplaces": {"arco": {"autoUpdate": True}}}))
+    settings.write_text(json.dumps({"extraKnownMarketplaces": {"exemplo": {"autoUpdate": True}}}))
     monkeypatch.setattr(app, "CLAUDE_INSTALLED_PLUGINS", installed)
     monkeypatch.setattr(app, "CLAUDE_MARKETPLACES", marketplaces)
     monkeypatch.setattr(app, "CLAUDE_SETTINGS", settings)
 
     updates = {u["name"]: u for u in app.claude_plugin_updates()}
     assert updates["context7@claude-plugins-official"]["update"] is False
-    assert updates["core@arco"]["update"] is True
-    assert updates["core@arco"]["latest"] == "0.62.2"
-    assert updates["core@arco"]["auto_update"] is True
+    assert updates["core@exemplo"]["update"] is True
+    assert updates["core@exemplo"]["latest"] == "0.62.2"
+    assert updates["core@exemplo"]["auto_update"] is True
     assert updates["context7@claude-plugins-official"]["auto_update"] is True  # oficial: ligado por padrão
 
 
@@ -251,7 +251,7 @@ def test_run_command_captura_saida(monkeypatch):
 
 def test_run_plugin_update_valida_plugin(tmp_path, monkeypatch):
     installed = tmp_path / "installed.json"
-    installed.write_text(json.dumps({"plugins": {"audit@arco-ai-plugins": [{"version": "0.1.1"}]}}))
+    installed.write_text(json.dumps({"plugins": {"audit@plugins-exemplo": [{"version": "0.1.1"}]}}))
     monkeypatch.setattr(app, "CLAUDE_INSTALLED_PLUGINS", installed)
 
     with pytest.raises(app.ApiError):
@@ -286,7 +286,7 @@ def test_run_plugin_update_opencode_usa_comando_oficial(tmp_path, monkeypatch):
 
 def test_run_plugin_update_claude_usa_comando_oficial(tmp_path, monkeypatch):
     installed = tmp_path / "installed.json"
-    installed.write_text(json.dumps({"plugins": {"audit@arco-ai-plugins": [{"version": "0.1.1"}]}}))
+    installed.write_text(json.dumps({"plugins": {"audit@plugins-exemplo": [{"version": "0.1.1"}]}}))
     monkeypatch.setattr(app, "CLAUDE_INSTALLED_PLUGINS", installed)
     monkeypatch.setattr(app.shutil, "which", lambda name: f"/usr/local/bin/{name}")
     captured: dict[str, list[str]] = {}
@@ -301,8 +301,8 @@ def test_run_plugin_update_claude_usa_comando_oficial(tmp_path, monkeypatch):
         return Proc()
 
     monkeypatch.setattr(app.subprocess, "run", fake_run)
-    app.run_plugin_update("claude", "audit@arco-ai-plugins")
-    assert captured["command"] == ["/usr/local/bin/claude", "plugin", "update", "audit@arco-ai-plugins", "-y"]
+    app.run_plugin_update("claude", "audit@plugins-exemplo")
+    assert captured["command"] == ["/usr/local/bin/claude", "plugin", "update", "audit@plugins-exemplo", "-y"]
 
 
 def test_versions_snapshot_inclui_comando_de_update(monkeypatch):
@@ -326,8 +326,8 @@ def test_set_plugin_auto_update_grava_no_settings(tmp_path, monkeypatch):
     claude_dir.mkdir()
     settings = claude_dir / "settings.json"
     settings.write_text(json.dumps({
-        "enabledPlugins": {"audit@arco-ai-plugins": True},
-        "extraKnownMarketplaces": {"arco-ai-plugins": {"autoUpdate": False}},
+        "enabledPlugins": {"audit@plugins-exemplo": True},
+        "extraKnownMarketplaces": {"plugins-exemplo": {"autoUpdate": False}},
     }))
     monkeypatch.setitem(
         app.SOURCE_BY_ID,
@@ -341,16 +341,16 @@ def test_set_plugin_auto_update_grava_no_settings(tmp_path, monkeypatch):
     monkeypatch.setattr(app, "CLAUDE_SETTINGS", settings)
     marketplaces = tmp_path / "known.json"
     marketplaces.write_text(json.dumps({
-        "arco-ai-plugins": {"source": {"source": "git", "url": "git@github.com:OlaIsaac/arco-ai-plugins.git"}},
+        "plugins-exemplo": {"source": {"source": "git", "url": "git@github.com:exemplo/plugins-exemplo.git"}},
     }))
     monkeypatch.setattr(app, "CLAUDE_MARKETPLACES", marketplaces)
 
-    result = app.set_plugin_auto_update("audit@arco-ai-plugins", True)
+    result = app.set_plugin_auto_update("audit@plugins-exemplo", True)
     assert result["ok"] is True
     saved = json.loads(settings.read_text())
-    entry = saved["extraKnownMarketplaces"]["arco-ai-plugins"]
+    entry = saved["extraKnownMarketplaces"]["plugins-exemplo"]
     assert entry["autoUpdate"] is True
-    assert entry["source"]["url"] == "git@github.com:OlaIsaac/arco-ai-plugins.git"
+    assert entry["source"]["url"] == "git@github.com:exemplo/plugins-exemplo.git"
 
 
 def test_set_plugin_auto_update_rejeita_plugin_desconhecido():

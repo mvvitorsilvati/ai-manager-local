@@ -36,27 +36,39 @@ Detalhes em [O que faz](#o-que-faz).
 
 ## O que faz
 
-- **Navegação por tipo**: Contextos, Skills, Agentes, Comandos, Regras, Docs, MCPs, Plugins, o navegador de Arquivos e a Auditoria
-- **Navegação por IA**: seleciona a ferramenta (opencode, Claude, Codex, Copilot, Gemini, Compartilhado) e vê tudo daquela IA, global e por projeto
-- **Projetos**: detecta repositórios em `~/Projetos` e mostra `.claude/`, `.opencode/`, `.codex/`, `.gemini/`, `.agents/`, `AGENTS.md`, `CLAUDE.md`, `.mcp.json`, `opencode.json`, `.cursorrules`, `.github/copilot-instructions.md` e a pasta `docs/`
-- **Árvores com metadados**: itens, nome, MIME, extensão e tamanho (arquivo e total por diretório)
-- **Viewer**: Markdown renderizado (com Mermaid), JSON formatado, imagens, texto bruto e metadados (criado/modificado, dono, autor do último commit via git)
-- **Edição com segurança**: editor Monaco, backup automático (10 versões por arquivo), conflito detectado se o arquivo mudar por fora (`409`), restauração pela interface e log de auditoria
-- **Busca global** por nome e por conteúdo, com destaque das linhas encontradas
-- **Busca contextual**: na Visão geral o campo busca global; nas demais telas ele filtra os itens exibidos por nome, caminho e **conteúdo**, com contagem e empty state
-- **IAs por registro**: o registro `TOOLS` define scan, MCP, CLI, autenticação e status de cada IA, com auto-discovery de `~/.<ia>/mcp.json` — a sidebar mostra só o que está configurado
-- **Uso das IAs**: cards com a conta autenticada e limites/reset do Claude Code (janelas 5h/7d ou créditos), Codex (5h/7d, lidos do último rollout) e GitHub Copilot (premium requests + reset mensal)
-- **Consumo**: custo e tokens lidos dos logs locais (Claude Code, Codex, opencode e Copilot CLI), com gráficos de área/barra por dia — por modelo ou consolidado por IA — além de tabelas por modelo e projeto. Preço de tabela, não a fatura; Copilot em AIU. Resumo também na Visão geral e em Por IA
-- **Skills**: top 20 global de skills por invocações (agrupado por nome entre IAs) e tokens aproximados de contexto, com detalhe por IA. Só Claude e opencode têm registro local de invocação
-- **Idiomas**: interface em PT-BR e EN com seletor no topo (`localStorage "aim:lang"`, padrão do navegador); datas, números e moedas seguem o idioma. Mensagens de erro do backend continuam em PT-BR
-- **Tema claro/escuro**: botão Sol/Lua no topo (`localStorage "aim:theme"`, padrão do sistema); Mermaid, Monaco, toasts e gráficos acompanham
-- **Versões e atualizações**: versão instalada de cada CLI vs. a última publicada no npm, com botão **Atualizar** (via brew, npm ou o próprio updater) e **Copiar comando** para rodar a atualização no seu terminal; se o canal de instalação ainda não tiver versão nova, o painel avisa "Nada mudou" em vez de dar sucesso falso; nos plugins, versão instalada, atualização disponível, indicação visual de **update automático** (verde, ícone de sincronismo) ou **manual** (âmbar, ícone de mão) — clicável para alternar no `settings.json` do Claude Code
-- **Status pages**: os links das IAs na sidebar mostram um ícone de alerta (âmbar/vermelho) quando há incidente ativo, consultando as APIs de status (Anthropic, OpenAI, GitHub, Google Cloud e Cursor)
-- **MCPs**: ativar/desativar direto no card (opencode e Codex editam o config com backup; Copilot e Gemini usam o CLI), autenticar/sair via OAuth (Claude, opencode e Codex) e **Ver config** em todos — inclusive os do Claude, que vivem em `~/.claude.json` (fonte especial somente leitura de caminho)
-- **Abrir no terminal/app**: ícone junto de cada IA (Por IA, Uso e Versões) que abre a CLI no terminal detectado (Terminal, iTerm2 e outros) — no diretório do projeto quando houver contexto, senão em `AIM_PROJECTS_DIR` — ou no app nativo (Claude, OpenCode, Gemini/Antigravity), com dropdown quando houver mais de uma opção
-- **Atalhos de teclado**: `⌘K` busca, `⌘E` editar, `⌘S` salvar, `Esc` fecha painéis/cancela a edição
-- **Histórico**: botão voltar do mouse/navegador navega entre seções e fecha o viewer, com guarda para alterações não salvas
-- **Auditoria**: lista as últimas gravações do painel (save/restore) com data, caminho e backup, lidas de `~/.ai_management_local/audit.log`
+O painel lê o que já está na sua máquina, global e por projeto, e organiza em duas navegações. Por tipo de artefato: contextos, skills, agentes, comandos, regras, docs, MCPs, plugins, arquivos e auditoria. Por IA: escolha a ferramenta (opencode, Claude, Codex, Copilot, Gemini ou o que for compartilhado) e veja tudo dela, incluindo os repositórios encontrados em `~/Projetos`.
+
+### Leitura e edição
+
+O viewer abre Markdown com Mermaid, JSON, imagens e texto puro, com os metadados do arquivo e o autor do último commit. A edição é no Monaco e cada gravação gera backup (10 versões por arquivo). Se o arquivo mudar por fora, o painel avisa em vez de sobrescrever. Gravações e restaurações ficam no `audit.log`.
+
+### Busca
+
+Na Visão geral, o campo busca por nome e por conteúdo em tudo, destacando as linhas encontradas. Nas outras telas, filtra o que está na tela.
+
+### Uso e consumo
+
+Os cards de uso mostram a conta autenticada e os limites do Claude Code (janelas de 5h e 7d, ou créditos), do Codex (5h e 7d, lidos do último rollout) e do GitHub Copilot (premium requests e reset mensal). O Consumo lê os logs locais das CLIs e monta gráficos de custo e tokens por dia, por modelo ou por IA, com tabelas por modelo e projeto. São preços de tabela, não a fatura; o Copilot aparece em AIU.
+
+### Skills
+
+Top 20 por invocações, agrupado por nome entre as IAs, com os tokens aproximados de contexto. Só Claude e opencode registram invocação localmente.
+
+### Versões e atualizações
+
+Compara a versão instalada de cada CLI com a última publicada no npm. O **Atualizar** roda brew, npm ou o updater da própria ferramenta; o **Copiar comando** entrega o comando para rodar no terminal. Se o canal de instalação ainda não tiver versão nova, o painel diz "Nada mudou" em vez de dar sucesso falso. Nos plugins, mostra se o update é automático ou manual e deixa alternar.
+
+### MCPs
+
+Ativar e desativar é no próprio card: opencode e Codex editam o config (com backup) e Copilot e Gemini passam pelo CLI. O login por OAuth também fica aqui (Claude, opencode e Codex), e o **Ver config** funciona em todos, inclusive nos MCPs do Claude, que ficam em `~/.claude.json`.
+
+### Abrir a IA
+
+Um ícone ao lado de cada IA abre a CLI no terminal detectado (Terminal, iTerm2 e outros) ou no app nativo (Claude, OpenCode, Gemini/Antigravity). O diretório é o do projeto quando houver contexto; fora de projeto, o `AIM_PROJECTS_DIR`.
+
+### Status e interface
+
+Um alerta na sidebar aparece quando a IA está com incidente ativo, consultando as páginas de status da Anthropic, OpenAI, GitHub, Google Cloud e Cursor. A interface tem PT-BR e EN, tema claro/escuro seguindo o sistema, atalhos (`⌘K`, `⌘E`, `⌘S`, `Esc`) e o botão voltar do navegador navegando entre telas, com guarda para alteração não salva.
 
 ## Logs e debug
 

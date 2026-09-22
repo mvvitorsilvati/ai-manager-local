@@ -31,7 +31,7 @@ import { matches, useFilterMatcher, useFilterQuery } from "@/hooks/useFilter"
 import { useVersions } from "@/hooks/useVersions"
 import { api, type Catalog, type Mcp, type Plugin, type SearchResult, type SkillEntry } from "@/lib/api"
 import { cn } from "@/lib/utils"
-import { SpendChartCard } from "@/views/Spend"
+import { ToolSection } from "@/views/Spend"
 
 const secClass = "mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground"
 
@@ -334,7 +334,7 @@ export function ToolsView() {
           <UsageCard tool={selected} />
         </div>
       )}
-      {(hasUsageCard || selected === "opencode") && <SpendChartCard tool={selected} />}
+      {(hasUsageCard || selected === "opencode") && <ToolSection tool={selected} />}
       <EmptyFilter query={q} count={files.length} />
       {ordered.map(([sid, list]) => (
         <SourceSection key={sid} catalog={catalog} id={sid}>

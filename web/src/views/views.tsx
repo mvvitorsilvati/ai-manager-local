@@ -33,7 +33,7 @@ import { useVersions } from "@/hooks/useVersions"
 import { api, type Catalog, type Mcp, type Plugin, type SearchResult, type SkillEntry } from "@/lib/api"
 import { useI18n } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
-import { TopSkillBadge, useSkillUsage } from "@/views/Skills"
+import SpendSkills, { TopSkillBadge, useSkillUsage } from "@/views/Skills"
 import { ToolSection } from "@/views/Spend"
 
 const secClass = "mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground"
@@ -175,7 +175,7 @@ export function CategoryView({ cat }: { cat: string }) {
 export function SkillsView() {
   const { data: catalog } = useCatalog()
   const { t, tn } = useI18n()
-  const { data: usage } = useSkillUsage(0)
+  const { data: usage } = useSkillUsage(7)
   const open = useOpenFile()
   const q = useFilterQuery()
   const match = useFilterMatcher()
@@ -190,6 +190,7 @@ export function SkillsView() {
     <div>
       <h2 className="text-lg font-semibold">{t("nav.skills")}</h2>
       <p className="text-muted-foreground mb-5 text-sm">{tn("skills.subtitle", skills.length)}</p>
+      <SpendSkills days={7} />
       <EmptyFilter query={q} count={skills.length} />
       {[...groups.entries()].map(([sid, list]) => {
         const sourceFiles = catalog.files.filter((f) => f.s === sid)
@@ -204,7 +205,13 @@ export function SkillsView() {
                 ? {
                     f,
                     label: skill.skill_name,
-                    badge: <TopSkillBadge skill={skill.skill_name} rank={rankOf(skill.skill_name, skill.r)} />,
+                    badge: (
+                      <TopSkillBadge
+                        skill={skill.skill_name}
+                        rank={rankOf(skill.skill_name, skill.r)}
+                        window={t("spend.p7")}
+                      />
+                    ),
                   }
                 : { f },
             )

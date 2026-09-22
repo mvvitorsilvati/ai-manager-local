@@ -502,13 +502,20 @@
         margin-top: 1.2rem;
       }
 
-      .requisitos span {
+      .requisitos a {
         padding: 0.3rem 0.7rem;
         border: 1px solid var(--borda);
         border-radius: 999px;
         background: var(--cartao);
         color: var(--suave);
         font-size: 0.8rem;
+        text-decoration: none;
+        transition: border-color 0.15s ease, color 0.15s ease;
+      }
+
+      .requisitos a:hover {
+        border-color: color-mix(in srgb, var(--violeta) 55%, var(--borda));
+        color: var(--texto);
       }
 
       .codigo {
@@ -560,8 +567,25 @@
 
       .rodape-nota {
         margin: 1rem 0 0;
+        max-width: 40rem;
         color: var(--suave);
         font-size: 0.85rem;
+      }
+
+      code {
+        padding: 0.08em 0.36em;
+        border: 1px solid var(--borda);
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--suave) 12%, transparent);
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+        font-size: 0.88em;
+      }
+
+      .codigo pre code {
+        padding: 0;
+        border: 0;
+        background: none;
+        font-size: inherit;
       }
 
       /* -------------------------------------------------------- privacidade */
@@ -581,7 +605,7 @@
       }
 
       .privacidade h3 {
-        margin: 0 0 0.4rem;
+        margin: 0.9rem 0 0.4rem;
         font-size: 0.98rem;
       }
 
@@ -796,13 +820,13 @@
           </p>
 
           <div class="requisitos">
-            <span>macOS</span>
-            <span>uv 0.8+</span>
-            <span>Python 3.14</span>
-            <span>Node 22+</span>
-            <span>pnpm 10+</span>
-            <span>just (opcional)</span>
-            <span>Podman (opcional)</span>
+            <a href="https://www.apple.com/macos/" target="_blank" rel="noopener noreferrer">macOS</a>
+            <a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener noreferrer">uv 0.8+</a>
+            <a href="https://www.python.org/downloads/" target="_blank" rel="noopener noreferrer">Python 3.14</a>
+            <a href="https://nodejs.org/" target="_blank" rel="noopener noreferrer">Node 22+</a>
+            <a href="https://pnpm.io/" target="_blank" rel="noopener noreferrer">pnpm 10+</a>
+            <a href="https://github.com/casey/just" target="_blank" rel="noopener noreferrer">just (opcional)</a>
+            <a href="https://podman.io/" target="_blank" rel="noopener noreferrer">Podman (opcional)</a>
           </div>
 
           <div class="codigo">
@@ -816,8 +840,10 @@ just start   <span class="c"># build do front + sobe na 4747</span></code></pre>
 
           <p class="rodape-nota">
             Sem <code>just</code>: <code>cd backend &amp;&amp; uv sync</code>, <code>cd web &amp;&amp; pnpm install &amp;&amp; pnpm build</code> e então
-            <code>uv run --project backend backend/app.py</code>. Os cards de uso precisam de <code>gh</code> autenticado
-            (Copilot) e Claude Code logado (Keychain); sem isso, o card simplesmente não aparece.
+            <code>uv run --project backend backend/app.py</code>.
+          </p>
+          <p class="rodape-nota">
+            Os cards de uso só aparecem com a IA autenticada localmente — o login é feito na própria ferramenta.
           </p>
         </div>
       </section>
@@ -832,14 +858,33 @@ just start   <span class="c"># build do front + sobe na 4747</span></code></pre>
 
           <div class="privacidade">
             <article>
+              <div class="icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+                  <path d="m9 12 2 2 4-4" />
+                </svg>
+              </div>
               <h3>Só em 127.0.0.1</h3>
               <p>Nada exposto na rede por padrão; o host só muda em container, por escolha explícita.</p>
             </article>
             <article>
+              <div class="icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M22 12H2M5.4 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.4-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.8 1.1Z" />
+                  <path d="M6 16h.01M10 16h.01" />
+                </svg>
+              </div>
               <h3>Sem telemetria</h3>
               <p>Backups e auditoria ficam em <code>~/.ai_management_local</code> — no seu disco, sob seu controle.</p>
             </article>
             <article>
+              <div class="icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M2 12h20" />
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z" />
+                </svg>
+              </div>
               <h3>Externo só quando você usa</h3>
               <p>
                 As únicas chamadas para fora são as consultas de uso e limites das contas (Claude, Codex e Copilot), com

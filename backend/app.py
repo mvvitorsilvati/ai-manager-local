@@ -2217,6 +2217,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
             self._do_GET()
+        except (BrokenPipeError, ConnectionResetError):
+            logger.debug(f"GET {self.path} cliente desconectou")
         except Exception:
             logger.exception(f"GET {self.path} com erro")
             try:
@@ -2352,6 +2354,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
             self._do_POST()
+        except (BrokenPipeError, ConnectionResetError):
+            logger.debug(f"POST {self.path} cliente desconectou")
         except Exception:
             logger.exception(f"POST {self.path} com erro")
             try:
@@ -2465,7 +2469,6 @@ def main():
     if "--no-open" not in sys.argv:
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()
     logger.info(f"AI Manager Local em {url}  (Ctrl+C para parar)")
-    print(f"AI Manager Local em {url}  (Ctrl+C para parar)")
     try:
         server = ThreadingHTTPServer((host, port), Handler)
     except OSError as exc:

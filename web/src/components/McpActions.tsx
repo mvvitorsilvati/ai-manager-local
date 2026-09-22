@@ -4,29 +4,33 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { api, type Mcp } from "@/lib/api"
+import { useI18n } from "@/lib/i18n"
 
-const VERB: Record<string, string> = {
-  enable: "ativado",
-  disable: "desativado",
-  login: "autenticado",
-  logout: "desconectado",
+const VERB_KEY: Record<string, "mcp.on" | "mcp.off" | "mcp.signedIn" | "mcp.signedOut"> = {
+  enable: "mcp.on",
+  disable: "mcp.off",
+  login: "mcp.signedIn",
+  logout: "mcp.signedOut",
 }
 
 export function McpActions({ mcp, canToggle, canAuth }: { mcp: Mcp; canToggle: boolean; canAuth: boolean }) {
   const queryClient = useQueryClient()
+  const { t } = useI18n()
   const mutation = useMutation({
     mutationFn: (action: "enable" | "disable" | "login" | "logout") =>
       api.mcpAction({ source: mcp.source, name: mcp.name, action }),
     onSuccess: (result, action) => {
       queryClient.invalidateQueries({ queryKey: ["catalog"] })
       if (result.ok) {
-        toast.success(`${mcp.name} ${VERB[action]}`, { description: result.output || result.command })
+        toast.success(`${mcp.name} ${t(VERB_KEY[action])}`, { description: result.output || result.command })
       } else {
-        toast.error(`Falha em ${mcp.name}`, { description: result.output || result.command })
+        toast.error(t("mcp.fail", { name: mcp.name }), { description: result.output || result.command })
       }
     },
     onError: (error: Error, action) => {
-      toast.error(`Falha ao ${VERB[action] ?? action} ${mcp.name}`, { description: error.message })
+      toast.error(t("mcp.failAction", { verb: t(VERB_KEY[action] ?? "mcp.off"), name: mcp.name }), {
+        description: error.message,
+      })
     },
   })
   const toggle = canToggle
@@ -40,7 +44,7 @@ export function McpActions({ mcp, canToggle, canAuth }: { mcp: Mcp; canToggle: b
           size="xs"
           variant="outline"
           disabled={pending}
-          title={mcp.enabled ? "Desligar este MCP na configuração" : "Ligar este MCP na configuração"}
+          title={mcp.enabled ? t("mcp.turnOff") : t("mcp.turnOn")}
           onClick={() => mutation.mutate(mcp.enabled ? "disable" : "enable")}
         >
           {pending ? (
@@ -50,7 +54,7 @@ export function McpActions({ mcp, canToggle, canAuth }: { mcp: Mcp; canToggle: b
           ) : (
             <Power className="size-3" />
           )}
-          {mcp.enabled ? "Desativar" : "Ativar"}
+          {mcp.enabled ? t("mcp.deactivate") : t("mcp.activate")}
         </Button>
       )}
       {auth && (
@@ -59,21 +63,21 @@ export function McpActions({ mcp, canToggle, canAuth }: { mcp: Mcp; canToggle: b
             size="xs"
             variant="outline"
             disabled={pending}
-            title="Autenticar via OAuth (abre o navegador)"
+            title={t("mcp.loginTitle")}
             onClick={() => mutation.mutate("login")}
           >
             {pending ? <Loader2 className="size-3 animate-spin" /> : <KeyRound className="size-3" />}
-            Autenticar
+            {t("mcp.login")}
           </Button>
           <Button
             size="xs"
             variant="outline"
             disabled={pending}
-            title="Remover credenciais salvas deste MCP"
+            title={t("mcp.logoutTitle")}
             onClick={() => mutation.mutate("logout")}
           >
             <LogOut className="size-3" />
-            Sair
+            {t("mcp.logout")}
           </Button>
         </>
       )}

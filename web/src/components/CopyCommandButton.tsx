@@ -2,14 +2,16 @@ import { Copy } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { useI18n } from "@/lib/i18n"
 
 export function CopyCommandButton({ command, label }: { command: string; label: string }) {
+  const { t } = useI18n()
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(command)
-      toast.success("Comando copiado", { description: command })
+      toast.success(t("copy.done"), { description: command })
     } catch {
-      toast.error("Não foi possível copiar", { description: command })
+      toast.error(t("copy.fail"), { description: command })
     }
   }
   return (
@@ -17,11 +19,11 @@ export function CopyCommandButton({ command, label }: { command: string; label: 
       size="xs"
       variant="outline"
       onClick={copy}
-      title={`Copiar: ${command}`}
-      aria-label={`Copiar comando para atualizar ${label}`}
+      title={t("copy.title", { command })}
+      aria-label={t("copy.aria", { label })}
     >
       <Copy className="size-3" />
-      Copiar comando
+      {t("copy.button")}
     </Button>
   )
 }

@@ -9,12 +9,14 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { refreshToolUsage, useUsage } from "@/hooks/useUsage"
 import type { UsageTool } from "@/lib/api"
 import { ago, fmtDT, until } from "@/lib/format"
+import { useI18n } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
 const TOOL_LABEL: Record<string, string> = { claude: "Claude Code", codex: "Codex", copilot: "GitHub Copilot" }
 
 export function UsageCard({ tool }: { tool: string }) {
   const queryClient = useQueryClient()
+  const { t } = useI18n()
   const { data, isFetching, isPending, dataUpdatedAt } = useUsage()
   const [busy, setBusy] = useState(false)
   const usage =
@@ -45,7 +47,10 @@ export function UsageCard({ tool }: { tool: string }) {
 
   const resetLine = (iso: string) => {
     const future = Date.parse(iso) > dataUpdatedAt
-    return `${future ? "Reinicia" : "Reiniciada"} ${until(iso)} (${fmtDT(Date.parse(iso))})`
+    return t(future ? "usage.resetFuture" : "usage.resetPast", {
+      when: until(iso),
+      date: fmtDT(Date.parse(iso)),
+    })
   }
 
   return (
@@ -58,14 +63,16 @@ export function UsageCard({ tool }: { tool: string }) {
             {usage?.plan && <span className="text-muted-foreground ml-2 font-normal capitalize">· {usage.plan}</span>}
           </h3>
           {usage?.account && (
-            <p className="text-muted-foreground truncate text-[11.5px]">Autenticado como {usage.account}</p>
+            <p className="text-muted-foreground truncate text-[11.5px]">
+              {t("usage.account", { account: usage.account })}
+            </p>
           )}
         </div>
         <span className="flex items-center gap-1">
           <OpenWith tool={tool} />
           <Button size="sm" variant="outline" onClick={refresh} disabled={loading}>
             <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
-            Atualizar
+            {t("usage.refresh")}
           </Button>
         </span>
       </div>
@@ -81,17 +88,21 @@ export function UsageCard({ tool }: { tool: string }) {
           </div>
         </div>
       ) : !usage ? (
-        <p className="text-muted-foreground text-xs">Sem dados de uso para esta ferramenta.</p>
+        <p className="text-muted-foreground text-xs">{t("usage.empty")}</p>
       ) : (
         <div className="space-y-3">
           {usage.credits && (
             <div>
               <div className="flex items-baseline justify-between gap-3 text-sm">
                 <span>
-                  {money(usage.credits.used, usage.credits.currency)} de{" "}
-                  {money(usage.credits.limit, usage.credits.currency)} gasto
+                  {t("usage.spent", {
+                    used: money(usage.credits.used, usage.credits.currency),
+                    limit: money(usage.credits.limit, usage.credits.currency),
+                  })}
                 </span>
-                <span className="text-muted-foreground">{usage.credits.percent ?? 0}% usado</span>
+                <span className="text-muted-foreground">
+                  {t("usage.percentUsed", { percent: usage.credits.percent ?? 0 })}
+                </span>
               </div>
               <div className="bg-muted mt-1.5 h-2 w-full overflow-hidden rounded-full">
                 <div
@@ -100,8 +111,8 @@ export function UsageCard({ tool }: { tool: string }) {
                 />
               </div>
               <p className="text-muted-foreground mt-1 text-[11.5px]">
-                Limite de gastos ·{" "}
-                {usage.credits.resets_at ? resetLine(usage.credits.resets_at) : "sem data de reinício na API"}
+                {t("usage.spendLimit")}
+                {usage.credits.resets_at ? resetLine(usage.credits.resets_at) : t("usage.noReset")}
               </p>
             </div>
           )}
@@ -109,7 +120,9 @@ export function UsageCard({ tool }: { tool: string }) {
             <div key={w.label}>
               <div className="flex items-baseline justify-between gap-3 text-sm">
                 <span>{w.label}</span>
-                <span className="text-muted-foreground">{Math.round(w.utilization ?? 0)}% usado</span>
+                <span className="text-muted-foreground">
+                  {t("usage.percentUsed", { percent: Math.round(w.utilization ?? 0) })}
+                </span>
               </div>
               <div className="bg-muted mt-1.5 h-2 w-full overflow-hidden rounded-full">
                 <div
@@ -121,13 +134,15 @@ export function UsageCard({ tool }: { tool: string }) {
             </div>
           ))}
           {usage.unlimited && usage.unlimited.length > 0 && (
-            <p className="text-muted-foreground text-[11.5px]">{usage.unlimited.join(" e ")}: ilimitado</p>
+            <p className="text-muted-foreground text-[11.5px]">
+              {t("usage.unlimited", { names: usage.unlimited.join(", ") })}
+            </p>
           )}
           {!usage.credits && usage.windows.length === 0 && (
-            <p className="text-muted-foreground text-xs">Sem janelas de uso ativas nesta conta agora.</p>
+            <p className="text-muted-foreground text-xs">{t("usage.noWindows")}</p>
           )}
           {usage.updated_at && (
-            <p className="text-muted-foreground text-[11.5px]">Dados da última sessão · {ago(usage.updated_at)}</p>
+            <p className="text-muted-foreground text-[11.5px]">{t("usage.updated", { when: ago(usage.updated_at) })}</p>
           )}
         </div>
       )}

@@ -1,6 +1,7 @@
 import { Suspense, lazy } from "react"
 
 import { Skeleton } from "@/components/ui/skeleton"
+import { useTheme } from "@/lib/theme"
 
 const Editor = lazy(async () => {
   await import("@/lib/monaco-setup")
@@ -45,12 +46,13 @@ type Props = {
 }
 
 export function CodeEditor({ value, path, onChange }: Props) {
+  const { theme } = useTheme()
   return (
     <Suspense fallback={<Skeleton className="h-[68vh] w-full" />}>
       <div className="border-border h-[68vh] overflow-hidden rounded-lg border">
         <Editor
           height="100%"
-          theme="vs-dark"
+          theme={theme === "dark" ? "vs-dark" : "vs"}
           language={languageFor(path)}
           path={path}
           value={value}

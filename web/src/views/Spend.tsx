@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query"
+import { ChartArea, ChartBar, ChartBarStacked, TrendingDown, TrendingUp } from "lucide-react"
 import { useMemo, useState, type ReactNode } from "react"
 import { Link, useSearchParams } from "react-router-dom"
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Label, Pie, PieChart, XAxis, YAxis } from "recharts"
 
 import { ViewSkeleton } from "@/components/bits"
 import { ToolIcon } from "@/components/ToolIcon"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api, type SpendBucket, type SpendTool } from "@/lib/api"
@@ -29,7 +31,7 @@ const MODEL_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#4a3aa7", "#e
 const MAX_MODEL_SERIES = 6
 
 type Metric = "cost" | "tokens"
-type ChartKind = "area" | "bar"
+type ChartKind = "area" | "bar" | "stacked"
 
 export function useSpend(days: number, tool?: string) {
   return useQuery({
@@ -63,6 +65,16 @@ export function Money({ value, currency }: { value: number; currency: string }) 
     <>
       {value.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} <AiuNote />
     </>
+  )
+}
+
+function TooltipRow({ color, label, formatted }: { color?: string; label: string; formatted: string }) {
+  return (
+    <div className="flex w-full items-center gap-2">
+      <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: color }} />
+      <span className="text-muted-foreground">{label}</span>
+      <span className="ml-auto pl-4 font-mono font-medium tabular-nums">{formatted}</span>
+    </div>
   )
 }
 
@@ -179,17 +191,43 @@ function buildTokenSeries(tools: SpendTool[]): { rows: Record<string, number | s
   }
 }
 
+const KIND_META: { value: ChartKind; label: string; Icon: typeof ChartArea }[] = [
+  { value: "area", label: "Área", Icon: ChartArea },
+  { value: "bar", label: "Barra", Icon: ChartBar },
+  { value: "stacked", label: "Empilhada", Icon: ChartBarStacked },
+]
+
+function KindToggle({ value, onChange }: { value: ChartKind; onChange: (v: ChartKind) => void }) {
+  return (
+    <div className="flex items-center gap-1">
+      {KIND_META.map(({ value: v, label, Icon }) => (
+        <Button
+          key={v}
+          size="icon-sm"
+          variant={value === v ? "secondary" : "ghost"}
+          title={label}
+          aria-label={label}
+          onClick={() => onChange(v)}
+        >
+          <Icon className="size-4" />
+        </Button>
+      ))}
+    </div>
+  )
+}
+
 export function SpendTrend({
   tools,
   metric,
-  kind,
   height = 240,
+  toggle = true,
 }: {
   tools: SpendTool[]
   metric: Metric
-  kind: ChartKind
   height?: number
+  toggle?: boolean
 }) {
+  const [kind, setKind] = useState<ChartKind>("area")
   const { rows, series } = useMemo(
     () => (metric === "cost" ? buildSeries(tools) : buildTokenSeries(tools)),
     [tools, metric],
@@ -210,21 +248,33 @@ export function SpendTrend({
   ) satisfies ChartConfig
   const formatValue = (value: unknown, name: unknown) => {
     const s = withAxis.find((x) => x.key === String(name))
-    const formatted = metric === "cost" ? money(Number(value), s?.currency ?? "USD") : `${tokens(Number(value))} tokens`
     return (
-      <div className="flex w-full items-center gap-2">
-        <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: s?.color }} />
-        <span className="text-muted-foreground">{s?.label ?? String(name)}</span>
-        <span className="ml-auto pl-4 font-mono font-medium tabular-nums">{formatted}</span>
-      </div>
+      <TooltipRow
+        color={s?.color}
+        label={s?.label ?? String(name)}
+        formatted={metric === "cost" ? money(Number(value), s?.currency ?? "USD") : `${tokens(Number(value))} tokens`}
+      />
     )
   }
   const tick = metric === "cost" ? fmtAxisCost : tokens
   const rightAxis = withAxis.some((s) => s.axis === "right")
   const ids = rightAxis ? undefined : "total"
+  const stacking = kind === "stacked" && ids !== undefined
+  const barRadius = (i: number): number | [number, number, number, number] => {
+    if (!stacking) return 0
+    if (visible.length === 1) return 4
+    if (i === 0) return [0, 0, 4, 4]
+    if (i === visible.length - 1) return [4, 4, 0, 0]
+    return 0
+  }
 
   return (
     <div>
+      {toggle && (
+        <div className="mb-1 flex justify-end">
+          <KindToggle value={kind} onChange={setKind} />
+        </div>
+      )}
       <ChartContainer config={config} className="w-full" style={{ height }}>
         {kind === "area" ? (
           <AreaChart accessibilityLayer data={rows}>
@@ -269,15 +319,16 @@ export function SpendTrend({
             <YAxis yAxisId="left" tickLine={false} axisLine={false} width={52} tickFormatter={(v: number) => tick(v)} />
             {rightAxis && <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} width={52} />}
             <ChartTooltip content={<ChartTooltipContent formatter={formatValue} />} />
-            {visible.map((s) => (
+            {visible.map((s, i) => (
               <Bar
                 key={s.key}
                 yAxisId={s.axis}
                 dataKey={s.key}
                 name={s.key}
                 fill={s.color}
-                stackId={ids}
-                maxBarSize={28}
+                stackId={stacking ? ids : undefined}
+                radius={barRadius(i)}
+                maxBarSize={32}
               />
             ))}
           </BarChart>
@@ -303,6 +354,92 @@ export function SpendTrend({
         </div>
       )}
     </div>
+  )
+}
+
+export function SpendDonut({
+  tools,
+  metric,
+  periodLabel,
+}: {
+  tools: SpendTool[]
+  metric: Metric
+  periodLabel: string
+}) {
+  const active = tools.filter((t) => t.available && t.total.requests > 0)
+  const usd = active.filter((t) => t.currency !== "AIU")
+  const aiu = active.filter((t) => t.currency === "AIU")
+  const splitAiu = metric === "cost" && aiu.length > 0 && usd.length > 0
+  const main = splitAiu ? usd : active
+  if (!main.length) return null
+  const unit = metric === "cost" ? (main[0]?.currency ?? "USD") : "tokens"
+  const slices = main.map((t) => ({
+    tool: t.id,
+    label: t.label,
+    value: metric === "cost" ? t.total.cost : t.total.total_tokens,
+    fill: TOOL_COLOR[t.id] ?? "#888888",
+  }))
+  const total = slices.reduce((sum, r) => sum + r.value, 0)
+  const centerValue =
+    metric === "cost"
+      ? unit === "AIU"
+        ? total.toLocaleString("pt-BR", { maximumFractionDigits: 3 })
+        : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "USD" }).format(total)
+      : tokens(total)
+  const config = Object.fromEntries(
+    slices.map((r) => [r.tool, { label: r.label, color: r.fill }]),
+  ) satisfies ChartConfig
+  const formatSlice = (value: unknown, name: unknown) => {
+    const row = slices.find((r) => r.tool === String(name))
+    return (
+      <TooltipRow
+        color={row?.fill}
+        label={row?.label ?? String(name)}
+        formatted={metric === "cost" ? money(Number(value), unit) : `${tokens(Number(value))} tokens`}
+      />
+    )
+  }
+  return (
+    <Card className="flex flex-col">
+      <CardHeader className="items-center pb-0">
+        <CardTitle>{metric === "cost" ? "Custo total por IA" : "Tokens por IA"}</CardTitle>
+        <CardDescription>{periodLabel}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex-1 pb-0">
+        <ChartContainer config={config} className="mx-auto aspect-square max-h-[250px]">
+          <PieChart>
+            <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel formatter={formatSlice} />} />
+            <Pie data={slices} dataKey="value" nameKey="tool" innerRadius={60} strokeWidth={5}>
+              <Label
+                content={({ viewBox }) => {
+                  if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                    return (
+                      <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                        <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-3xl font-bold">
+                          {centerValue}
+                        </tspan>
+                        <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 24} className="fill-muted-foreground">
+                          {unit}
+                        </tspan>
+                      </text>
+                    )
+                  }
+                }}
+              />
+            </Pie>
+          </PieChart>
+        </ChartContainer>
+      </CardContent>
+      {splitAiu && (
+        <CardFooter className="flex-col items-center gap-1 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 shrink-0 rounded-[2px]" style={{ backgroundColor: TOOL_COLOR.copilot }} />
+            Copilot · <Money value={aiu.reduce((sum, t) => sum + t.total.cost, 0)} currency="AIU" />
+          </div>
+          <div className="text-muted-foreground text-xs">Fora do donut por ser outra moeda</div>
+        </CardFooter>
+      )}
+    </Card>
   )
 }
 
@@ -350,14 +487,91 @@ function Table({
   )
 }
 
-function ToolCard({ tool, metric, kind }: { tool: SpendTool; metric: Metric; kind: ChartKind }) {
+export function ToolCard({
+  id,
+  initialDays = 30,
+  detailLink = false,
+}: {
+  id: string
+  initialDays?: number
+  detailLink?: boolean
+}) {
+  const [metric, setMetric] = useState<Metric>("cost")
+  const [days, setDays] = useState(initialDays)
+  const { data, isPending } = useSpend(days, id)
+  const tool = data?.tools[id]
+  if (isPending && !tool) return <ViewSkeleton rows={3} />
+  if (!tool) return null
+  return (
+    <ToolCardBody
+      tool={tool}
+      metric={metric}
+      onMetric={setMetric}
+      days={days}
+      onDays={setDays}
+      detailLink={detailLink}
+    />
+  )
+}
+
+function ToolCardBody({
+  tool,
+  metric,
+  onMetric,
+  days,
+  onDays,
+  detailLink,
+}: {
+  tool: SpendTool
+  metric: Metric
+  onMetric: (v: Metric) => void
+  days: number
+  onDays: (v: number) => void
+  detailLink: boolean
+}) {
+  const pick = (row: { cost: number; total_tokens: number }) => (metric === "cost" ? row.cost : row.total_tokens)
+  const peak = tool.by_day.length ? tool.by_day.reduce((a, b) => (pick(b) > pick(a) ? b : a)) : null
+  const half = Math.floor(tool.by_day.length / 2)
+  const sum = (rows: typeof tool.by_day) => rows.reduce((s, r) => s + pick(r), 0)
+  const trendingUp = tool.by_day.length > 1 && sum(tool.by_day.slice(half)) >= sum(tool.by_day.slice(0, half))
+  const TrendIcon = trendingUp ? TrendingUp : TrendingDown
+  const range =
+    tool.by_day.length > 1
+      ? `${fmtDay(tool.by_day[0].day)} – ${fmtDay(tool.by_day[tool.by_day.length - 1].day)}`
+      : tool.span && `${fmtDay(tool.span.from.slice(0, 10))} – ${fmtDay(tool.span.to.slice(0, 10))}`
   return (
     <section className="border-border bg-card mb-4 rounded-lg border p-4">
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <ToolIcon id={tool.id} className="size-4" />
         <h3 className="text-sm font-semibold">{tool.label}</h3>
         <span className="text-muted-foreground text-[11px]">
           {tool.currency === "AIU" ? <AiuNote /> : tool.currency}
+        </span>
+        <span className="ml-auto flex items-center gap-2">
+          <MetricToggle value={metric} onChange={onMetric} />
+          {detailLink && (
+            <Link
+              to={`/consumo?tool=${tool.id}&days=${days}`}
+              className="text-muted-foreground text-xs hover:underline"
+            >
+              ver detalhe
+            </Link>
+          )}
+        </span>
+      </div>
+      <div className="mb-3 flex items-center gap-1.5">
+        <span className="ml-auto flex items-center gap-1.5">
+          {OVERVIEW_PERIODS.map((period) => (
+            <Button
+              key={period.days}
+              size="sm"
+              variant={days === period.days ? "secondary" : "outline"}
+              className="h-6 rounded-full px-2.5 text-xs"
+              onClick={() => onDays(period.days)}
+            >
+              {period.label}
+            </Button>
+          ))}
         </span>
       </div>
       {!tool.available ? (
@@ -372,9 +586,29 @@ function ToolCard({ tool, metric, kind }: { tool: SpendTool; metric: Metric; kin
             <Stat label="chamadas" value={String(tool.total.requests)} />
             <Stat label="tempo ativo" value={duration(tool.total.active_seconds)} />
           </div>
-          <div className="mb-4">
-            <SpendTrend tools={[tool]} metric={metric} kind={kind} height={220} />
-          </div>
+          <Card className="mb-4">
+            <CardHeader>
+              <CardTitle>{metric === "cost" ? "Custo por dia" : "Tokens por dia"}</CardTitle>
+              {range && <CardDescription>{range}</CardDescription>}
+            </CardHeader>
+            <CardContent>
+              <SpendTrend tools={[tool]} metric={metric} height={220} />
+            </CardContent>
+            {peak && (
+              <CardFooter className="flex-col items-start gap-1 text-sm">
+                <div className="flex items-center gap-2 leading-none font-medium">
+                  Pico em {fmtDay(peak.day)} ·{" "}
+                  {metric === "cost" ? money(peak.cost, tool.currency) : `${tokens(peak.total_tokens)} tokens`}
+                  <TrendIcon className="size-4" />
+                </div>
+                <div className="text-muted-foreground leading-none">
+                  {tool.by_day.length > 1
+                    ? `${trendingUp ? "Em alta" : "Em queda"} na segunda metade do período`
+                    : "Um dia com uso no período"}
+                </div>
+              </CardFooter>
+            )}
+          </Card>
           <div className="grid gap-4 lg:grid-cols-2">
             <Table title="por modelo" rows={tool.by_model} name="model" currency={tool.currency} />
             <Table title="por projeto" rows={tool.by_project} name="project" currency={tool.currency} />
@@ -391,24 +625,10 @@ function ToolCard({ tool, metric, kind }: { tool: SpendTool; metric: Metric; kin
   )
 }
 
-export function SpendChartCard({ tool }: { tool: string }) {
-  const { data, isPending } = useSpend(30, tool)
-  const row = data?.tools[tool]
-  if (isPending) return <div className="bg-muted mb-5 h-44 animate-pulse rounded-lg" />
-  if (!row || !row.available || row.total.requests === 0) return null
+export function ToolSection({ tool }: { tool: string }) {
   return (
-    <div className="border-border bg-card mb-5 rounded-lg border p-4">
-      <div className="mb-2 flex flex-wrap items-center gap-3 text-sm">
-        <span className="font-medium">Consumo · 30 dias</span>
-        <span>
-          <Money value={row.total.cost} currency={row.currency} />
-        </span>
-        <span className="text-muted-foreground">{tokens(row.total.total_tokens)} tokens</span>
-        <Link to={`/consumo?tool=${tool}&days=30`} className="text-muted-foreground ml-auto text-xs hover:underline">
-          ver detalhe
-        </Link>
-      </div>
-      <SpendTrend tools={[row]} metric="cost" kind="area" height={180} />
+    <div className="mb-5">
+      <ToolCard id={tool} detailLink />
     </div>
   )
 }
@@ -439,6 +659,19 @@ function Toggle<T extends string>({
   )
 }
 
+export function MetricToggle({ value, onChange }: { value: Metric; onChange: (v: Metric) => void }) {
+  return (
+    <Toggle
+      value={value}
+      onChange={onChange}
+      options={[
+        { value: "cost", label: "Custo" },
+        { value: "tokens", label: "Tokens" },
+      ]}
+    />
+  )
+}
+
 const OVERVIEW_PERIODS = [
   { days: 7, label: "7 dias" },
   { days: 30, label: "30 dias" },
@@ -447,6 +680,7 @@ const OVERVIEW_PERIODS = [
 
 export function SpendOverviewCard() {
   const [days, setDays] = useState(30)
+  const [metric, setMetric] = useState<Metric>("cost")
   const { data, isPending } = useSpend(days)
   const tools = data ? Object.values(data.tools) : []
   const active = tools.filter((t) => t.available && t.total.requests > 0)
@@ -454,16 +688,29 @@ export function SpendOverviewCard() {
   if (!active.length) return null
   const usd = active.filter((t) => t.currency !== "AIU").reduce((sum, t) => sum + t.total.cost, 0)
   const aiu = active.filter((t) => t.currency === "AIU").reduce((sum, t) => sum + t.total.cost, 0)
+  const totalTokens = active.reduce((sum, t) => sum + t.total.total_tokens, 0)
   return (
     <div className="border-border overflow-hidden rounded-lg border">
       <div className="bg-card flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
         <span className="font-medium">Consumo · {OVERVIEW_PERIODS.find((p) => p.days === days)?.label}</span>
-        <span>{money(usd, "USD")}</span>
-        {aiu > 0 && (
-          <span className="text-muted-foreground">
-            <Money value={aiu} currency="AIU" />
-          </span>
+        {metric === "cost" ? (
+          <>
+            <span>{money(usd, "USD")}</span>
+            {aiu > 0 && (
+              <span className="text-muted-foreground">
+                <Money value={aiu} currency="AIU" />
+              </span>
+            )}
+          </>
+        ) : (
+          <span>{tokens(totalTokens)} tokens</span>
         )}
+        <Link to="/consumo" className="text-muted-foreground ml-auto text-xs hover:underline">
+          ver Consumo
+        </Link>
+      </div>
+      <div className="bg-card flex flex-wrap items-center gap-2 px-3 pb-2">
+        <MetricToggle value={metric} onChange={setMetric} />
         <span className="ml-auto flex items-center gap-1.5">
           {OVERVIEW_PERIODS.map((period) => (
             <Button
@@ -476,13 +723,10 @@ export function SpendOverviewCard() {
               {period.label}
             </Button>
           ))}
-          <Link to="/consumo" className="text-muted-foreground ml-1 text-xs hover:underline">
-            ver Consumo
-          </Link>
         </span>
       </div>
       <div className="bg-card px-2 pb-2">
-        <SpendTrend tools={active} metric="cost" kind="area" height={180} />
+        <SpendTrend tools={active} metric={metric} height={180} />
       </div>
     </div>
   )
@@ -494,7 +738,6 @@ export default function SpendView() {
   const tool = params.get("tool") || undefined
   const selected = tool && TOOLS.includes(tool) ? tool : undefined
   const [metric, setMetric] = useState<Metric>("cost")
-  const [kind, setKind] = useState<ChartKind>("area")
   const { data, isPending, isError } = useSpend(Number.isFinite(days) ? days : 30, selected)
   const set = (next: { days?: number; tool?: string }) =>
     setParams(
@@ -510,6 +753,7 @@ export default function SpendView() {
 
   const tools = data ? Object.values(data.tools) : []
   const active = tools.filter((t) => t.available && t.total.requests > 0)
+  const period = Number.isFinite(days) ? days : 30
   return (
     <div>
       <h2 className="text-lg font-semibold">Consumo</h2>
@@ -552,22 +796,7 @@ export default function SpendView() {
         ))}
       </div>
       <div className="mb-5 flex flex-wrap gap-4">
-        <Toggle
-          value={metric}
-          onChange={setMetric}
-          options={[
-            { value: "cost", label: "Custo" },
-            { value: "tokens", label: "Tokens" },
-          ]}
-        />
-        <Toggle
-          value={kind}
-          onChange={setKind}
-          options={[
-            { value: "area", label: "Área" },
-            { value: "bar", label: "Barra" },
-          ]}
-        />
+        <MetricToggle value={metric} onChange={setMetric} />
       </div>
       {isPending ? (
         <ViewSkeleton rows={4} />
@@ -576,21 +805,30 @@ export default function SpendView() {
       ) : (
         <>
           {!selected && active.length > 1 && (
-            <section className="border-border bg-card mb-4 rounded-lg border p-4">
-              <h3 className="mb-3 text-sm font-semibold">
-                Todas as IAs · {metric === "cost" ? "custo por dia" : "tokens por dia"}
-              </h3>
-              <SpendTrend tools={active} metric={metric} kind={kind} height={260} />
-              {metric === "cost" && active.some((t) => t.currency === "AIU") && (
-                <p className="text-muted-foreground mt-2 text-[11px]">
-                  Copilot em AIU no eixo da direita; as demais em USD no eixo da esquerda.
-                </p>
-              )}
-            </section>
+            <div className="mb-4 grid gap-4 xl:grid-cols-[1fr_320px]">
+              <section className="border-border bg-card rounded-lg border p-4">
+                <h3 className="mb-3 text-sm font-semibold">
+                  Todas as IAs · {metric === "cost" ? "custo por dia" : "tokens por dia"}
+                </h3>
+                <SpendTrend tools={active} metric={metric} height={260} />
+                {metric === "cost" && active.some((t) => t.currency === "AIU") && (
+                  <p className="text-muted-foreground mt-2 text-[11px]">
+                    Copilot em AIU no eixo da direita; as demais em USD no eixo da esquerda.
+                  </p>
+                )}
+              </section>
+              <SpendDonut
+                tools={active}
+                metric={metric}
+                periodLabel={PERIODS.find((p) => p.days === days)?.label ?? ""}
+              />
+            </div>
           )}
-          {tools.map((row) => (
-            <ToolCard key={row.id} tool={row} metric={metric} kind={kind} />
-          ))}
+          {selected ? (
+            <ToolCard key={`${selected}-${period}`} id={selected} initialDays={period} />
+          ) : (
+            TOOLS.map((id) => <ToolCard key={`${id}-${period}`} id={id} initialDays={period} />)
+          )}
         </>
       )}
     </div>

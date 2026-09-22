@@ -296,12 +296,6 @@
         }
       }
 
-      .heroi__nota {
-        margin: 1.1rem 0 0;
-        color: var(--suave);
-        font-size: 0.85rem;
-      }
-
       .visual {
         position: relative;
         display: grid;
@@ -399,9 +393,34 @@
         font-size: 0.72rem;
       }
 
-      .faixa__item {
+      .faixa__itens {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.6rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .faixa__itens li {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.3rem 0.85rem 0.3rem 0.45rem;
+        border: 1px solid var(--borda);
+        border-radius: 999px;
+        background: var(--cartao);
         color: var(--texto);
+        font-size: 0.9rem;
         font-weight: 520;
+      }
+
+      .faixa__itens img {
+        display: block;
+        width: 20px;
+        height: 20px;
+        border-radius: 6px;
       }
 
       /* ------------------------------------------------------------ seções */
@@ -651,7 +670,6 @@
               <a class="botao botao--principal" href="https://github.com/mvvitorsilvati/ai-manager-local">Ver no GitHub</a>
               <a class="botao botao--fantasma" href="#como-rodar">Como rodar</a>
             </div>
-            <p class="heroi__nota">macOS · Python 3.14 · Node 22+ · MIT</p>
           </div>
 
           <div class="visual">
@@ -666,11 +684,13 @@
       <section class="faixa" aria-label="IAs suportadas">
         <div class="container faixa__linha">
           <span class="faixa__titulo">Funciona com</span>
-          <span class="faixa__item">opencode</span>
-          <span class="faixa__item">Claude Code</span>
-          <span class="faixa__item">Codex</span>
-          <span class="faixa__item">GitHub Copilot CLI</span>
-          <span class="faixa__item">Gemini / Antigravity</span>
+          <ul class="faixa__itens">
+            <li><img src="assets/ia/opencode.png" alt="" width="20" height="20" />opencode</li>
+            <li><img src="assets/ia/claude.png" alt="" width="20" height="20" />Claude Code</li>
+            <li><img src="assets/ia/codex.png" alt="" width="20" height="20" />Codex</li>
+            <li><img src="assets/ia/copilot.png" alt="" width="20" height="20" />GitHub Copilot CLI</li>
+            <li><img src="assets/ia/gemini.png" alt="" width="20" height="20" />Gemini / Antigravity</li>
+          </ul>
         </div>
       </section>
 
@@ -833,7 +853,7 @@ just start   <span class="c"># build do front + sobe na 4747</span></code></pre>
 
     <footer class="rodape">
       <div class="container rodape__linha">
-        <span>MIT © 2026 · feito para rodar na sua máquina</span>
+        <span>MIT © 2026 · feito para rodar na sua máquina · marcas e ícones dos respectivos donos</span>
         <div class="rodape__links">
           <a href="https://github.com/mvvitorsilvati/ai-manager-local">Repositório</a>
           <a href="https://github.com/mvvitorsilvati/ai-manager-local/blob/develop/README.md">README</a>

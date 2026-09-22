@@ -821,6 +821,7 @@ def build_catalog() -> dict:
         "skills": skills,
         "mcps": collect_mcps() + collect_project_mcps(projects),
         "plugins": collect_plugins() + collect_project_plugins(projects),
+        "caps": {"reveal": sys.platform == "darwin"},
     }
 
 

@@ -244,7 +244,8 @@ export function Viewer() {
             <Button
               size="sm"
               variant="outline"
-              title={t("viewer.reveal")}
+              disabled={!catalog?.caps.reveal}
+              title={catalog?.caps.reveal ? t("viewer.reveal") : t("viewer.revealMacOnly")}
               onClick={() => api.reveal(s, r).catch((err) => toast.error((err as Error).message))}
             >
               <FolderOpen className="size-3.5" />

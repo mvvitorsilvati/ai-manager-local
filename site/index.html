@@ -1,0 +1,846 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI Manager Local — as configurações das suas IAs num só painel</title>
+    <meta
+      name="description"
+      content="Painel web local para ver e editar as configurações das IAs no seu Mac: opencode, Claude Code, Codex, GitHub Copilot CLI e Gemini. Uso, custo, skills, MCPs, plugins e versões — 100% local, sem telemetria."
+    />
+    <meta name="theme-color" content="#0a0a0c" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="AI Manager Local" />
+    <meta
+      property="og:description"
+      content="Painel web local para ver e editar as configurações das IAs instaladas no seu Mac — global e dentro dos seus projetos."
+    />
+    <meta property="og:url" content="https://mvvitorsilvati.github.io/ai-manager-local/" />
+    <meta property="og:image" content="https://mvvitorsilvati.github.io/ai-manager-local/assets/cubo.png" />
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href="assets/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <style>
+      @font-face {
+        font-family: "Geist Variable";
+        font-style: normal;
+        font-display: swap;
+        font-weight: 100 900;
+        src: url("assets/geist-latin-wght-normal.woff2") format("woff2-variations");
+      }
+
+      :root {
+        --fundo: #0a0a0c;
+        --fundo-2: #101014;
+        --cartao: #15151a;
+        --texto: #f4f4f5;
+        --suave: #a1a1aa;
+        --borda: rgba(255, 255, 255, 0.09);
+        --violeta: #8b5cf6;
+        --verde: #34d399;
+        --gradiente: linear-gradient(135deg, #8b5cf6, #34d399);
+        --raio: 14px;
+        --sombra: 0 1px 2px rgba(0, 0, 0, 0.5), 0 18px 40px -24px rgba(0, 0, 0, 0.7);
+        color-scheme: dark;
+      }
+
+      @media (prefers-color-scheme: light) {
+        :root {
+          --fundo: #ffffff;
+          --fundo-2: #f7f7f8;
+          --cartao: #ffffff;
+          --texto: #18181b;
+          --suave: #52525b;
+          --borda: rgba(0, 0, 0, 0.1);
+          --sombra: 0 1px 2px rgba(24, 24, 27, 0.06), 0 18px 40px -28px rgba(24, 24, 27, 0.25);
+          color-scheme: light;
+        }
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background: var(--fundo);
+        color: var(--texto);
+        font-family: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      img {
+        max-width: 100%;
+        height: auto;
+      }
+
+      :focus-visible {
+        outline: 2px solid var(--violeta);
+        outline-offset: 3px;
+        border-radius: 6px;
+      }
+
+      .pular {
+        position: absolute;
+        left: -9999px;
+      }
+
+      .pular:focus {
+        left: 16px;
+        top: 16px;
+        z-index: 10;
+        padding: 8px 14px;
+        background: var(--cartao);
+        border: 1px solid var(--borda);
+        border-radius: 10px;
+      }
+
+      .container {
+        width: min(1120px, 100% - 3rem);
+        margin-inline: auto;
+      }
+
+      /* ------------------------------------------------------------- topo */
+      .topo {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        backdrop-filter: blur(12px);
+        background: color-mix(in srgb, var(--fundo) 82%, transparent);
+        border-bottom: 1px solid var(--borda);
+      }
+
+      .topo__linha {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        min-height: 64px;
+      }
+
+      .marca {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        text-decoration: none;
+      }
+
+      .marca svg {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+      }
+
+      .nav {
+        display: flex;
+        gap: 1.4rem;
+        margin-left: auto;
+        font-size: 0.92rem;
+      }
+
+      .nav a {
+        color: var(--suave);
+        text-decoration: none;
+      }
+
+      .nav a:hover {
+        color: var(--texto);
+      }
+
+      @media (max-width: 760px) {
+        .nav {
+          display: none;
+        }
+      }
+
+      /* ----------------------------------------------------------- botões */
+      .botao {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.62rem 1.15rem;
+        border-radius: 10px;
+        border: 1px solid transparent;
+        font-weight: 550;
+        font-size: 0.95rem;
+        text-decoration: none;
+        transition: transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
+      }
+
+      .botao:hover {
+        transform: translateY(-1px);
+      }
+
+      .botao--principal {
+        background: var(--gradiente);
+        color: #08120d;
+      }
+
+      .botao--principal:hover {
+        opacity: 0.92;
+      }
+
+      .botao--fantasma {
+        border-color: var(--borda);
+        color: var(--texto);
+        background: var(--cartao);
+      }
+
+      .botao--fantasma:hover {
+        border-color: color-mix(in srgb, var(--violeta) 55%, var(--borda));
+      }
+
+      /* ------------------------------------------------------------ heroi */
+      .heroi {
+        position: relative;
+        overflow: hidden;
+        padding: clamp(3rem, 7vw, 6rem) 0 clamp(2.5rem, 5vw, 4rem);
+      }
+
+      .heroi::before {
+        content: "";
+        position: absolute;
+        inset: -20% -10% auto -10%;
+        height: 620px;
+        background:
+          radial-gradient(58% 60% at 22% 12%, color-mix(in srgb, var(--violeta) 26%, transparent), transparent 70%),
+          radial-gradient(46% 55% at 78% 4%, color-mix(in srgb, var(--verde) 18%, transparent), transparent 72%);
+        pointer-events: none;
+      }
+
+      .heroi__grade {
+        position: relative;
+        display: grid;
+        grid-template-columns: 1.05fr 0.95fr;
+        gap: clamp(2rem, 5vw, 4rem);
+        align-items: center;
+      }
+
+      @media (max-width: 900px) {
+        .heroi__grade {
+          grid-template-columns: 1fr;
+          text-align: center;
+        }
+      }
+
+      .selo {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0 0 1.2rem;
+        padding: 0.35rem 0.8rem;
+        border: 1px solid var(--borda);
+        border-radius: 999px;
+        background: var(--cartao);
+        color: var(--suave);
+        font-size: 0.82rem;
+      }
+
+      .selo::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--verde);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--verde) 22%, transparent);
+      }
+
+      h1 {
+        margin: 0 0 1rem;
+        font-size: clamp(2.2rem, 5vw, 3.4rem);
+        line-height: 1.06;
+        letter-spacing: -0.035em;
+        font-weight: 640;
+      }
+
+      .gradiente {
+        background: var(--gradiente);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      .heroi__texto {
+        margin: 0 0 1.8rem;
+        max-width: 34rem;
+        color: var(--suave);
+        font-size: clamp(1rem, 1.6vw, 1.1rem);
+      }
+
+      @media (max-width: 900px) {
+        .heroi__texto {
+          margin-inline: auto;
+        }
+      }
+
+      .acoes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+
+      @media (max-width: 900px) {
+        .acoes {
+          justify-content: center;
+        }
+      }
+
+      .heroi__nota {
+        margin: 1.1rem 0 0;
+        color: var(--suave);
+        font-size: 0.85rem;
+      }
+
+      .visual {
+        position: relative;
+        display: grid;
+        place-items: center;
+        min-height: 340px;
+      }
+
+      .visual img {
+        position: relative;
+        width: min(360px, 78%);
+        filter: drop-shadow(0 30px 60px rgba(139, 92, 246, 0.35));
+        animation: flutuar 7s ease-in-out infinite;
+      }
+
+      @keyframes flutuar {
+        50% {
+          transform: translateY(-12px);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+
+        .visual img {
+          animation: none;
+        }
+      }
+
+      .visual::before {
+        content: "";
+        position: absolute;
+        width: 78%;
+        aspect-ratio: 1;
+        border-radius: 50%;
+        background: radial-gradient(circle, color-mix(in srgb, var(--violeta) 34%, transparent), transparent 66%);
+        filter: blur(28px);
+      }
+
+      .chip-flutuante {
+        position: absolute;
+        padding: 0.4rem 0.75rem;
+        border: 1px solid var(--borda);
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--cartao) 88%, transparent);
+        backdrop-filter: blur(8px);
+        box-shadow: var(--sombra);
+        font-size: 0.82rem;
+        color: var(--suave);
+        white-space: nowrap;
+      }
+
+      .chip-flutuante--1 {
+        top: 12%;
+        left: 2%;
+      }
+
+      .chip-flutuante--2 {
+        top: 34%;
+        right: 0;
+      }
+
+      .chip-flutuante--3 {
+        bottom: 14%;
+        left: 8%;
+      }
+
+      @media (max-width: 1100px) {
+        .chip-flutuante {
+          display: none;
+        }
+      }
+
+      /* ------------------------------------------------------------- faixa */
+      .faixa {
+        border-block: 1px solid var(--borda);
+        background: var(--fundo-2);
+        padding: 1.6rem 0;
+      }
+
+      .faixa__linha {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 0.7rem 1.6rem;
+        color: var(--suave);
+        font-size: 0.9rem;
+      }
+
+      .faixa__titulo {
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        font-size: 0.72rem;
+      }
+
+      .faixa__item {
+        color: var(--texto);
+        font-weight: 520;
+      }
+
+      /* ------------------------------------------------------------ seções */
+      .secao {
+        padding: clamp(3rem, 6vw, 5rem) 0;
+      }
+
+      .secao--alternada {
+        background: var(--fundo-2);
+        border-block: 1px solid var(--borda);
+      }
+
+      h2 {
+        margin: 0 0 0.75rem;
+        font-size: clamp(1.6rem, 3vw, 2.2rem);
+        letter-spacing: -0.03em;
+        font-weight: 620;
+      }
+
+      .secao__texto {
+        margin: 0 0 2.5rem;
+        max-width: 46rem;
+        color: var(--suave);
+      }
+
+      /* ----------------------------------------------------------- cartões */
+      .cartoes {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(275px, 1fr));
+        gap: 1rem;
+      }
+
+      .cartao {
+        padding: 1.4rem;
+        border: 1px solid var(--borda);
+        border-radius: var(--raio);
+        background: var(--cartao);
+        box-shadow: var(--sombra);
+        transition: border-color 0.15s ease, transform 0.15s ease;
+      }
+
+      .cartao:hover {
+        transform: translateY(-2px);
+        border-color: color-mix(in srgb, var(--violeta) 45%, var(--borda));
+      }
+
+      .cartao h3 {
+        margin: 0.9rem 0 0.45rem;
+        font-size: 1.02rem;
+        letter-spacing: -0.01em;
+      }
+
+      .cartao p {
+        margin: 0;
+        color: var(--suave);
+        font-size: 0.92rem;
+      }
+
+      .icone {
+        display: grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--violeta) 16%, transparent);
+        color: color-mix(in srgb, var(--violeta) 78%, var(--texto));
+      }
+
+      .icone svg {
+        width: 19px;
+        height: 19px;
+      }
+
+      /* -------------------------------------------------------- como rodar */
+      .requisitos {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1.2rem;
+      }
+
+      .requisitos span {
+        padding: 0.3rem 0.7rem;
+        border: 1px solid var(--borda);
+        border-radius: 999px;
+        background: var(--cartao);
+        color: var(--suave);
+        font-size: 0.8rem;
+      }
+
+      .codigo {
+        border: 1px solid var(--borda);
+        border-radius: var(--raio);
+        background: var(--cartao);
+        box-shadow: var(--sombra);
+        overflow: hidden;
+        max-width: 40rem;
+        margin-top: 1.8rem;
+      }
+
+      .codigo__topo {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.7rem 1rem;
+        border-bottom: 1px solid var(--borda);
+        color: var(--suave);
+        font-size: 0.78rem;
+      }
+
+      .codigo__topo i {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: color-mix(in srgb, var(--suave) 40%, transparent);
+      }
+
+      .codigo pre {
+        margin: 0;
+        padding: 1.1rem 1.2rem;
+        overflow-x: auto;
+        white-space: pre;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+        font-size: 0.85rem;
+        line-height: 1.9;
+      }
+
+      .codigo .c {
+        color: var(--suave);
+      }
+
+      @media (max-width: 520px) {
+        .codigo pre {
+          font-size: 0.72rem;
+        }
+      }
+
+      .rodape-nota {
+        margin: 1rem 0 0;
+        color: var(--suave);
+        font-size: 0.85rem;
+      }
+
+      /* -------------------------------------------------------- privacidade */
+      .privacidade {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1rem;
+      }
+
+      .privacidade article {
+        padding: 1.3rem 1.4rem;
+        border: 1px solid var(--borda);
+        border-left: 3px solid;
+        border-image: var(--gradiente) 1;
+        border-radius: var(--raio);
+        background: var(--cartao);
+      }
+
+      .privacidade h3 {
+        margin: 0 0 0.4rem;
+        font-size: 0.98rem;
+      }
+
+      .privacidade p {
+        margin: 0;
+        color: var(--suave);
+        font-size: 0.9rem;
+      }
+
+      /* ------------------------------------------------------------- rodapé */
+      .rodape {
+        border-top: 1px solid var(--borda);
+        background: var(--fundo-2);
+        padding: 2.4rem 0;
+      }
+
+      .rodape__linha {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        color: var(--suave);
+        font-size: 0.88rem;
+      }
+
+      .rodape__links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.2rem;
+      }
+
+      .rodape a {
+        text-decoration: none;
+        color: var(--suave);
+      }
+
+      .rodape a:hover {
+        color: var(--texto);
+      }
+    </style>
+  </head>
+
+  <body id="topo">
+    <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+    <header class="topo">
+      <div class="container topo__linha">
+        <a class="marca" href="#topo" aria-label="AI Manager Local — início">
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <defs>
+              <linearGradient id="marca" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#8b5cf6" />
+                <stop offset="1" stop-color="#34d399" />
+              </linearGradient>
+            </defs>
+            <rect width="48" height="48" rx="12" fill="url(#marca)" />
+            <path fill="#fff" d="M22 9c1.4 7.2 3.8 9.6 11 11-7.2 1.4-9.6 3.8-11 11-1.4-7.2-3.8-9.6-11-11 7.2-1.4 9.6-3.8 11-11Z" />
+            <path fill="#fff" opacity=".9" d="M34.5 27c.7 3.6 1.9 4.8 5.5 5.5-3.6.7-4.8 1.9-5.5 5.5-.7-3.6-1.9-4.8-5.5-5.5 3.6-.7 4.8-1.9 5.5-5.5Z" />
+          </svg>
+          <span>AI Manager Local</span>
+        </a>
+
+        <nav class="nav" aria-label="Seções da página">
+          <a href="#funcionalidades">Funcionalidades</a>
+          <a href="#como-rodar">Como rodar</a>
+          <a href="#privacidade">Privacidade</a>
+        </nav>
+
+        <a class="botao botao--fantasma" href="https://github.com/mvvitorsilvati/ai-manager-local">GitHub</a>
+      </div>
+    </header>
+
+    <main id="conteudo">
+      <section class="heroi">
+        <div class="container heroi__grade">
+          <div>
+            <p class="selo">Roda 100% na sua máquina</p>
+            <h1>As configurações das suas IAs, <span class="gradiente">num só painel</span></h1>
+            <p class="heroi__texto">
+              Painel web local para ver e editar tudo das IAs instaladas no seu Mac — <strong>opencode</strong>,
+              <strong>Claude Code</strong>, <strong>Codex</strong>, <strong>GitHub Copilot CLI</strong> e
+              <strong>Gemini/Antigravity</strong> — no global e dentro dos seus projetos.
+            </p>
+            <div class="acoes">
+              <a class="botao botao--principal" href="https://github.com/mvvitorsilvati/ai-manager-local">Ver no GitHub</a>
+              <a class="botao botao--fantasma" href="#como-rodar">Como rodar</a>
+            </div>
+            <p class="heroi__nota">macOS · Python 3.14 · Node 22+ · MIT</p>
+          </div>
+
+          <div class="visual">
+            <img src="assets/cubo.png" width="360" height="360" alt="" aria-hidden="true" />
+            <span class="chip-flutuante chip-flutuante--1">Uso e limites das contas</span>
+            <span class="chip-flutuante chip-flutuante--2">Custo e tokens por modelo</span>
+            <span class="chip-flutuante chip-flutuante--3">MCPs, plugins e versões</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="faixa" aria-label="IAs suportadas">
+        <div class="container faixa__linha">
+          <span class="faixa__titulo">Funciona com</span>
+          <span class="faixa__item">opencode</span>
+          <span class="faixa__item">Claude Code</span>
+          <span class="faixa__item">Codex</span>
+          <span class="faixa__item">GitHub Copilot CLI</span>
+          <span class="faixa__item">Gemini / Antigravity</span>
+        </div>
+      </section>
+
+      <section class="secao" id="funcionalidades">
+        <div class="container">
+          <h2>Um painel para tudo que suas IAs leem e escrevem</h2>
+          <p class="secao__texto">
+            Skills, agentes, comandos, regras, MCPs, plugins e arquivos de configuração — por tipo de artefato, por IA
+            ou por projeto. Com viewer, edição segura e auditoria.
+          </p>
+
+          <div class="cartoes">
+            <article class="cartao">
+              <div class="icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+                </svg>
+              </div>
+              <h3>Por IA e por projeto</h3>
+              <p>
+                Escolha a ferramenta e veja tudo dela; ou navegue pelos repositórios detectados em <code>~/Projetos</code>,
+                com árvore, MIME, tamanho e autor do último commit.
+              </p>
+            </article>
+
+            <article class="cartao">
+              <div class="icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                </svg>
+              </div>
+              <h3>Viewer e edição segura</h3>
+              <p>
+                Markdown com Mermaid, JSON, imagens e Monaco. Backup automático (10 versões por arquivo), detecção de
+                conflito se o arquivo mudar por fora e restauração pela interface.
+              </p>
+            </article>
+
+            <article class="cartao">
+              <div class="icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M4 19V5M4 19h16M8 15l3-4 3 2 4-6" />
+                </svg>
+              </div>
+              <h3>Uso, consumo e skills</h3>
+              <p>
+                Limites e reset das contas, custo e tokens lidos dos logs locais — por modelo, projeto e dia — e o top 20
+                de skills por invocações e tokens de contexto.
+              </p>
+            </article>
+
+            <article class="cartao">
+              <div class="icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M10 4h4v3h-4zM4 10h3v4H4zm13 0h3v4h-3zM10 17h4v3h-4z" />
+                  <path d="M12 7v3M12 14v3M7 12h3M14 12h3" />
+                </svg>
+              </div>
+              <h3>MCPs, plugins e versões</h3>
+              <p>
+                Ative e desative MCPs direto no card, autentique por OAuth e acompanhe versão instalada vs. publicada,
+                com atualização e cópia do comando para o seu terminal.
+              </p>
+            </article>
+
+            <article class="cartao">
+              <div class="icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M4 5h16v12H4zM9 21h6M12 17v4" />
+                </svg>
+              </div>
+              <h3>Abre a IA onde você precisa</h3>
+              <p>
+                Um clique abre a CLI no terminal detectado ou no app nativo, já no diretório do projeto — útil para
+                continuar exatamente onde o painel te mostrou o arquivo.
+              </p>
+            </article>
+
+            <article class="cartao">
+              <div class="icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" />
+                </svg>
+              </div>
+              <h3>Busca, idiomas e tema</h3>
+              <p>
+                Busca global e por conteúdo com destaque das linhas, interface em PT-BR e EN e modo claro/escuro. Atalhos
+                <code>⌘K</code>, <code>⌘E</code> e <code>⌘S</code>.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="secao secao--alternada" id="como-rodar">
+        <div class="container">
+          <h2>Rodando em um minuto</h2>
+          <p class="secao__texto">
+            O backend serve o build do frontend em <code>127.0.0.1:4747</code>. Para desenvolvimento com hot reload,
+            suba o Vite em paralelo (<code>just dev</code>).
+          </p>
+
+          <div class="requisitos">
+            <span>macOS</span>
+            <span>uv 0.8+</span>
+            <span>Python 3.14</span>
+            <span>Node 22+</span>
+            <span>pnpm 10+</span>
+            <span>just (opcional)</span>
+            <span>Podman (opcional)</span>
+          </div>
+
+          <div class="codigo">
+            <div class="codigo__topo"><i></i><i></i><i></i> terminal</div>
+            <pre><code>gh repo clone mvvitorsilvati/ai-manager-local
+cd ai-manager-local
+
+just setup   <span class="c"># deps: uv sync + pnpm install</span>
+just start   <span class="c"># build do front + sobe na 4747</span></code></pre>
+          </div>
+
+          <p class="rodape-nota">
+            Sem <code>just</code>: <code>cd backend &amp;&amp; uv sync</code>, <code>cd web &amp;&amp; pnpm install &amp;&amp; pnpm build</code> e então
+            <code>uv run --project backend backend/app.py</code>. Os cards de uso precisam de <code>gh</code> autenticado
+            (Copilot) e Claude Code logado (Keychain); sem isso, o card simplesmente não aparece.
+          </p>
+        </div>
+      </section>
+
+      <section class="secao" id="privacidade">
+        <div class="container">
+          <h2>Local de verdade</h2>
+          <p class="secao__texto">
+            O painel foi feito para inspecionar arquivos sensíveis: configurações, regras e credenciais de IA que ficam na
+            sua máquina. Por isso ele não manda nada para lugar nenhum.
+          </p>
+
+          <div class="privacidade">
+            <article>
+              <h3>Só em 127.0.0.1</h3>
+              <p>Nada exposto na rede por padrão; o host só muda em container, por escolha explícita.</p>
+            </article>
+            <article>
+              <h3>Sem telemetria</h3>
+              <p>Backups e auditoria ficam em <code>~/.ai_management_local</code> — no seu disco, sob seu controle.</p>
+            </article>
+            <article>
+              <h3>Externo só quando você usa</h3>
+              <p>
+                As únicas chamadas para fora são as consultas de uso e limites das contas (Claude, Codex e Copilot), com
+                as credenciais que já existem na máquina.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="rodape">
+      <div class="container rodape__linha">
+        <span>MIT © 2026 · feito para rodar na sua máquina</span>
+        <div class="rodape__links">
+          <a href="https://github.com/mvvitorsilvati/ai-manager-local">Repositório</a>
+          <a href="https://github.com/mvvitorsilvati/ai-manager-local/blob/develop/README.md">README</a>
+          <a href="https://github.com/mvvitorsilvati/ai-manager-local/issues">Issues</a>
+          <a href="https://github.com/mvvitorsilvati/ai-manager-local/actions/workflows/qa.yaml">CI</a>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -4,6 +4,8 @@ Painel web local (somente no seu Mac) para visualizar e editar as configuraçõe
 
 [![QA](https://github.com/mvvitorsilvati/ai-manager-local/actions/workflows/qa.yaml/badge.svg)](https://github.com/mvvitorsilvati/ai-manager-local/actions/workflows/qa.yaml)
 
+**Site:** https://mvvitorsilvati.github.io/ai-manager-local/ (landing page servida pelo GitHub Pages a partir de `site/`)
+
 Roda 100% local (`127.0.0.1`), sem telemetria e sem enviar nada para fora — exceto as consultas de uso/limites das contas (Claude, Codex e Copilot), que chamam as APIs oficiais usando as credenciais que já existem na sua máquina.
 
 ## Funcionalidades principais

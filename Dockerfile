@@ -23,7 +23,7 @@ ENV UV_COMPILE_BYTECODE=1 \
 WORKDIR /app
 COPY backend/pyproject.toml backend/uv.lock backend/
 RUN uv sync --frozen --project backend
-COPY backend/app.py backend/
+COPY backend/*.py backend/
 COPY --from=web /web/dist web/dist
 
 EXPOSE 4747

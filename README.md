@@ -6,8 +6,19 @@ Painel web local (somente no seu Mac) para visualizar e editar as configuraçõe
 
 Roda 100% local (`127.0.0.1`), sem telemetria e sem enviar nada para fora — exceto as consultas de uso/limites das contas (Claude, Codex e Copilot), que chamam as APIs oficiais usando as credenciais que já existem na sua máquina.
 
+## Funcionalidades principais
+
+- **Por IA e por projeto**: tudo de cada ferramenta (opencode, Claude, Codex, Copilot, Gemini), global e por repositório em `~/Projetos`
+- **Viewer e edição segura**: Markdown/Mermaid, JSON, imagens, editor Monaco com backup automático e detecção de conflito
+- **Uso, consumo e skills**: limites das contas, custo/tokens por modelo, projeto e dia (gráficos) e top 20 de skills
+- **Operação**: MCPs, plugins, versões e updates, abertura da IA em terminal ou app nativo, auditoria e logs
+- **Busca, idiomas e tema**: busca global e contextual, interface em PT-BR/EN e modo claro/escuro
+
+Detalhes em [O que faz](#o-que-faz).
+
 ## Índice
 
+- [Funcionalidades principais](#funcionalidades-principais)
 - [O que faz](#o-que-faz)
 - [Stack](#stack)
 - [Pré-requisitos](#pré-requisitos)
@@ -35,6 +46,8 @@ Roda 100% local (`127.0.0.1`), sem telemetria e sem enviar nada para fora — ex
 - **Uso das IAs**: cards com a conta autenticada e limites/reset do Claude Code (janelas 5h/7d ou créditos), Codex (5h/7d, lidos do último rollout) e GitHub Copilot (premium requests + reset mensal)
 - **Consumo**: custo e tokens lidos dos logs locais (Claude Code, Codex, opencode e Copilot CLI), com gráficos de área/barra por dia — por modelo ou consolidado por IA — além de tabelas por modelo e projeto. Preço de tabela, não a fatura; Copilot em AIU. Resumo também na Visão geral e em Por IA
 - **Skills**: top 20 global de skills por invocações (agrupado por nome entre IAs) e tokens aproximados de contexto, com detalhe por IA. Só Claude e opencode têm registro local de invocação
+- **Idiomas**: interface em PT-BR e EN com seletor no topo (`localStorage "aim:lang"`, padrão do navegador); datas, números e moedas seguem o idioma. Mensagens de erro do backend continuam em PT-BR
+- **Tema claro/escuro**: botão Sol/Lua no topo (`localStorage "aim:theme"`, padrão do sistema); Mermaid, Monaco, toasts e gráficos acompanham
 - **Versões e atualizações**: versão instalada de cada CLI vs. a última publicada no npm, com botão **Atualizar** (via brew, npm ou o próprio updater) e **Copiar comando** para rodar a atualização no seu terminal; se o canal de instalação ainda não tiver versão nova, o painel avisa "Nada mudou" em vez de dar sucesso falso; nos plugins, versão instalada, atualização disponível, indicação visual de **update automático** (verde, ícone de sincronismo) ou **manual** (âmbar, ícone de mão) — clicável para alternar no `settings.json` do Claude Code
 - **Status pages**: os links das IAs na sidebar mostram um ícone de alerta (âmbar/vermelho) quando há incidente ativo, consultando as APIs de status (Anthropic, OpenAI, GitHub, Google Cloud e Cursor)
 - **MCPs**: ativar/desativar direto no card (opencode e Codex editam o config com backup; Copilot e Gemini usam o CLI), autenticar/sair via OAuth (Claude, opencode e Codex) e **Ver config** em todos — inclusive os do Claude, que vivem em `~/.claude.json` (fonte especial somente leitura de caminho)

@@ -2,6 +2,7 @@ import { useQuery, type QueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import { api, type UsageResponse, type UsageTool } from "@/lib/api"
+import { getLang, translate } from "@/lib/i18n"
 
 export function useUsage() {
   return useQuery({
@@ -13,7 +14,7 @@ export function useUsage() {
 }
 
 const erroAoAtualizar = (error: Error) =>
-  toast.error("Falha ao atualizar o uso das IAs", { description: error.message })
+  toast.error(translate(getLang(), "usage.refreshError"), { description: error.message })
 
 // Refresh de tudo (botão do topo): ignora o cache de 60s do backend (refresh=1) e passa
 // pelo estado de fetch da query, então todos os cards acompanham

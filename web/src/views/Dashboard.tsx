@@ -15,11 +15,13 @@ import { useUsage } from "@/hooks/useUsage"
 import { useVersions } from "@/hooks/useVersions"
 import { api } from "@/lib/api"
 import { ago } from "@/lib/format"
+import { useI18n } from "@/lib/i18n"
 import { SkillsTop } from "@/views/Skills"
 import { SpendOverviewCard } from "@/views/Spend"
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const { data: catalog, isLoading } = useCatalog()
   const recent = catalog ? [...catalog.files].sort((a, b) => b.t - a.t).slice(0, 10) : []
   const { data: usage, isPending: usagePending } = useUsage()
@@ -46,42 +48,42 @@ export default function Dashboard() {
   const files = catalog.files
   const byCat = (c: string) => files.filter((f) => f.c === c).length
   const stats: [string, number, string][] = [
-    ["Por IA", catalog.tools.length, "/ia"],
-    ["Contextos", byCat("context"), "/contextos"],
-    ["Skills", catalog.skills.length, "/skills"],
-    ["Agentes", byCat("agent"), "/agentes"],
-    ["Comandos", byCat("command"), "/comandos"],
-    ["Regras", byCat("rule"), "/regras"],
-    ["Docs", files.filter((f) => f.r.split("/").includes("docs")).length, "/docs"],
-    ["MCPs", catalog.mcps.length, "/mcps"],
-    ["Plugins", catalog.plugins.length, "/plugins"],
-    ["Projetos", catalog.projects.length, "/projetos"],
-    ["Arquivos", files.length, "/arquivos"],
+    ["nav.byTool", catalog.tools.length, "/ia"],
+    ["nav.contexts", byCat("context"), "/contextos"],
+    ["nav.skills", catalog.skills.length, "/skills"],
+    ["nav.agents", byCat("agent"), "/agentes"],
+    ["nav.commands", byCat("command"), "/comandos"],
+    ["nav.rules", byCat("rule"), "/regras"],
+    ["nav.docs", files.filter((f) => f.r.split("/").includes("docs")).length, "/docs"],
+    ["nav.mcps", catalog.mcps.length, "/mcps"],
+    ["nav.plugins", catalog.plugins.length, "/plugins"],
+    ["nav.projects", catalog.projects.length, "/projetos"],
+    ["nav.files", files.length, "/arquivos"],
   ]
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold">Visão geral</h2>
-        <p className="text-muted-foreground text-sm">Configurações locais das IAs neste Mac.</p>
+        <h2 className="text-lg font-semibold">{t("dash.title")}</h2>
+        <p className="text-muted-foreground text-sm">{t("dash.subtitle")}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
-        {stats.map(([label, count, to]) => (
+        {stats.map(([key, count, to]) => (
           <Card
-            key={label}
+            key={key}
             onClick={() => navigate(to)}
             className="hover:border-primary cursor-pointer gap-1 px-4 py-3 transition-colors"
           >
             <b className="text-2xl font-semibold">{count}</b>
-            <span className="text-muted-foreground text-xs">{label}</span>
+            <span className="text-muted-foreground text-xs">{t(key)}</span>
           </Card>
         ))}
       </div>
 
       {(usagePending || usage?.claude || usage?.codex || usage?.copilot) && (
         <div>
-          <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">Uso das IAs</h3>
+          <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">{t("dash.usage")}</h3>
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {usage?.claude && <UsageCard tool="claude" />}
             {usage?.codex && <UsageCard tool="codex" />}
@@ -97,18 +99,20 @@ export default function Dashboard() {
       )}
 
       <div>
-        <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">Consumo das IAs</h3>
+        <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">{t("dash.spend")}</h3>
         <SpendOverviewCard />
       </div>
 
       <div>
-        <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">Skills mais usadas</h3>
+        <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">{t("dash.skills")}</h3>
         <SkillsTop />
       </div>
 
       {(versionsPending || versions) && (
         <div>
-          <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">Versões das IAs</h3>
+          <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">
+            {t("dash.versions")}
+          </h3>
           <div className="border-border overflow-hidden rounded-lg border">
             {!versions &&
               Array.from({ length: 5 }).map((_, i) => (
@@ -142,9 +146,7 @@ export default function Dashboard() {
       )}
 
       <div>
-        <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">
-          Modificados recentemente
-        </h3>
+        <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">{t("dash.recent")}</h3>
         <div className="border-border overflow-hidden rounded-lg border">
           {recent.map((f) => (
             <button
@@ -155,7 +157,7 @@ export default function Dashboard() {
               <CatIcon cat={f.c} className="size-3.5 shrink-0 opacity-70" />
               <span className="truncate">{f.n}</span>
               <span className="text-muted-foreground ml-auto shrink-0 font-mono text-[11px]">
-                {authorOf(f.s, f.r) ? `por ${authorOf(f.s, f.r)} · ` : ""}
+                {authorOf(f.s, f.r) ? t("dash.byAuthor", { author: authorOf(f.s, f.r) ?? "" }) : ""}
                 {f.r} · {ago(f.t)}
               </span>
             </button>
@@ -164,15 +166,15 @@ export default function Dashboard() {
       </div>
 
       <div>
-        <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">Fontes</h3>
+        <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">{t("dash.sources")}</h3>
         <div className="border-border overflow-hidden rounded-lg border">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-border text-muted-foreground border-b text-left text-[11px] tracking-wider uppercase">
-                <th className="px-3 py-2 font-medium">Fonte</th>
-                <th className="px-3 py-2 font-medium">Caminho</th>
-                <th className="px-3 py-2 font-medium">Arquivos</th>
-                <th className="px-3 py-2 font-medium">Skills</th>
+                <th className="px-3 py-2 font-medium">{t("dash.thSource")}</th>
+                <th className="px-3 py-2 font-medium">{t("dash.thPath")}</th>
+                <th className="px-3 py-2 font-medium">{t("dash.thFiles")}</th>
+                <th className="px-3 py-2 font-medium">{t("dash.thSkills")}</th>
               </tr>
             </thead>
             <tbody>

@@ -1,6 +1,7 @@
 import { useIsFetching, useQueryClient } from "@tanstack/react-query"
 import {
   BookOpen,
+  ChevronDown,
   CircleDollarSign,
   Cpu,
   ExternalLink,
@@ -10,10 +11,12 @@ import {
   History,
   Layers,
   LayoutGrid,
+  Moon,
   Package,
   RefreshCw,
   Server,
   Shield,
+  Sun,
   Terminal,
   Zap,
   type LucideIcon,
@@ -23,14 +26,19 @@ import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom"
 
 import { IncidentIcon } from "@/components/bits"
 import { CollapseAllButton } from "@/components/collapse"
+import { FlagBR, FlagUS } from "@/components/flags"
 import { ToolIcon } from "@/components/ToolIcon"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Toaster } from "@/components/ui/sonner"
 import { Viewer } from "@/components/Viewer"
 import { useCatalog } from "@/hooks/useCatalog"
 import { useIncidents } from "@/hooks/useIncidents"
 import { refreshUsage } from "@/hooks/useUsage"
+import { useI18n } from "@/lib/i18n"
+import type { Key } from "@/lib/locales"
+import { useTheme } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 import Dashboard from "@/views/Dashboard"
 import SpendView from "@/views/Spend"
@@ -50,25 +58,29 @@ import {
 
 type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean }
 
-export const NAV: NavItem[] = [
-  { to: "/", label: "Visão geral", icon: LayoutGrid, end: true },
-  { to: "/ia", label: "Por IA", icon: Layers },
-  { to: "/consumo", label: "Consumo", icon: CircleDollarSign },
-  { to: "/contextos", label: "Contextos", icon: BookOpen },
-  { to: "/skills", label: "Skills", icon: Zap },
-  { to: "/agentes", label: "Agentes", icon: Cpu },
-  { to: "/comandos", label: "Comandos", icon: Terminal },
-  { to: "/regras", label: "Regras", icon: Shield },
-  { to: "/docs", label: "Docs", icon: FileText },
-  { to: "/mcps", label: "MCPs", icon: Server },
-  { to: "/plugins", label: "Plugins", icon: Package },
-  { to: "/projetos", label: "Projetos", icon: Folder },
-  { to: "/auditoria", label: "Auditoria", icon: History },
-  { to: "/arquivos", label: "Arquivos", icon: Files },
-]
+export function navItems(t: (key: Key) => string): NavItem[] {
+  return [
+    { to: "/", label: t("nav.overview"), icon: LayoutGrid, end: true },
+    { to: "/ia", label: t("nav.byTool"), icon: Layers },
+    { to: "/consumo", label: t("nav.spend"), icon: CircleDollarSign },
+    { to: "/contextos", label: t("nav.contexts"), icon: BookOpen },
+    { to: "/skills", label: t("nav.skills"), icon: Zap },
+    { to: "/agentes", label: t("nav.agents"), icon: Cpu },
+    { to: "/comandos", label: t("nav.commands"), icon: Terminal },
+    { to: "/regras", label: t("nav.rules"), icon: Shield },
+    { to: "/docs", label: t("nav.docs"), icon: FileText },
+    { to: "/mcps", label: t("nav.mcps"), icon: Server },
+    { to: "/plugins", label: t("nav.plugins"), icon: Package },
+    { to: "/projetos", label: t("nav.projects"), icon: Folder },
+    { to: "/auditoria", label: t("nav.audit"), icon: History },
+    { to: "/arquivos", label: t("nav.files"), icon: Files },
+  ]
+}
 
 export default function App() {
   const queryClient = useQueryClient()
+  const { lang, setLang, t } = useI18n()
+  const { theme, toggle: toggleTheme } = useTheme()
   const { data: catalog } = useCatalog()
   const isFetching = useIsFetching() > 0
   const { data: incidents } = useIncidents()
@@ -103,7 +115,7 @@ export default function App() {
     queryClient.invalidateQueries()
   }, [queryClient, lastLocation.pathname])
 
-  const nav = NAV.map((item) => {
+  const nav = navItems(t).map((item) => {
     let count: number | null = null
     if (catalog) {
       const files = catalog.files
@@ -194,9 +206,38 @@ export default function App() {
         <header className="border-border bg-card flex gap-3 border-b p-3.5">
           <SearchInput />
           <CollapseAllButton />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleTheme}
+            title={t(theme === "dark" ? "theme.toLight" : "theme.toDark")}
+            aria-label={t(theme === "dark" ? "theme.toLight" : "theme.toDark")}
+          >
+            {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="outline" size="sm" title={t("header.language")} aria-label={t("header.language")}>
+                  {lang === "pt" ? <FlagBR className="size-4" /> : <FlagUS className="size-4" />}
+                  <ChevronDown className="size-3.5 opacity-60" />
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setLang("pt")}>
+                <FlagBR className="size-4 shrink-0" />
+                Português (BR)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setLang("en")}>
+                <FlagUS className="size-4 shrink-0" />
+                English (US)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button variant="outline" size="sm" onClick={refreshAll} disabled={isFetching}>
             <RefreshCw className={cn("size-4", isFetching && "animate-spin")} />
-            Atualizar
+            {t("header.refresh")}
           </Button>
         </header>
         <section className="flex-1 overflow-auto p-6">
@@ -233,7 +274,7 @@ export default function App() {
           {isViewer && <Viewer key={location.search} />}
         </section>
       </main>
-      <Toaster />
+      <Toaster theme={theme} />
     </div>
   )
 }

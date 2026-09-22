@@ -2,6 +2,7 @@ import { ChevronsDownUp, ChevronsUpDown } from "lucide-react"
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import { useI18n } from "@/lib/i18n"
 
 const CollapseContext = createContext({ collapsed: false, toggle: () => {} })
 
@@ -29,10 +30,11 @@ export function useCollapsible(initial: boolean) {
 
 export function CollapseAllButton() {
   const { collapsed, toggle } = useContext(CollapseContext)
+  const { t } = useI18n()
   return (
     <Button variant="outline" size="sm" onClick={toggle}>
       {collapsed ? <ChevronsUpDown className="size-4" /> : <ChevronsDownUp className="size-4" />}
-      {collapsed ? "Expandir tudo" : "Recolher tudo"}
+      {collapsed ? t("header.expand") : t("header.collapse")}
     </Button>
   )
 }

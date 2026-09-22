@@ -11,6 +11,10 @@ services:
       # o HOME do container aponta para o home montado (fontes, backups e audit)
       HOME: /host-home
       AIM_HOST: 0.0.0.0
+      # WSL com as IAs no Windows: aponte o AIM_HOME para o perfil montado abaixo
+      # AIM_HOME: /host-windows
     volumes:
       - ${HOME}:/host-home
+      # WSL com as IAs no Windows: descomente e ajuste o usuário
+      # - /mnt/c/Users/<você>:/host-windows
     restart: unless-stopped

@@ -8,6 +8,8 @@ Painel web local (somente no seu Mac) para visualizar e editar as configuraçõe
 
 Roda 100% local (`127.0.0.1`), sem telemetria e sem enviar nada para fora — exceto as chamadas às APIs oficiais: uso/limites das contas (Claude, Codex e Copilot), versões publicadas no npm e as páginas de status, sempre com as credenciais que já existem na sua máquina.
 
+![Visão geral do painel: contadores de contextos, skills, agentes, comandos, regras, docs, MCPs, plugins, projetos e arquivos; cards de uso do Codex e do GitHub Copilot com limites e reset; e o gráfico de consumo por dia](site/assets/painel.jpg)
+
 ## Funcionalidades principais
 
 - **Por IA e por projeto**: tudo de cada ferramenta (opencode, Claude, Codex, Copilot, Gemini), global e por repositório em `~/Projetos`
@@ -31,6 +33,7 @@ Detalhes em [O que faz](#o-que-faz).
 - [Fontes escaneadas](#fontes-escaneadas)
 - [Testes](#testes)
 - [Lint e formatação](#lint-e-formatação)
+- [Limitações](#limitações)
 - [Solução de problemas](#solução-de-problemas)
 - [Como contribuir](#como-contribuir)
 
@@ -126,7 +129,8 @@ cp .env.example .env
 
 | Variável | Padrão | Descrição |
 |---|---|---|
-| `AIM_PROJECTS_DIR` | `~/Projetos` | diretório onde o painel procura os seus projetos (aceita `~`) |
+| `AIM_HOME` | home do processo | home onde o painel procura as IAs (configurações, credenciais e logs de uso). Só é necessário quando as IAs rodam em outro sistema, como no WSL com as IAs no Windows: `AIM_HOME=/mnt/c/Users/<você>` |
+| `AIM_PROJECTS_DIR` | `~/Projetos` | diretório onde o painel procura os seus projetos (aceita `~`, que segue o `AIM_HOME`) |
 | `AIM_PORT` | `4747` | porta do servidor local (a flag `--port` tem precedência) |
 | `AIM_HOST` | `127.0.0.1` | interface de escuta; use `0.0.0.0` apenas em container (a flag `--host` tem precedência) |
 
@@ -169,6 +173,31 @@ Ou com Compose: `podman compose up --build` (ou `docker compose up --build`).
 O container monta o seu `$HOME` em `/host-home` (com `HOME` apontando para lá), então as fontes escaneadas, os backups e o `audit.log` continuam sendo os seus. A porta é publicada **só no loopback** do host (`127.0.0.1:4747`); dentro do container a API escuta em `0.0.0.0` via `AIM_HOST`.
 
 Limitações no modo container: Keychain do macOS (credenciais do Claude Code) e "abrir no Finder" não existem; o card de uso do Claude depende de `~/.claude/.credentials.json`. Para rodar os testes dentro da imagem (usa a venv embutida, sem rede): `just docker-test`.
+
+### Usando no WSL (IAs instaladas no Windows)
+
+O painel monta as fontes a partir do home (o `AIM_PROJECTS_DIR` só muda a pasta de projetos), então ele não enxerga `C:\` sozinho. Se as IAs rodam no Windows e o painel roda no WSL, aponte o `AIM_HOME` para o perfil do Windows — no `.env` ou na linha de comando:
+
+```bash
+# nativo no WSL
+AIM_HOME=/mnt/c/Users/<você> uv run --project backend backend/app.py
+
+# container: descomente o volume e o AIM_HOME no docker-compose.yml
+#   - /mnt/c/Users/<você>:/host-windows
+#   AIM_HOME: /host-windows
+docker compose up --build
+```
+
+Assim ele lê os arquivos das IAs, os logs de consumo e o uso do Claude (`~/.claude/.credentials.json`) e do Codex (último rollout em `~/.codex/sessions`), e os backups e o `audit.log` continuam no home real (`~/.ai_management_local`). Se as IAs rodam dentro do WSL, nada disso é necessário: o home do processo já é o certo.
+
+O que muda em relação ao macOS:
+
+- O card do GitHub Copilot precisa de um token: `GITHUB_TOKEN` ou `GH_TOKEN`, `gh auth token`, ou `~/.config/gh/hosts.yml`. O `gh` do Windows guarda em `%APPDATA%\GitHub CLI\`, então autentique o `gh` dentro do WSL.
+- Abrir no app nativo (Claude, OpenCode, Gemini/Antigravity) e os ícones desses apps existem só no macOS. No WSL o botão oferece os terminais Linux instalados (gnome-terminal, konsole, kitty, alacritty e afins).
+- "Revelar no Finder" responde `400`.
+- O Windows Terminal não aparece na lista de terminais: a entrada `wt` vale só para `win32`.
+- Backups e `audit.log` caem no `HOME` apontado, ou seja, em `C:\Users\<você>\.ai_management_local`.
+- Varrer `/mnt/c` é mais lento que o ext4 do WSL, e caminhos `C:\...` dentro das configs aparecem apenas como texto.
 
 ### Fluxo de desenvolvimento
 
@@ -340,6 +369,18 @@ just format   # ruff check --fix + oxfmt
 ```
 
 Configurações ficam em: `backend/pyproject.toml` (`[tool.ruff]`, `[tool.pyright]`, `[tool.pytest.ini_options]`), `web/.oxfmtrc.json` e `web/.oxlintrc.json`.
+
+## Limitações
+
+O painel mostra o que as ferramentas deixam no disco. O que elas não registram, ele não inventa.
+
+- **Skills por invocação**: só Claude Code e opencode gravam esse histórico. Nas outras IAs a tela lista as skills que existem em disco, sem contagem de uso.
+- **Consumo**: custo e tokens saem dos logs locais com preço de tabela, não da sua fatura. O Copilot aparece em AIU.
+- **Uso e limites**: os cards só aparecem com a IA autenticada na máquina e variam conforme o plano (janelas de 5h e 7d, créditos ou premium requests).
+- **macOS**: Keychain, "abrir no Finder", apps nativos e os ícones desses apps existem só lá. Fora do macOS o botão do Finder fica desabilitado, com aviso no tooltip, e o botão de abrir oferece apenas os terminais instalados.
+- **WSL com as IAs no Windows**: é preciso apontar o `AIM_HOME` para `/mnt/c/Users/<você>` (veja [Usando no WSL](#usando-no-wsl-ias-instaladas-no-windows)); o Windows Terminal não é detectado e a varredura em `/mnt/c` é mais lenta que no ext4.
+- **Sem banco de dados**: o catálogo é lido do disco a cada requisição; em `~/Projetos` grande a primeira carga demora mais e o front cacheia por 10 s.
+- **Escrita**: o painel grava configurações das IAs e o próprio estado (`~/.ai_management_local`). Nada é instalado ou atualizado sem você clicar em **Atualizar**.
 
 ## Solução de problemas
 

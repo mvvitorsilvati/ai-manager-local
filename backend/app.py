@@ -28,6 +28,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
 import open_with
+import scan_home
 import skills
 import spend
 
@@ -45,8 +46,11 @@ except ModuleNotFoundError as exc:  # guarda de ambiente: dependências vivem na
         "Ou sincronize as dependências: uv sync (em backend/)"
     ) from exc
 
-HOME = Path.home()
 ENV_FILE = Path(__file__).parent.parent / ".env"
+load_dotenv(ENV_FILE, override=False)  # antes das constantes: AIM_HOME e afins vêm daqui
+
+STATE_HOME = Path.home()  # backups, audit e log ficam sempre no home real
+HOME = scan_home.scan_home()  # home escaneado (AIM_HOME sobrepõe, para WSL com IAs no Windows)
 DEFAULT_PORT = 4747
 MAX_FILE_BYTES = 400_000
 MAX_SEARCH_BYTES = 300_000
@@ -506,7 +510,7 @@ def _entry(source: dict, rel: str, rel_dir: str, fn: str, st) -> dict:
 
 
 def walk_source(source: dict):
-    root = Path(os.path.expanduser(source["root"]))
+    root = scan_home.scan_path(source["root"])
     if not root.is_dir():
         return
     exclude_dirs = set(source.get("exclude_dirs", ()))
@@ -549,7 +553,7 @@ def walk_source(source: dict):
 
 
 def discover_projects(base=None, max_depth=PROJECT_MAX_DEPTH) -> list[Path]:
-    base_path = Path(os.path.expanduser(base or project_base())).resolve()
+    base_path = scan_home.scan_path(base or project_base()).resolve()
     if not base_path.is_dir():
         return []
     found: list[Path] = []
@@ -631,7 +635,7 @@ def collect_mcps() -> list[dict]:
         spec = tool.get("mcp")
         if not spec:
             continue
-        root = Path(os.path.expanduser(tool["root"]))
+        root = scan_home.scan_path(tool["root"])
         for mcp in mcps_from_config(root / spec["rel"]):
             out.append({**mcp, "source": tool["id"], "file": {"s": tool["id"], "r": spec["rel"]}})
 
@@ -781,7 +785,7 @@ def build_catalog() -> dict:
         src = source_by_id(f["s"])
         if not src:
             continue
-        path = Path(os.path.expanduser(src["root"])) / f["r"]
+        path = scan_home.scan_path(src["root"]) / f["r"]
         name, desc = parse_skill(path, Path(f["r"]).parent.name)
         skills.append({**f, "skill_name": name, "description": desc})
     skills.sort(key=lambda s: s["skill_name"].lower())
@@ -789,7 +793,7 @@ def build_catalog() -> dict:
     meta_by_id = {t["id"]: t for t in all_tools()}
     sources = []
     for s in global_sources:
-        root = Path(os.path.expanduser(s["root"]))
+        root = scan_home.scan_path(s["root"])
         if not root.is_dir():
             continue
         meta = meta_by_id.get(s["id"], {})
@@ -813,7 +817,7 @@ def build_catalog() -> dict:
 
     return {
         "sources": sources,
-        "project_base": str(Path(os.path.expanduser(project_base()))),
+        "project_base": str(scan_home.scan_path(project_base())),
         "projects": [{"id": p["id"], "name": p["name"], "rel": p["rel"]} for p in projects],
         "tools": tools,
         "tools_meta": tools_meta,
@@ -1204,7 +1208,7 @@ def resolve_open_cwd(ref: str | None) -> str:
                 source = _project_sources.get(ref)
         if source and source.get("project") and os.path.isdir(source.get("root") or ""):
             return source["root"]
-    base = os.path.expanduser(project_base())
+    base = str(scan_home.scan_path(project_base()))
     if os.path.isdir(base):
         return base
     return str(HOME)
@@ -1949,7 +1953,7 @@ def resolve_file(source_id: str, rel: str) -> Path:
     source = source_by_id(source_id)
     if not source:
         raise ValueError("fonte desconhecida")
-    root = Path(os.path.expanduser(source["root"])).resolve()
+    root = scan_home.scan_path(source["root"]).resolve()
     full = (root / rel).resolve()
     if full != root and root not in full.parents:
         raise ValueError("caminho fora da fonte")
@@ -1964,7 +1968,7 @@ def search_catalog(query: str, limit_files: int = 80) -> list[dict]:
     needle = query.lower()
     results = []
     for source in all_sources():
-        root = Path(os.path.expanduser(source["root"]))
+        root = scan_home.scan_path(source["root"])
         for f in walk_source(source):
             if len(results) >= limit_files:
                 return results
@@ -1988,8 +1992,8 @@ def search_catalog(query: str, limit_files: int = 80) -> list[dict]:
 
 # ---------------------------------------------------------------- escrita
 
-BACKUP_DIR = Path(os.path.expanduser("~/.ai_management_local/backups"))
-AUDIT_LOG = Path(os.path.expanduser("~/.ai_management_local/audit.log"))
+BACKUP_DIR = STATE_HOME / ".ai_management_local" / "backups"
+AUDIT_LOG = STATE_HOME / ".ai_management_local" / "audit.log"
 
 logger.remove()
 logger.add(sys.stderr, level=os.environ.get("AIM_LOG_LEVEL", "INFO"), format="{time:HH:mm:ss} | {level:<5} | {message}")

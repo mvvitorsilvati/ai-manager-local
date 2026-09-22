@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 
 import { CatIcon, IncidentIcon, SourceBadge, VersionBadges } from "@/components/bits"
 import { CopyCommandButton } from "@/components/CopyCommandButton"
+import { OpenWith } from "@/components/OpenWith"
 import { ToolIcon } from "@/components/ToolIcon"
 import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -127,6 +128,7 @@ export default function Dashboard() {
                     <span className="w-36 shrink-0 truncate font-medium">{label}</span>
                     <IncidentIcon incident={incidents?.sources[id]} />
                     <VersionBadges installed={v.installed} latest={v.latest} update={v.update} />
+                    <OpenWith tool={id} />
                     {v.update === true && <UpdateButton body={{ tool: id }} label={label} />}
                     {v.update === true && v.command && <CopyCommandButton command={v.command} label={label} />}
                     {v.account && (

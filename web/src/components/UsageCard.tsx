@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { RefreshCw } from "lucide-react"
 import { useState } from "react"
 
+import { OpenWith } from "@/components/OpenWith"
 import { ToolIcon } from "@/components/ToolIcon"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -60,10 +61,13 @@ export function UsageCard({ tool }: { tool: string }) {
             <p className="text-muted-foreground truncate text-[11.5px]">Autenticado como {usage.account}</p>
           )}
         </div>
-        <Button size="sm" variant="outline" onClick={refresh} disabled={loading}>
-          <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
-          Atualizar
-        </Button>
+        <span className="flex items-center gap-1">
+          <OpenWith tool={tool} />
+          <Button size="sm" variant="outline" onClick={refresh} disabled={loading}>
+            <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
+            Atualizar
+          </Button>
+        </span>
       </div>
       {isPending ? (
         <div className="space-y-3">

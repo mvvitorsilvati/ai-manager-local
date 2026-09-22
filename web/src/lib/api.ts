@@ -128,6 +128,9 @@ export type SpendTool = {
   })[]
 }
 
+export type OpenTarget = { id: string; label: string }
+export type OpenTargets = { terminals: OpenTarget[]; apps: OpenTarget[] }
+
 export type SpendResponse = {
   generated_at: string
   days: number | null
@@ -259,4 +262,7 @@ export const api = {
   mcpAction: (body: { source: string; name: string; action: "enable" | "disable" | "login" | "logout" }) =>
     unwrap<UpdateResult>(client.post("/api/mcp", body)),
   authors: (files: { s: string; r: string }[]) => unwrap<AuthorInfo[]>(client.post("/api/authors", { files })),
+  openTargets: (tool: string) => unwrap<OpenTargets>(client.get("/api/open-targets", { params: { tool } })),
+  openWith: (body: { tool: string; target: string; project?: string }) =>
+    unwrap<{ ok: boolean }>(client.post("/api/open", body)),
 }

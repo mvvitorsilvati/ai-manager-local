@@ -19,12 +19,13 @@ dev = [
     "pyright>=1.1.400",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
+    "pytest-xdist>=3.8.0",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "-q --cov=app --cov=spend --cov=skills --cov=open_with --cov-report=term-missing"
+addopts = "-q -n auto --cov=app --cov=spend --cov=skills --cov=open_with --cov-report=term-missing"
 
 [tool.coverage.run]
 branch = true

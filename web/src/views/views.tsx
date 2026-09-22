@@ -20,7 +20,7 @@ import { useCollapsible } from "@/components/collapse"
 import { CopyCommandButton } from "@/components/CopyCommandButton"
 import { FileTree, type TreeEntry } from "@/components/FileTree"
 import { McpActions } from "@/components/McpActions"
-import { OpenWith } from "@/components/OpenWith"
+import { OpenProjectShell, OpenWith } from "@/components/OpenWith"
 import { ToolIcon } from "@/components/ToolIcon"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -32,6 +32,7 @@ import { matches, useFilterMatcher, useFilterQuery } from "@/hooks/useFilter"
 import { useVersions } from "@/hooks/useVersions"
 import { api, type Catalog, type Mcp, type Plugin, type SearchResult, type SkillEntry } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import { TopSkillBadge, useSkillUsage } from "@/views/Skills"
 import { ToolSection } from "@/views/Spend"
 
 const secClass = "mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground"
@@ -77,11 +78,13 @@ function Section({
   const [open, setOpen] = useCollapsible(true)
   return (
     <div className="mb-3">
-      <button className={cn(secClass, "cursor-pointer")} onClick={() => setOpen((v) => !v)}>
-        {title}
-        <span className="text-muted-foreground/70">{open ? "−" : "+"}</span>
+      <div className={cn(secClass)}>
+        <button className="flex cursor-pointer items-center gap-2" onClick={() => setOpen((v) => !v)}>
+          {title}
+          <span className="text-muted-foreground/70">{open ? "−" : "+"}</span>
+        </button>
         {extra}
-      </button>
+      </div>
       {open && <div className="border-border bg-card rounded-lg border p-2">{children}</div>}
     </div>
   )
@@ -116,11 +119,13 @@ function SourceSection({
   id,
   children,
   tool,
+  shell,
 }: {
   catalog: Catalog
   id: string
   children: React.ReactNode
   tool?: string
+  shell?: React.ReactNode
 }) {
   const source = catalog.sources.find((s) => s.id === id)
   return (
@@ -134,7 +139,7 @@ function SourceSection({
           <SourceBadge source={source} />
         )
       }
-      extra={tool && source?.project ? <OpenWith tool={tool} project={id} /> : undefined}
+      extra={shell ?? (tool && source?.project ? <OpenWith tool={tool} project={id} /> : undefined)}
     >
       {children}
     </Section>
@@ -165,9 +170,14 @@ export function CategoryView({ cat }: { cat: string }) {
 
 export function SkillsView() {
   const { data: catalog } = useCatalog()
+  const { data: usage } = useSkillUsage(0)
   const open = useOpenFile()
   const q = useFilterQuery()
   const match = useFilterMatcher()
+  const rankOf = (skillName: string, rel: string) => {
+    const dir = rel.split("/").slice(-2, -1)[0]?.toLowerCase() ?? ""
+    return (usage?.top ?? []).findIndex((row) => row.skill === skillName.toLowerCase() || row.skill === dir)
+  }
   if (!catalog) return <ViewSkeleton />
   const skills = catalog.skills.filter((s) => match(s))
   const groups = groupBy(skills, (f) => f.s)
@@ -184,7 +194,15 @@ export function SkillsView() {
           const prefix = dir ? dir + "/" : ""
           for (const f of sourceFiles) {
             if (f.r !== skill.r && !(prefix && f.r.startsWith(prefix))) continue
-            entries.push(f.r === skill.r ? { f, label: skill.skill_name } : { f })
+            entries.push(
+              f.r === skill.r
+                ? {
+                    f,
+                    label: skill.skill_name,
+                    badge: <TopSkillBadge skill={skill.skill_name} rank={rankOf(skill.skill_name, skill.r)} />,
+                  }
+                : { f },
+            )
           }
         }
         return (
@@ -242,7 +260,7 @@ export function ProjectsView() {
         const files = byProject.get(p.id) ?? []
         if (q && !files.length) return null
         return (
-          <SourceSection key={p.id} catalog={catalog} id={p.id}>
+          <SourceSection key={p.id} catalog={catalog} id={p.id} shell={<OpenProjectShell project={p.id} />}>
             <FileTree entries={files.map((f) => ({ f }))} onOpen={open} />
           </SourceSection>
         )

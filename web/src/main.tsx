@@ -5,9 +5,16 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom"
 
 import { CollapseAllProvider } from "@/components/collapse"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { createLog } from "@/lib/log"
 
 import "./index.css"
 import App from "./App"
+
+const log = createLog("app")
+window.addEventListener("error", (event) => log.error("erro não tratado", { message: event.message }))
+window.addEventListener("unhandledrejection", (event) =>
+  log.error("promise rejeitada sem catch", { reason: String(event.reason) }),
+)
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 10_000, refetchOnWindowFocus: false, retry: 1 } },

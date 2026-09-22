@@ -3,6 +3,7 @@ import { SquareTerminal } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 
+import { ToolIcon } from "@/components/ToolIcon"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -11,9 +12,13 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { api } from "@/lib/api"
+import { useCatalog } from "@/hooks/useCatalog"
+import { api, type OpenTargets } from "@/lib/api"
 
 type Entry = { target: string; label: string; app: boolean }
 
@@ -31,6 +36,58 @@ function AppIcon({ app, className }: { app: string; className?: string }) {
   )
 }
 
+async function openTarget(tool: string, target: string, project: string | undefined, setBusy: (v: boolean) => void) {
+  setBusy(true)
+  try {
+    await api.openWith({ tool, target, ...(project ? { project } : {}) })
+  } catch (error) {
+    toast.error("Falha ao abrir", { description: (error as Error).message })
+  } finally {
+    setBusy(false)
+  }
+}
+
+function entriesOf(targets: OpenTargets): { terminals: Entry[]; apps: Entry[] } {
+  return {
+    terminals: targets.terminals.map((t) => ({ target: `terminal:${t.id}`, label: t.label, app: false })),
+    apps: targets.apps.map((a) => ({ target: `app:${a.id}`, label: a.label, app: true })),
+  }
+}
+
+function TargetItems({
+  tool,
+  targets,
+  project,
+  setBusy,
+}: {
+  tool: string
+  targets: OpenTargets
+  project?: string
+  setBusy: (v: boolean) => void
+}) {
+  const { terminals, apps } = entriesOf(targets)
+  const grouped = terminals.length > 0 && apps.length > 0
+  return (
+    <>
+      {grouped && <DropdownMenuLabel>Terminais</DropdownMenuLabel>}
+      {terminals.map((t) => (
+        <DropdownMenuItem key={t.target} onClick={() => openTarget(tool, t.target, project, setBusy)}>
+          <SquareTerminal className="size-3.5 opacity-60" />
+          {t.label}
+        </DropdownMenuItem>
+      ))}
+      {grouped && <DropdownMenuSeparator />}
+      {grouped && <DropdownMenuLabel>Apps</DropdownMenuLabel>}
+      {apps.map((a) => (
+        <DropdownMenuItem key={a.target} onClick={() => openTarget(tool, a.target, project, setBusy)}>
+          <AppIcon app={a.label} className="size-4 shrink-0 rounded-[4px]" />
+          {a.label}
+        </DropdownMenuItem>
+      ))}
+    </>
+  )
+}
+
 /** Botão que abre a IA num terminal local (no diretório do projeto, se houver) ou no app nativo. */
 export function OpenWith({ tool, project }: { tool: string; project?: string }) {
   const { data } = useQuery({
@@ -41,36 +98,24 @@ export function OpenWith({ tool, project }: { tool: string; project?: string }) 
   const [busy, setBusy] = useState(false)
   if (!data || (!data.terminals.length && !data.apps.length)) return null
 
-  const open = async (target: string) => {
-    setBusy(true)
-    try {
-      await api.openWith({ tool, target, ...(project ? { project } : {}) })
-    } catch (error) {
-      toast.error("Falha ao abrir", { description: (error as Error).message })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const terminals: Entry[] = data.terminals.map((t) => ({ target: `terminal:${t.id}`, label: t.label, app: false }))
-  const apps: Entry[] = data.apps.map((a) => ({ target: `app:${a.id}`, label: a.label, app: true }))
+  const { terminals, apps } = entriesOf(data)
   const all = [...terminals, ...apps]
-  const grouped = terminals.length > 0 && apps.length > 0
   if (all.length === 1) {
     const [only] = all
     return (
       <Button
-        size="icon-sm"
+        size="sm"
         variant="ghost"
         title={`Abrir ${tool} em ${only.label}`}
         disabled={busy}
-        onClick={() => open(only.target)}
+        onClick={() => openTarget(tool, only.target, project, setBusy)}
       >
         {only.app ? (
           <AppIcon app={only.label} className="size-4 rounded-[4px]" />
         ) : (
           <SquareTerminal className="size-4" />
         )}
+        {only.app ? "Abrir app" : "Abrir no terminal"}
       </Button>
     )
   }
@@ -78,42 +123,81 @@ export function OpenWith({ tool, project }: { tool: string; project?: string }) 
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button size="icon-sm" variant="ghost" title={`Abrir ${tool}…`} disabled={busy}>
+          <Button size="sm" variant="ghost" title={`Abrir ${tool}…`} disabled={busy}>
             <SquareTerminal className="size-4" />
+            Abrir no terminal
           </Button>
         }
       />
       <DropdownMenuContent align="end">
         <DropdownMenuGroup>
-          {grouped && <DropdownMenuLabel>Terminais</DropdownMenuLabel>}
-          {terminals.map((t) => (
-            <DropdownMenuItem key={t.target} onClick={() => open(t.target)}>
-              <SquareTerminal className="size-3.5 opacity-60" />
-              {t.label}
-            </DropdownMenuItem>
-          ))}
+          <TargetItems tool={tool} targets={data} project={project} setBusy={setBusy} />
         </DropdownMenuGroup>
-        {grouped && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>Apps</DropdownMenuLabel>
-              {apps.map((a) => (
-                <DropdownMenuItem key={a.target} onClick={() => open(a.target)}>
-                  <AppIcon app={a.label} className="size-4 shrink-0 rounded-[4px]" />
-                  {a.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuGroup>
-          </>
-        )}
-        {!grouped &&
-          apps.map((a) => (
-            <DropdownMenuItem key={a.target} onClick={() => open(a.target)}>
-              <AppIcon app={a.label} className="size-4 shrink-0 rounded-[4px]" />
-              {a.label}
-            </DropdownMenuItem>
-          ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/** Botão por projeto: escolhe a IA e depois onde ela abre, sempre naquele diretório. */
+export function OpenProjectShell({ project }: { project: string }) {
+  const { data: catalog } = useCatalog()
+  const toolIds = (catalog?.tools ?? []).map((t) => t.id)
+  const { data } = useQuery({
+    queryKey: ["open-targets-all", toolIds.join("|")],
+    queryFn: async () => {
+      const entries = await Promise.all(toolIds.map(async (id) => [id, await api.openTargets(id)] as const))
+      const labels = Object.fromEntries((catalog?.tools ?? []).map((t) => [t.id, t.label]))
+      return entries
+        .filter(([, targets]) => targets.terminals.length + targets.apps.length > 0)
+        .map(([id, targets]) => ({ id, label: labels[id] ?? id, targets }))
+    },
+    enabled: toolIds.length > 0,
+    staleTime: 60_000,
+  })
+  const [busy, setBusy] = useState(false)
+  if (!data || !data.length) return null
+  if (data.length === 1 && data[0].targets.terminals.length + data[0].targets.apps.length === 1) {
+    const [only] = data
+    const single = only.targets.terminals[0]
+      ? `terminal:${only.targets.terminals[0].id}`
+      : `app:${only.targets.apps[0].id}`
+    return (
+      <Button
+        size="sm"
+        variant="ghost"
+        title={`Abrir ${only.label} neste projeto`}
+        disabled={busy}
+        onClick={() => openTarget(only.id, single, project, setBusy)}
+      >
+        <SquareTerminal className="size-4" />
+        Abrir no terminal
+      </Button>
+    )
+  }
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button size="sm" variant="ghost" title="Abrir IA neste projeto…" disabled={busy}>
+            <SquareTerminal className="size-4" />
+            Abrir no terminal
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end">
+        {data.map((tool) => (
+          <DropdownMenuSub key={tool.id}>
+            <DropdownMenuSubTrigger>
+              <ToolIcon id={tool.id} className="size-3.5 opacity-60" />
+              {tool.label}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuGroup>
+                <TargetItems tool={tool.id} targets={tool.targets} project={project} setBusy={setBusy} />
+              </DropdownMenuGroup>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   )

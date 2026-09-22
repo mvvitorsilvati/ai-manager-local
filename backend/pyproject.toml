@@ -5,6 +5,7 @@ description = "Backend do AI Manager Local: API de configurações locais das IA
 requires-python = ">=3.14"
 dependencies = [
     "httpx>=0.28.1",
+    "loguru>=0.7.3",
     "python-dotenv>=1.2.3",
     "trio>=0.34",
 ]

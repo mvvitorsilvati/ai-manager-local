@@ -136,14 +136,18 @@ def scan_opencode(path: Path, start: datetime | None, dirs: list[Path]) -> list[
         if ts is None or (start is not None and ts < start):
             continue
         if part.get("type") == "tool" and part.get("tool") == "skill":
-            name = (part.get("state") or {}).get("input", {}).get("name")
+            state = part.get("state") or {}
+            output = state.get("output") or ""
+            if "Built-in skill" in output:
+                continue
+            name = (state.get("input") or {}).get("name")
             key = skill_key(name)
             if not key:
                 continue
             found[key]["invocations"] += 1
             found[key]["sessions"].add(session_id)
             found[key]["model"] += 1
-            found[key]["chars"] += len((part.get("state") or {}).get("output") or "")
+            found[key]["chars"] += len(output)
         elif part.get("type") == "text":
             text = (part.get("text") or "").strip()
             if not text.startswith("/"):

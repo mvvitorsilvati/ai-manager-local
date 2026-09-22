@@ -15,6 +15,8 @@ from collections import Counter, defaultdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from loguru import logger
+
 IDLE_GAP = 300
 CACHE_SECONDS = 60
 TOP = 15
@@ -617,6 +619,7 @@ def _one(name: str, root: Path, start: datetime | None) -> dict:
     try:
         events, extra = SCANNERS[name](root, start)
     except (OSError, sqlite3.Error, json.JSONDecodeError) as exc:
+        logger.debug(f"consumo de {name} indisponível: {exc}")
         return pack(name, [], {"missing": True, "error": str(exc)})
     return pack(name, events, extra)
 

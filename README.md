@@ -430,7 +430,7 @@ O arquivo mudou no disco (outra ferramenta, IA ou IDE). Escolha *recarregar do d
 
 Detalhes completos em [CONTRIBUTING.md](CONTRIBUTING.md) (branches, nível certo de teste, convenções). Resumo:
 
-1. Crie uma branch a partir de `develop`:
+1. Crie uma branch a partir de `main`:
    ```bash
    git checkout -b feat/minha-mudanca
    ```

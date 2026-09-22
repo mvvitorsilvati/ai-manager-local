@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 import app
+import skills
 import spend
 
 H = {"Content-Type": "application/json", "X-AIM": "1"}
@@ -47,6 +48,13 @@ def test_spend_devolve_o_snapshot(servidor, monkeypatch):
     status, body = request(f"{servidor.url}/api/spend?days=7")
     assert status == 200
     assert json.loads(body)["tools"]["claude"]["available"] is True
+
+
+def test_skill_usage_devolve_o_snapshot(servidor, monkeypatch):
+    monkeypatch.setattr(skills, "snapshot", lambda *args, **kwargs: {"top": [{"skill": "demo"}]})
+    status, body = request(f"{servidor.url}/api/skill-usage?days=7")
+    assert status == 200
+    assert json.loads(body)["top"][0]["skill"] == "demo"
 
 
 def test_catalog_responde_com_fontes(servidor):

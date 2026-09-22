@@ -621,7 +621,7 @@ def _one(name: str, root: Path, start: datetime | None) -> dict:
     return pack(name, events, extra)
 
 
-def build(days: int | None = 30, tool: str | None = None, roots: dict[str, Path] | None = None) -> dict:
+def build(days: int | None = 7, tool: str | None = None, roots: dict[str, Path] | None = None) -> dict:
     start = window_start(days)
     roots = roots or default_roots()
     names = (tool,) if tool in TOOLS else TOOLS
@@ -632,7 +632,7 @@ def build(days: int | None = 30, tool: str | None = None, roots: dict[str, Path]
     }
 
 
-def snapshot(days: int | None = 30, tool: str | None = None, force: bool = False, roots: dict | None = None) -> dict:
+def snapshot(days: int | None = 7, tool: str | None = None, force: bool = False, roots: dict | None = None) -> dict:
     if roots is not None:
         return build(days, tool, roots)
     key = (days, tool or "")

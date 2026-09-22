@@ -34,7 +34,8 @@ function emit(level: LogLevel, scope: string, message: string, data?: unknown) {
   if (buffer.length > MAX_ENTRIES) buffer.splice(0, buffer.length - MAX_ENTRIES)
   if (ORDER[level] >= ORDER.warn || isDebugEnabled()) {
     const args = data === undefined ? [] : [data]
-    if (level === "debug") console.debug(`[${scope}] ${message}`, ...args)
+    // console.debug cai em "Verbose" (oculto por padrão): debug vai de console.log
+    if (level === "debug") console.log(`[${scope}] ${message}`, ...args)
     else if (level === "info") console.info(`[${scope}] ${message}`, ...args)
     else if (level === "warn") console.warn(`[${scope}] ${message}`, ...args)
     else console.error(`[${scope}] ${message}`, ...args)

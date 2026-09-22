@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useCatalog } from "@/hooks/useCatalog"
 import { api, type OpenTargets } from "@/lib/api"
+import { getLang, translate, useI18n } from "@/lib/i18n"
 
 type Entry = { target: string; label: string; app: boolean }
 
@@ -41,7 +42,7 @@ async function openTarget(tool: string, target: string, project: string | undefi
   try {
     await api.openWith({ tool, target, ...(project ? { project } : {}) })
   } catch (error) {
-    toast.error("Falha ao abrir", { description: (error as Error).message })
+    toast.error(translate(getLang(), "open.failed"), { description: (error as Error).message })
   } finally {
     setBusy(false)
   }
@@ -65,11 +66,12 @@ function TargetItems({
   project?: string
   setBusy: (v: boolean) => void
 }) {
+  const { t } = useI18n()
   const { terminals, apps } = entriesOf(targets)
   const grouped = terminals.length > 0 && apps.length > 0
   return (
     <>
-      {grouped && <DropdownMenuLabel>Terminais</DropdownMenuLabel>}
+      {grouped && <DropdownMenuLabel>{t("open.terminals")}</DropdownMenuLabel>}
       {terminals.map((t) => (
         <DropdownMenuItem key={t.target} onClick={() => openTarget(tool, t.target, project, setBusy)}>
           <SquareTerminal className="size-3.5 opacity-60" />
@@ -77,7 +79,7 @@ function TargetItems({
         </DropdownMenuItem>
       ))}
       {grouped && <DropdownMenuSeparator />}
-      {grouped && <DropdownMenuLabel>Apps</DropdownMenuLabel>}
+      {grouped && <DropdownMenuLabel>{t("open.apps")}</DropdownMenuLabel>}
       {apps.map((a) => (
         <DropdownMenuItem key={a.target} onClick={() => openTarget(tool, a.target, project, setBusy)}>
           <AppIcon app={a.label} className="size-4 shrink-0 rounded-[4px]" />
@@ -96,6 +98,7 @@ export function OpenWith({ tool, project }: { tool: string; project?: string }) 
     staleTime: 60_000,
   })
   const [busy, setBusy] = useState(false)
+  const { t } = useI18n()
   if (!data || (!data.terminals.length && !data.apps.length)) return null
 
   const { terminals, apps } = entriesOf(data)
@@ -106,7 +109,7 @@ export function OpenWith({ tool, project }: { tool: string; project?: string }) 
       <Button
         size="sm"
         variant="ghost"
-        title={`Abrir ${tool} em ${only.label}`}
+        title={t("open.in", { tool, label: only.label })}
         disabled={busy}
         onClick={() => openTarget(tool, only.target, project, setBusy)}
       >
@@ -115,7 +118,7 @@ export function OpenWith({ tool, project }: { tool: string; project?: string }) 
         ) : (
           <SquareTerminal className="size-4" />
         )}
-        {only.app ? "Abrir app" : "Abrir no terminal"}
+        {only.app ? t("open.app") : t("open.label")}
       </Button>
     )
   }
@@ -123,9 +126,9 @@ export function OpenWith({ tool, project }: { tool: string; project?: string }) 
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button size="sm" variant="ghost" title={`Abrir ${tool}…`} disabled={busy}>
+          <Button size="sm" variant="ghost" title={t("open.short", { tool })} disabled={busy}>
             <SquareTerminal className="size-4" />
-            Abrir no terminal
+            {t("open.label")}
           </Button>
         }
       />
@@ -155,6 +158,7 @@ export function OpenProjectShell({ project }: { project: string }) {
     staleTime: 60_000,
   })
   const [busy, setBusy] = useState(false)
+  const { t } = useI18n()
   if (!data || !data.length) return null
   if (data.length === 1 && data[0].targets.terminals.length + data[0].targets.apps.length === 1) {
     const [only] = data
@@ -165,12 +169,12 @@ export function OpenProjectShell({ project }: { project: string }) {
       <Button
         size="sm"
         variant="ghost"
-        title={`Abrir ${only.label} neste projeto`}
+        title={t("open.short", { tool: only.label })}
         disabled={busy}
         onClick={() => openTarget(only.id, single, project, setBusy)}
       >
         <SquareTerminal className="size-4" />
-        Abrir no terminal
+        {t("open.label")}
       </Button>
     )
   }
@@ -178,9 +182,9 @@ export function OpenProjectShell({ project }: { project: string }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button size="sm" variant="ghost" title="Abrir IA neste projeto…" disabled={busy}>
+          <Button size="sm" variant="ghost" title={t("open.project")} disabled={busy}>
             <SquareTerminal className="size-4" />
-            Abrir no terminal
+            {t("open.label")}
           </Button>
         }
       />

@@ -10,16 +10,17 @@ export function useCatalog() {
   })
 }
 
+/** Chaves de categoria conhecidas; rótulos localizados vivem em `cats.*` (use t/tn). */
 export const CAT_LABEL: Record<string, string> = {
-  context: "contexto",
+  context: "context",
   skill: "skill",
-  agent: "agente",
-  command: "comando",
-  rule: "regra",
+  agent: "agent",
+  command: "command",
+  rule: "rule",
   config: "config",
   doc: "doc",
   script: "script",
-  image: "imagem",
+  image: "image",
 }
 
 export const isDoc = (r: string) => r.split("/").includes("docs")

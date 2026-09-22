@@ -11,12 +11,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api, type SpendBucket, type SpendTool } from "@/lib/api"
+import { getLang, getLocale, useI18n } from "@/lib/i18n"
 import SpendSkills, { SkillTable, useSkillUsage } from "@/views/Skills"
 
-const PERIODS = [
-  { days: 7, label: "7 dias" },
-  { days: 30, label: "30 dias" },
-  { days: 0, label: "Tudo" },
+const PERIODS: { days: number; labelKey: "spend.p7" | "spend.p30" | "spend.pAll" }[] = [
+  { days: 7, labelKey: "spend.p7" },
+  { days: 30, labelKey: "spend.p30" },
+  { days: 0, labelKey: "spend.pAll" },
 ]
 
 const TOOLS = ["claude", "codex", "opencode", "copilot"]
@@ -43,19 +44,18 @@ export function useSpend(days: number, tool?: string) {
 }
 
 export function money(value: number, currency: string) {
-  if (currency === "AIU") return `${value.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} AIU`
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "USD" }).format(value)
+  if (currency === "AIU") return `${value.toLocaleString(getLocale(), { maximumFractionDigits: 3 })} AIU`
+  return new Intl.NumberFormat(getLocale(), { style: "currency", currency: "USD" }).format(value)
 }
 
 function AiuNote() {
+  const { t } = useI18n()
   return (
     <Tooltip>
       <TooltipTrigger
         render={<span className="cursor-help underline decoration-dotted underline-offset-2">AIU</span>}
       />
-      <TooltipContent className="max-w-60">
-        AI Units: unidade de cobrança do GitHub Copilot. 1 AIU ≈ 1 AI credit = US$ 0,01.
-      </TooltipContent>
+      <TooltipContent className="max-w-60">{t("spend.aiuNote")}</TooltipContent>
     </Tooltip>
   )
 }
@@ -64,7 +64,7 @@ export function Money({ value, currency }: { value: number; currency: string }) 
   if (currency !== "AIU") return <>{money(value, currency)}</>
   return (
     <>
-      {value.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} <AiuNote />
+      {value.toLocaleString(getLocale(), { maximumFractionDigits: 3 })} <AiuNote />
     </>
   )
 }
@@ -86,7 +86,8 @@ export function tokens(n: number) {
   return String(n)
 }
 
-const fmtDay = (day: string) => day.slice(8, 10) + "/" + day.slice(5, 7)
+const fmtDay = (day: string) =>
+  getLang() === "pt" ? day.slice(8, 10) + "/" + day.slice(5, 7) : day.slice(5, 7) + "/" + day.slice(8, 10)
 const fmtAxisCost = (v: number) => (Math.abs(v) >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${Math.round(v)}`)
 
 function duration(seconds: number) {
@@ -98,7 +99,10 @@ function duration(seconds: number) {
 
 type Series = { key: string; label: string; color: string; currency: string; axis: "left" | "right" }
 
-function buildSeries(tools: SpendTool[]): { rows: Record<string, number | string>[]; series: Series[] } {
+function buildSeries(
+  tools: SpendTool[],
+  otherLabel: string,
+): { rows: Record<string, number | string>[]; series: Series[] } {
   const active = tools.filter((t) => t.available && t.total.requests > 0)
   if (active.length > 1) {
     const days = [...new Set(active.flatMap((t) => t.by_day.map((r) => r.day)))].sort()
@@ -126,13 +130,13 @@ function buildSeries(tools: SpendTool[]): { rows: Record<string, number | string
   const perDay = new Map<string, Record<string, number>>()
   for (const row of tool.by_day_model) {
     const bucket = perDay.get(row.day) ?? {}
-    const key = top.includes(row.model) ? row.model : "outros"
+    const key = top.includes(row.model) ? row.model : otherLabel
     bucket[key] = (bucket[key] ?? 0) + row.cost
     perDay.set(row.day, bucket)
   }
-  if (![...perDay.values()].some((b) => b.outros)) rest.clear()
+  if (![...perDay.values()].some((b) => b[otherLabel])) rest.clear()
   const rows = [...perDay.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([day, bucket]) => ({ day, ...bucket }))
-  const names = [...top, ...(rest.size ? ["outros"] : [])]
+  const names = [...top, ...(rest.size ? [otherLabel] : [])]
   return {
     rows,
     series: names.map((name, i) => ({
@@ -145,7 +149,10 @@ function buildSeries(tools: SpendTool[]): { rows: Record<string, number | string
   }
 }
 
-function buildTokenSeries(tools: SpendTool[]): { rows: Record<string, number | string>[]; series: Series[] } {
+function buildTokenSeries(
+  tools: SpendTool[],
+  otherLabel: string,
+): { rows: Record<string, number | string>[]; series: Series[] } {
   const active = tools.filter((t) => t.available && t.total.requests > 0)
   if (active.length > 1) {
     const days = [...new Set(active.flatMap((t) => t.by_day.map((r) => r.day)))].sort()
@@ -173,13 +180,13 @@ function buildTokenSeries(tools: SpendTool[]): { rows: Record<string, number | s
   const perDay = new Map<string, Record<string, number>>()
   for (const row of tool.by_day_model) {
     const bucket = perDay.get(row.day) ?? {}
-    const key = top.includes(row.model) ? row.model : "outros"
+    const key = top.includes(row.model) ? row.model : otherLabel
     bucket[key] = (bucket[key] ?? 0) + row.total_tokens
     perDay.set(row.day, bucket)
   }
-  if (![...perDay.values()].some((b) => b.outros)) rest.clear()
+  if (![...perDay.values()].some((b) => b[otherLabel])) rest.clear()
   const rows = [...perDay.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([day, bucket]) => ({ day, ...bucket }))
-  const names = [...top, ...(rest.size ? ["outros"] : [])]
+  const names = [...top, ...(rest.size ? [otherLabel] : [])]
   return {
     rows,
     series: names.map((name, i) => ({
@@ -192,22 +199,27 @@ function buildTokenSeries(tools: SpendTool[]): { rows: Record<string, number | s
   }
 }
 
-const KIND_META: { value: ChartKind; label: string; Icon: typeof ChartArea }[] = [
-  { value: "area", label: "Área", Icon: ChartArea },
-  { value: "bar", label: "Barra", Icon: ChartBar },
-  { value: "stacked", label: "Empilhada", Icon: ChartBarStacked },
+const KIND_META: {
+  value: ChartKind
+  labelKey: "spend.area" | "spend.bar" | "spend.stacked"
+  Icon: typeof ChartArea
+}[] = [
+  { value: "area", labelKey: "spend.area", Icon: ChartArea },
+  { value: "bar", labelKey: "spend.bar", Icon: ChartBar },
+  { value: "stacked", labelKey: "spend.stacked", Icon: ChartBarStacked },
 ]
 
 function KindToggle({ value, onChange }: { value: ChartKind; onChange: (v: ChartKind) => void }) {
+  const { t } = useI18n()
   return (
     <div className="flex items-center gap-1">
-      {KIND_META.map(({ value: v, label, Icon }) => (
+      {KIND_META.map(({ value: v, labelKey, Icon }) => (
         <Button
           key={v}
           size="icon-sm"
           variant={value === v ? "secondary" : "ghost"}
-          title={label}
-          aria-label={label}
+          title={t(labelKey)}
+          aria-label={t(labelKey)}
           onClick={() => onChange(v)}
         >
           <Icon className="size-4" />
@@ -229,9 +241,10 @@ export function SpendTrend({
   toggle?: boolean
 }) {
   const [kind, setKind] = useState<ChartKind>("area")
+  const { t } = useI18n()
   const { rows, series } = useMemo(
-    () => (metric === "cost" ? buildSeries(tools) : buildTokenSeries(tools)),
-    [tools, metric],
+    () => (metric === "cost" ? buildSeries(tools, t("spend.other")) : buildTokenSeries(tools, t("spend.other"))),
+    [tools, metric, t],
   )
   const withAxis: Series[] = useMemo(() => {
     if (metric !== "cost") return series.map((s) => ({ ...s, axis: "left" }))
@@ -253,7 +266,11 @@ export function SpendTrend({
       <TooltipRow
         color={s?.color}
         label={s?.label ?? String(name)}
-        formatted={metric === "cost" ? money(Number(value), s?.currency ?? "USD") : `${tokens(Number(value))} tokens`}
+        formatted={
+          metric === "cost"
+            ? money(Number(value), s?.currency ?? "USD")
+            : `${tokens(Number(value))} ${t("spend.statTokens")}`
+        }
       />
     )
   }
@@ -367,13 +384,14 @@ export function SpendDonut({
   metric: Metric
   periodLabel: string
 }) {
+  const { t } = useI18n()
   const active = tools.filter((t) => t.available && t.total.requests > 0)
   const usd = active.filter((t) => t.currency !== "AIU")
   const aiu = active.filter((t) => t.currency === "AIU")
   const splitAiu = metric === "cost" && aiu.length > 0 && usd.length > 0
   const main = splitAiu ? usd : active
   if (!main.length) return null
-  const unit = metric === "cost" ? (main[0]?.currency ?? "USD") : "tokens"
+  const unit = metric === "cost" ? (main[0]?.currency ?? "USD") : t("spend.statTokens")
   const slices = main.map((t) => ({
     tool: t.id,
     label: t.label,
@@ -384,8 +402,8 @@ export function SpendDonut({
   const centerValue =
     metric === "cost"
       ? unit === "AIU"
-        ? total.toLocaleString("pt-BR", { maximumFractionDigits: 3 })
-        : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "USD" }).format(total)
+        ? total.toLocaleString(getLocale(), { maximumFractionDigits: 3 })
+        : new Intl.NumberFormat(getLocale(), { style: "currency", currency: "USD" }).format(total)
       : tokens(total)
   const config = Object.fromEntries(
     slices.map((r) => [r.tool, { label: r.label, color: r.fill }]),
@@ -396,14 +414,14 @@ export function SpendDonut({
       <TooltipRow
         color={row?.fill}
         label={row?.label ?? String(name)}
-        formatted={metric === "cost" ? money(Number(value), unit) : `${tokens(Number(value))} tokens`}
+        formatted={metric === "cost" ? money(Number(value), unit) : `${tokens(Number(value))} ${t("spend.statTokens")}`}
       />
     )
   }
   return (
     <Card className="flex flex-col">
       <CardHeader className="items-center pb-0">
-        <CardTitle>{metric === "cost" ? "Custo total por IA" : "Tokens por IA"}</CardTitle>
+        <CardTitle>{metric === "cost" ? t("spend.donutCost") : t("spend.donutTokens")}</CardTitle>
         <CardDescription>{periodLabel}</CardDescription>
       </CardHeader>
       <CardContent className="flex-1 pb-0">
@@ -437,7 +455,7 @@ export function SpendDonut({
             <span className="h-2 w-2 shrink-0 rounded-[2px]" style={{ backgroundColor: TOOL_COLOR.copilot }} />
             Copilot · <Money value={aiu.reduce((sum, t) => sum + t.total.cost, 0)} currency="AIU" />
           </div>
-          <div className="text-muted-foreground text-xs">Fora do donut por ser outra moeda</div>
+          <div className="text-muted-foreground text-xs">{t("spend.aiuOutside")}</div>
         </CardFooter>
       )}
     </Card>
@@ -518,13 +536,12 @@ export function ToolCard({
 
 function ToolSkills({ id, days }: { id: string; days: number }) {
   const { data } = useSkillUsage(days, id)
+  const { t } = useI18n()
   const rows = data?.tools[id]?.rows ?? []
   if (!rows.length) return null
   return (
     <div className="mt-4">
-      <h4 className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wider uppercase">
-        Skills mais usadas
-      </h4>
+      <h4 className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wider uppercase">{t("skills.top")}</h4>
       <SkillTable rows={rows} showTools={false} />
     </div>
   )
@@ -545,6 +562,7 @@ function ToolCardBody({
   onDays: (v: number) => void
   detailLink: boolean
 }) {
+  const { t } = useI18n()
   const pick = (row: { cost: number; total_tokens: number }) => (metric === "cost" ? row.cost : row.total_tokens)
   const peak = tool.by_day.length ? tool.by_day.reduce((a, b) => (pick(b) > pick(a) ? b : a)) : null
   const half = Math.floor(tool.by_day.length / 2)
@@ -570,7 +588,7 @@ function ToolCardBody({
               to={`/consumo?tool=${tool.id}&days=${days}`}
               className="text-muted-foreground text-xs hover:underline"
             >
-              ver detalhe
+              {t("spend.detail")}
             </Link>
           )}
         </span>
@@ -585,7 +603,7 @@ function ToolCardBody({
               className="h-6 rounded-full px-2.5 text-xs"
               onClick={() => onDays(period.days)}
             >
-              {period.label}
+              {t(period.labelKey)}
             </Button>
           ))}
         </span>
@@ -593,18 +611,20 @@ function ToolCardBody({
       {!tool.available ? (
         <p className="text-muted-foreground text-xs">{tool.error ?? tool.note}</p>
       ) : tool.total.requests === 0 ? (
-        <p className="text-muted-foreground text-xs">Nenhum uso no período. {tool.note}</p>
+        <p className="text-muted-foreground text-xs">
+          {t("spend.noUsage")} {tool.note}
+        </p>
       ) : (
         <>
           <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="custo" value={<Money value={tool.total.cost} currency={tool.currency} />} />
-            <Stat label="tokens" value={tokens(tool.total.total_tokens)} />
-            <Stat label="chamadas" value={String(tool.total.requests)} />
-            <Stat label="tempo ativo" value={duration(tool.total.active_seconds)} />
+            <Stat label={t("spend.statCost")} value={<Money value={tool.total.cost} currency={tool.currency} />} />
+            <Stat label={t("spend.statTokens")} value={tokens(tool.total.total_tokens)} />
+            <Stat label={t("spend.statCalls")} value={String(tool.total.requests)} />
+            <Stat label={t("spend.statActive")} value={duration(tool.total.active_seconds)} />
           </div>
           <Card className="mb-4">
             <CardHeader>
-              <CardTitle>{metric === "cost" ? "Custo por dia" : "Tokens por dia"}</CardTitle>
+              <CardTitle>{metric === "cost" ? t("spend.dayCost") : t("spend.dayTokens")}</CardTitle>
               {range && <CardDescription>{range}</CardDescription>}
             </CardHeader>
             <CardContent>
@@ -613,26 +633,29 @@ function ToolCardBody({
             {peak && (
               <CardFooter className="flex-col items-start gap-1 text-sm">
                 <div className="flex items-center gap-2 leading-none font-medium">
-                  Pico em {fmtDay(peak.day)} ·{" "}
-                  {metric === "cost" ? money(peak.cost, tool.currency) : `${tokens(peak.total_tokens)} tokens`}
+                  {t("spend.peak", {
+                    day: fmtDay(peak.day),
+                    value:
+                      metric === "cost"
+                        ? money(peak.cost, tool.currency)
+                        : `${tokens(peak.total_tokens)} ${t("spend.statTokens")}`,
+                  })}{" "}
                   <TrendIcon className="size-4" />
                 </div>
                 <div className="text-muted-foreground leading-none">
-                  {tool.by_day.length > 1
-                    ? `${trendingUp ? "Em alta" : "Em queda"} na segunda metade do período`
-                    : "Um dia com uso no período"}
+                  {tool.by_day.length > 1 ? t(trendingUp ? "spend.up" : "spend.down") : t("spend.oneDay")}
                 </div>
               </CardFooter>
             )}
           </Card>
           <div className="grid gap-4 lg:grid-cols-2">
-            <Table title="por modelo" rows={tool.by_model} name="model" currency={tool.currency} />
-            <Table title="por projeto" rows={tool.by_project} name="project" currency={tool.currency} />
+            <Table title={t("spend.byModel")} rows={tool.by_model} name="model" currency={tool.currency} />
+            <Table title={t("spend.byProject")} rows={tool.by_project} name="project" currency={tool.currency} />
           </div>
           <ToolSkills id={tool.id} days={days} />
           {tool.unknown_models.length > 0 && (
             <p className="text-muted-foreground mt-3 text-[11px]">
-              Sem preço de tabela: {tool.unknown_models.join(", ")}. O custo desses modelos está zerado.
+              {t("spend.unknown", { models: tool.unknown_models.join(", ") })}
             </p>
           )}
           <p className="text-muted-foreground mt-3 text-[11px]">{tool.note}</p>
@@ -677,27 +700,29 @@ function Toggle<T extends string>({
 }
 
 export function MetricToggle({ value, onChange }: { value: Metric; onChange: (v: Metric) => void }) {
+  const { t } = useI18n()
   return (
     <Toggle
       value={value}
       onChange={onChange}
       options={[
-        { value: "cost", label: "Custo" },
-        { value: "tokens", label: "Tokens" },
+        { value: "cost", label: t("spend.cost") },
+        { value: "tokens", label: t("spend.tokens") },
       ]}
     />
   )
 }
 
-const OVERVIEW_PERIODS = [
-  { days: 7, label: "7 dias" },
-  { days: 30, label: "30 dias" },
-  { days: 0, label: "Tudo" },
+const OVERVIEW_PERIODS: { days: number; labelKey: "spend.p7" | "spend.p30" | "spend.pAll" }[] = [
+  { days: 7, labelKey: "spend.p7" },
+  { days: 30, labelKey: "spend.p30" },
+  { days: 0, labelKey: "spend.pAll" },
 ]
 
 export function SpendOverviewCard() {
   const [days, setDays] = useState(7)
   const [metric, setMetric] = useState<Metric>("cost")
+  const { t } = useI18n()
   const { data, isPending } = useSpend(days)
   const tools = data ? Object.values(data.tools) : []
   const active = tools.filter((t) => t.available && t.total.requests > 0)
@@ -709,7 +734,9 @@ export function SpendOverviewCard() {
   return (
     <div className="border-border overflow-hidden rounded-lg border">
       <div className="bg-card flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
-        <span className="font-medium">Consumo · {OVERVIEW_PERIODS.find((p) => p.days === days)?.label}</span>
+        <span className="font-medium">
+          {t("spend.strip", { period: t(OVERVIEW_PERIODS.find((p) => p.days === days)?.labelKey ?? "spend.p7") })}
+        </span>
         {metric === "cost" ? (
           <>
             <span>{money(usd, "USD")}</span>
@@ -720,10 +747,12 @@ export function SpendOverviewCard() {
             )}
           </>
         ) : (
-          <span>{tokens(totalTokens)} tokens</span>
+          <span>
+            {tokens(totalTokens)} {t("spend.statTokens")}
+          </span>
         )}
         <Link to="/consumo" className="text-muted-foreground ml-auto text-xs hover:underline">
-          ver Consumo
+          {t("spend.viewUsage")}
         </Link>
       </div>
       <div className="bg-card flex flex-wrap items-center gap-2 px-3 pb-2">
@@ -737,7 +766,7 @@ export function SpendOverviewCard() {
               className="h-6 rounded-full px-2.5 text-xs"
               onClick={() => setDays(period.days)}
             >
-              {period.label}
+              {t(period.labelKey)}
             </Button>
           ))}
         </span>
@@ -755,6 +784,7 @@ export default function SpendView() {
   const tool = params.get("tool") || undefined
   const selected = tool && TOOLS.includes(tool) ? tool : undefined
   const [metric, setMetric] = useState<Metric>("cost")
+  const { t } = useI18n()
   const { data, isPending, isError } = useSpend(Number.isFinite(days) ? days : 30, selected)
   const set = (next: { days?: number; tool?: string }) =>
     setParams(
@@ -773,10 +803,8 @@ export default function SpendView() {
   const period = Number.isFinite(days) ? days : 30
   return (
     <div>
-      <h2 className="text-lg font-semibold">Consumo</h2>
-      <p className="text-muted-foreground mb-4 text-sm">
-        Tokens e custo lidos dos logs locais. A primeira leitura do período pode levar alguns segundos.
-      </p>
+      <h2 className="text-lg font-semibold">{t("spend.title")}</h2>
+      <p className="text-muted-foreground mb-4 text-sm">{t("spend.subtitle")}</p>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
@@ -786,7 +814,7 @@ export default function SpendView() {
               className="rounded-full"
               onClick={() => set({ tool: "" })}
             >
-              Todas
+              {t("spend.all")}
             </Button>
             {TOOLS.map((id) => (
               <Button
@@ -812,7 +840,7 @@ export default function SpendView() {
               className="rounded-full"
               onClick={() => set({ days: period.days })}
             >
-              {period.label}
+              {t(period.labelKey)}
             </Button>
           ))}
         </div>
@@ -820,26 +848,24 @@ export default function SpendView() {
       {isPending ? (
         <ViewSkeleton rows={4} />
       ) : isError ? (
-        <p className="text-muted-foreground text-sm">Não foi possível ler o consumo local.</p>
+        <p className="text-muted-foreground text-sm">{t("spend.loadError")}</p>
       ) : (
         <>
           {!selected && active.length > 1 && (
             <div className="mb-4 grid gap-4 xl:grid-cols-[1fr_320px]">
               <section className="border-border bg-card rounded-lg border p-4">
                 <h3 className="mb-3 text-sm font-semibold">
-                  Todas as IAs · {metric === "cost" ? "custo por dia" : "tokens por dia"}
+                  {metric === "cost" ? t("spend.allCost") : t("spend.allTokens")}
                 </h3>
                 <SpendTrend tools={active} metric={metric} height={260} />
                 {metric === "cost" && active.some((t) => t.currency === "AIU") && (
-                  <p className="text-muted-foreground mt-2 text-[11px]">
-                    Copilot em AIU no eixo da direita; as demais em USD no eixo da esquerda.
-                  </p>
+                  <p className="text-muted-foreground mt-2 text-[11px]">{t("spend.aiuAxis")}</p>
                 )}
               </section>
               <SpendDonut
                 tools={active}
                 metric={metric}
-                periodLabel={PERIODS.find((p) => p.days === days)?.label ?? ""}
+                periodLabel={t(PERIODS.find((p) => p.days === days)?.labelKey ?? "spend.p7")}
               />
             </div>
           )}

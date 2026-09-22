@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { RENDERABLE_RE, IMAGE_RE, useCatalog } from "@/hooks/useCatalog"
 import { api, type Backup } from "@/lib/api"
 import { baseName, fmtBytes, fmtDT, resolveRelative } from "@/lib/format"
+import { useI18n } from "@/lib/i18n"
 import { TopSkillBadge, useSkillUsage } from "@/views/Skills"
 import { tokens } from "@/views/Spend"
 
@@ -24,6 +25,7 @@ export function Viewer() {
   const r = params.get("r") ?? ""
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { t, tn } = useI18n()
   const { data: catalog } = useCatalog()
   const { data, isLoading, error } = useQuery({
     queryKey: ["file", s, r],
@@ -49,9 +51,9 @@ export function Viewer() {
   const blocker = useBlocker(dirty)
   useEffect(() => {
     if (blocker.state !== "blocked") return
-    if (confirm("Descartar alterações não salvas?")) blocker.proceed()
+    if (confirm(t("viewer.discard"))) blocker.proceed()
     else blocker.reset()
-  }, [blocker])
+  }, [blocker, t])
 
   const close = () => navigate(-1)
 
@@ -64,7 +66,7 @@ export function Viewer() {
     }
     const rel = resolveRelative(r, target)
     if (!catalog?.files.some((f) => f.s === s && f.r === rel)) {
-      toast.error(`Arquivo não encontrado: ${rel}`)
+      toast.error(t("viewer.fileNotFound", { rel }))
       return
     }
     navigate(`/f?s=${encodeURIComponent(s)}&r=${encodeURIComponent(rel)}`)
@@ -77,23 +79,19 @@ export function Viewer() {
       await api.save({ s, r, content: buffer, mtime_ns: data.mtime_ns, force })
       setBuffer(null)
       setMode("render")
-      toast.success("Salvo — backup criado")
+      toast.success(t("viewer.saved"))
       queryClient.invalidateQueries({ queryKey: ["catalog"] })
       queryClient.invalidateQueries({ queryKey: ["file", s, r] })
     } catch (err) {
       const e = err as Error & { status?: number }
       if (e.status === 409) {
-        if (
-          confirm(
-            "O arquivo foi alterado fora do painel.\n\nOK = sobrescrever com a sua versão\nCancelar = recarregar do disco",
-          )
-        ) {
+        if (confirm(t("viewer.conflict"))) {
           setSaving(false)
           return save(true)
         }
         setBuffer(null)
         queryClient.invalidateQueries({ queryKey: ["file", s, r] })
-        toast.info("Recarregado do disco")
+        toast.info(t("viewer.reloaded"))
       } else {
         toast.error(e.message)
       }
@@ -111,13 +109,13 @@ export function Viewer() {
   }
 
   async function restore(name: string) {
-    if (!confirm("Restaurar esta versão? O estado atual vira backup antes.")) return
+    if (!confirm(t("viewer.restoreConfirm"))) return
     try {
       await api.restore({ s, r, backup: name })
       setBackups(null)
       queryClient.invalidateQueries({ queryKey: ["catalog"] })
       queryClient.invalidateQueries({ queryKey: ["file", s, r] })
-      toast.success("Backup restaurado")
+      toast.success(t("viewer.restored"))
     } catch (err) {
       toast.error((err as Error).message)
     }
@@ -148,7 +146,7 @@ export function Viewer() {
           return
         }
         if (mode === "edit" || editing) {
-          if (dirty && !confirm("Descartar alterações não salvas?")) return
+          if (dirty && !confirm(t("viewer.discard"))) return
           setBuffer(null)
           setMode(RENDERABLE_RE.test(r) ? "render" : "raw")
         }
@@ -173,7 +171,7 @@ export function Viewer() {
         <div className="border-border flex items-start justify-between gap-4 border-b px-4 py-3">
           <div className="min-w-0">
             <div className="truncate font-semibold">
-              {data ? baseName(r) : "Carregando…"} {dirty && <span className="text-amber-400">•</span>}
+              {data ? baseName(r) : t("viewer.loading")} {dirty && <span className="text-amber-400">•</span>}
             </div>
             <div className="text-muted-foreground truncate font-mono text-[11px]">{data?.abs ?? r}</div>
           </div>
@@ -181,10 +179,10 @@ export function Viewer() {
             {canRender && (
               <>
                 <Button size="sm" variant={mode === "render" ? "default" : "outline"} onClick={() => setMode("render")}>
-                  Render
+                  {t("viewer.render")}
                 </Button>
                 <Button size="sm" variant={mode === "raw" ? "default" : "outline"} onClick={() => setMode("raw")}>
-                  Raw
+                  {t("viewer.raw")}
                 </Button>
               </>
             )}
@@ -198,13 +196,13 @@ export function Viewer() {
                 }}
               >
                 <Pencil className="size-3.5" />
-                Editar
+                {t("viewer.edit")}
               </Button>
             )}
             {buffer !== null && (
               <>
                 <Button size="sm" onClick={() => save()} disabled={saving}>
-                  Salvar
+                  {t("viewer.save")}
                 </Button>
                 <Button
                   size="sm"
@@ -214,21 +212,21 @@ export function Viewer() {
                     setMode(RENDERABLE_RE.test(r) ? "render" : "raw")
                   }}
                 >
-                  Cancelar
+                  {t("viewer.cancel")}
                 </Button>
               </>
             )}
             <Button size="sm" variant="outline" onClick={openBackups}>
               <History className="size-3.5" />
-              Backups
+              {t("viewer.backups")}
             </Button>
             <Button
               size="sm"
               variant="outline"
-              title="Copiar caminho"
+              title={t("viewer.copyPath")}
               onClick={() => {
                 navigator.clipboard.writeText(data?.abs ?? r)
-                toast.success("Caminho copiado")
+                toast.success(t("viewer.copied"))
               }}
             >
               <Copy className="size-3.5" />
@@ -236,12 +234,12 @@ export function Viewer() {
             <Button
               size="sm"
               variant="outline"
-              title="Abrir no Finder"
+              title={t("viewer.reveal")}
               onClick={() => api.reveal(s, r).catch((err) => toast.error((err as Error).message))}
             >
               <FolderOpen className="size-3.5" />
             </Button>
-            <Button size="sm" variant="ghost" title="Fechar (Esc)" onClick={close}>
+            <Button size="sm" variant="ghost" title={t("viewer.close")} onClick={close}>
               <X className="size-4" />
             </Button>
           </div>
@@ -256,42 +254,52 @@ export function Viewer() {
               <Badge
                 variant="secondary"
                 className="font-normal"
-                title={`Estimativa de tokens no contexto (caracteres ÷ 4)${data.truncated ? " — calculada sobre os primeiros 400 KB" : ""}`}
+                title={t("viewer.tokensTitle", {
+                  suffix: data.truncated ? t("viewer.tokensTruncated") : "",
+                })}
               >
                 ≈ {tokens(Math.ceil(data.content.length / 4))} tokens
               </Badge>
             )}
             <TopSkillBadge skill={skillName} rank={skillRank} />
-            <span title={new Date(data.created * 1000).toISOString()}>Criado: {fmtDT(data.created * 1000)}</span>
-            <span title={new Date(data.mtime * 1000).toISOString()}>Modificado: {fmtDT(data.mtime * 1000)}</span>
+            <span title={new Date(data.created * 1000).toISOString()}>
+              {t("viewer.created", { date: fmtDT(data.created * 1000) })}
+            </span>
+            <span title={new Date(data.mtime * 1000).toISOString()}>
+              {t("viewer.modified", { date: fmtDT(data.mtime * 1000) })}
+            </span>
             <span>
-              Dono: {data.owner}
-              {data.group !== data.owner ? ` · grupo ${data.group}` : ""}
+              {t("viewer.owner", { owner: data.owner })}
+              {data.group !== data.owner ? t("viewer.ownerGroup", { group: data.group }) : ""}
             </span>
             {data.git && (
               <span
                 title={[
-                  `autor: ${data.git.author} <${data.git.email}>`,
+                  t("viewer.gitAuthor", { author: data.git.author, email: data.git.email }),
                   `committer: ${data.git.committer}`,
-                  data.git.coauthors.length ? `co-autores: ${data.git.coauthors.join(", ")}` : "",
+                  data.git.coauthors.length
+                    ? tn("viewer.gitCoauthors", data.git.coauthors.length, {
+                        names: data.git.coauthors.join(", "),
+                      })
+                    : "",
                   data.git.date,
                 ]
                   .filter(Boolean)
                   .join("\n")}
               >
-                Alterado por: {data.git.author}
-                {data.git.coauthors.length ? ` + ${data.git.coauthors.length} co-autor(es)` : ""} ·{" "}
+                {t("viewer.byAuthor", { author: data.git.author })}
+                {data.git.coauthors.length ? tn("viewer.coauthors", data.git.coauthors.length) : ""} ·{" "}
                 {fmtDT(Date.parse(data.git.date))} · {data.git.sha}
               </span>
             )}
-            {data.truncated && <span className="text-amber-400">exibindo primeiros 400 KB</span>}
+            {data.truncated && <span className="text-amber-400">{t("viewer.truncated")}</span>}
           </div>
         )}
 
         <div className="relative flex-1 overflow-auto p-4">
           {error ? (
             <div className="border-border bg-card text-muted-foreground rounded-lg border p-4 text-sm">
-              Não foi possível abrir: {(error as Error).message}
+              {t("viewer.openError", { message: (error as Error).message })}
             </div>
           ) : isLoading || !data ? (
             <Skeleton className="h-64 w-full" />
@@ -318,19 +326,19 @@ export function Viewer() {
           {backups !== null && (
             <div className="border-border bg-popover absolute inset-x-4 bottom-4 z-10 max-h-[45vh] overflow-auto rounded-lg border p-3 shadow-xl">
               <div className="mb-2 flex items-center justify-between font-medium">
-                Backups
+                {t("viewer.backups")}
                 <Button size="sm" variant="ghost" onClick={() => setBackups(null)}>
                   <X className="size-4" />
                 </Button>
               </div>
-              {backups.length === 0 && <p className="text-muted-foreground text-xs">Nenhum backup ainda.</p>}
+              {backups.length === 0 && <p className="text-muted-foreground text-xs">{t("viewer.noBackups")}</p>}
               {backups.map((b) => (
                 <div key={b.name} className="border-border flex items-center gap-3 border-t py-1.5 text-xs">
                   <span className="flex-1">{fmtDT(b.mtime * 1000)}</span>
                   <span className="text-muted-foreground">{fmtBytes(b.size)}</span>
                   <Button size="sm" variant="outline" onClick={() => restore(b.name)}>
                     <RotateCcw className="size-3.5" />
-                    Restaurar
+                    {t("viewer.restore")}
                   </Button>
                 </div>
               ))}

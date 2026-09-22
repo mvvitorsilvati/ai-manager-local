@@ -5,15 +5,19 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom"
 
 import { CollapseAllProvider } from "@/components/collapse"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { createLog } from "@/lib/log"
+import { LanguageProvider } from "@/lib/i18n"
+import { getLang, translate } from "@/lib/i18n"
+import { createLog, isDebugEnabled } from "@/lib/log"
+import { ThemeProvider } from "@/lib/theme"
 
 import "./index.css"
 import App from "./App"
 
 const log = createLog("app")
-window.addEventListener("error", (event) => log.error("erro não tratado", { message: event.message }))
+log.info("painel iniciado", { debug: isDebugEnabled() })
+window.addEventListener("error", (event) => log.error(translate(getLang(), "log.uncaught"), { message: event.message }))
 window.addEventListener("unhandledrejection", (event) =>
-  log.error("promise rejeitada sem catch", { reason: String(event.reason) }),
+  log.error(translate(getLang(), "log.unhandled"), { reason: String(event.reason) }),
 )
 
 const queryClient = new QueryClient({
@@ -26,11 +30,15 @@ const router = createBrowserRouter([{ path: "*", element: <App /> }], { basename
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <CollapseAllProvider>
-          <RouterProvider router={router} />
-        </CollapseAllProvider>
-      </TooltipProvider>
+      <LanguageProvider>
+        <ThemeProvider>
+          <TooltipProvider>
+            <CollapseAllProvider>
+              <RouterProvider router={router} />
+            </CollapseAllProvider>
+          </TooltipProvider>
+        </ThemeProvider>
+      </LanguageProvider>
     </QueryClientProvider>
   </StrictMode>,
 )

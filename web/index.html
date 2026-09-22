@@ -1,10 +1,31 @@
 <!doctype html>
-<html lang="pt-BR" class="dark">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" href="data:," />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AI Manager Local</title>
+    <script>
+      try {
+        var theme = localStorage.getItem("aim:theme");
+        if (theme !== "dark" && theme !== "light") {
+          theme = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        }
+        if (theme === "dark") document.documentElement.classList.add("dark");
+        document.documentElement.lang =
+          (function () {
+            try {
+              return localStorage.getItem("aim:lang") || "";
+            } catch (e) {
+              return "";
+            }
+          })() === "en"
+            ? "en"
+            : "pt-BR";
+      } catch (e) {
+        document.documentElement.classList.add("dark");
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

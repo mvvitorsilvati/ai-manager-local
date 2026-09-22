@@ -31,6 +31,7 @@ import { CAT_LABEL, isDoc, useCatalog } from "@/hooks/useCatalog"
 import { matches, useFilterMatcher, useFilterQuery } from "@/hooks/useFilter"
 import { useVersions } from "@/hooks/useVersions"
 import { api, type Catalog, type Mcp, type Plugin, type SearchResult, type SkillEntry } from "@/lib/api"
+import { useI18n } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { TopSkillBadge, useSkillUsage } from "@/views/Skills"
 import { ToolSection } from "@/views/Spend"
@@ -127,13 +128,15 @@ function SourceSection({
   tool?: string
   shell?: React.ReactNode
 }) {
+  const { t } = useI18n()
   const source = catalog.sources.find((s) => s.id === id)
   return (
     <Section
       title={
         source?.project ? (
           <>
-            Projeto · <b className="text-foreground normal-case">{source.label}</b>
+            {t("projects.prefix")}
+            <b className="text-foreground normal-case">{source.label}</b>
           </>
         ) : (
           <SourceBadge source={source} />
@@ -148,6 +151,7 @@ function SourceSection({
 
 export function CategoryView({ cat }: { cat: string }) {
   const { data: catalog } = useCatalog()
+  const { tn } = useI18n()
   const open = useOpenFile()
   const q = useFilterQuery()
   const match = useFilterMatcher()
@@ -156,8 +160,8 @@ export function CategoryView({ cat }: { cat: string }) {
   const groups = groupBy(files, (f) => f.s)
   return (
     <div>
-      <h2 className="text-lg font-semibold capitalize">{CAT_LABEL[cat] ?? cat}s</h2>
-      <p className="text-muted-foreground mb-5 text-sm">{files.length} arquivo(s)</p>
+      <h2 className="text-lg font-semibold capitalize">{CAT_LABEL[cat] ? tn(`cats.${cat}`, files.length) : cat}</h2>
+      <p className="text-muted-foreground mb-5 text-sm">{tn("files", files.length)}</p>
       <EmptyFilter query={q} count={files.length} />
       {orderGroups(catalog, groups).map(([sid, list]) => (
         <SourceSection key={sid} catalog={catalog} id={sid}>
@@ -170,6 +174,7 @@ export function CategoryView({ cat }: { cat: string }) {
 
 export function SkillsView() {
   const { data: catalog } = useCatalog()
+  const { t, tn } = useI18n()
   const { data: usage } = useSkillUsage(0)
   const open = useOpenFile()
   const q = useFilterQuery()
@@ -183,8 +188,8 @@ export function SkillsView() {
   const groups = groupBy(skills, (f) => f.s)
   return (
     <div>
-      <h2 className="text-lg font-semibold">Skills</h2>
-      <p className="text-muted-foreground mb-5 text-sm">{skills.length} skills — todos os arquivos dos diretórios</p>
+      <h2 className="text-lg font-semibold">{t("nav.skills")}</h2>
+      <p className="text-muted-foreground mb-5 text-sm">{tn("skills.subtitle", skills.length)}</p>
       <EmptyFilter query={q} count={skills.length} />
       {[...groups.entries()].map(([sid, list]) => {
         const sourceFiles = catalog.files.filter((f) => f.s === sid)
@@ -217,6 +222,7 @@ export function SkillsView() {
 
 export function FilesView() {
   const { data: catalog } = useCatalog()
+  const { t, tn } = useI18n()
   const open = useOpenFile()
   const q = useFilterQuery()
   const match = useFilterMatcher()
@@ -225,8 +231,8 @@ export function FilesView() {
   const groups = groupBy(files, (f) => f.s)
   return (
     <div>
-      <h2 className="text-lg font-semibold">Arquivos</h2>
-      <p className="text-muted-foreground mb-5 text-sm">{files.length} arquivos indexados</p>
+      <h2 className="text-lg font-semibold">{t("nav.files")}</h2>
+      <p className="text-muted-foreground mb-5 text-sm">{tn("files.indexed", files.length)}</p>
       <EmptyFilter query={q} count={files.length} />
       {catalog.sources.map((source) => {
         const list = groups.get(source.id)
@@ -243,6 +249,7 @@ export function FilesView() {
 
 export function ProjectsView() {
   const { data: catalog } = useCatalog()
+  const { t, tn } = useI18n()
   const open = useOpenFile()
   const q = useFilterQuery()
   const match = useFilterMatcher()
@@ -251,9 +258,9 @@ export function ProjectsView() {
   const total = [...byProject.values()].reduce((acc, list) => acc + list.length, 0)
   return (
     <div>
-      <h2 className="text-lg font-semibold">Projetos</h2>
+      <h2 className="text-lg font-semibold">{t("nav.projects")}</h2>
       <p className="text-muted-foreground mb-5 text-sm">
-        {catalog.projects.length} projeto(s) com configuração de IA em {catalog.project_base}
+        {tn("projects.count", catalog.projects.length, { base: catalog.project_base })}
       </p>
       <EmptyFilter query={q} count={total} />
       {catalog.projects.map((p) => {
@@ -274,16 +281,15 @@ export function DocsView() {
   const open = useOpenFile()
   const q = useFilterQuery()
   const match = useFilterMatcher()
+  const { t, tn } = useI18n()
   if (!catalog) return <ViewSkeleton />
   const files = catalog.files.filter((f) => isDoc(f.r) && match(f))
   const groups = groupBy(files, (f) => f.s)
   const ordered = orderGroups(catalog, groups)
   return (
     <div>
-      <h2 className="text-lg font-semibold">Docs</h2>
-      <p className="text-muted-foreground mb-5 text-sm">
-        {files.length} arquivo(s) de documentação (pastas docs/ globais e dos projetos)
-      </p>
+      <h2 className="text-lg font-semibold">{t("nav.docs")}</h2>
+      <p className="text-muted-foreground mb-5 text-sm">{tn("docs.subtitle", files.length)}</p>
       <EmptyFilter query={q} count={files.length} />
       {ordered.map(([sid, list]) => (
         <SourceSection key={sid} catalog={catalog} id={sid}>
@@ -312,6 +318,7 @@ export function ToolsView() {
       },
       { replace: true },
     )
+  const { t } = useI18n()
   if (!catalog) return <ViewSkeleton />
   if (!selected) return null
   const files = catalog.files.filter((f) => f.k === selected && match(f))
@@ -322,10 +329,8 @@ export function ToolsView() {
   const version = versions?.tools[selected]
   return (
     <div>
-      <h2 className="text-lg font-semibold">Por IA</h2>
-      <p className="text-muted-foreground mb-4 text-sm">
-        Escolha a ferramenta para ver as configurações globais e por projeto
-      </p>
+      <h2 className="text-lg font-semibold">{t("tools.title")}</h2>
+      <p className="text-muted-foreground mb-4 text-sm">{t("tools.subtitle")}</p>
       <div className="mb-5 flex flex-wrap gap-2">
         {catalog.tools.map((t) => {
           const count = catalog.files.filter((f) => f.k === t.id).length
@@ -378,6 +383,7 @@ export function ToolsView() {
 
 export function McpsView() {
   const { data: catalog } = useCatalog()
+  const { t, tn } = useI18n()
   const open = useOpenFile()
   const q = useFilterQuery()
   if (!catalog) return <ViewSkeleton />
@@ -385,8 +391,8 @@ export function McpsView() {
   const groups = groupBy(mcps, (m) => m.source)
   return (
     <div>
-      <h2 className="text-lg font-semibold">MCPs</h2>
-      <p className="text-muted-foreground mb-5 text-sm">{mcps.length} servidores configurados</p>
+      <h2 className="text-lg font-semibold">{t("nav.mcps")}</h2>
+      <p className="text-muted-foreground mb-5 text-sm">{tn("mcps.subtitle", mcps.length)}</p>
       <EmptyFilter query={q} count={mcps.length} />
       {[...groups.entries()].map(([sid, list]) => (
         <SourceSection key={sid} catalog={catalog} id={sid}>
@@ -438,14 +444,15 @@ export function McpsView() {
 export function PluginsView() {
   const { data: catalog } = useCatalog()
   const { data: versions } = useVersions()
+  const { t, tn } = useI18n()
   const q = useFilterQuery()
   if (!catalog) return <ViewSkeleton />
   const plugins = catalog.plugins.filter((p) => matches(q, p.name, p.detail, p.source))
   const groups = groupBy(plugins, (p) => p.source)
   return (
     <div>
-      <h2 className="text-lg font-semibold">Plugins</h2>
-      <p className="text-muted-foreground mb-5 text-sm">{plugins.length} plugins/marketplaces</p>
+      <h2 className="text-lg font-semibold">{t("nav.plugins")}</h2>
+      <p className="text-muted-foreground mb-5 text-sm">{tn("plugins.subtitle", plugins.length)}</p>
       <EmptyFilter query={q} count={plugins.length} />
       {[...groups.entries()].map(([sid, list]) => (
         <SourceSection key={sid} catalog={catalog} id={sid}>
@@ -492,18 +499,17 @@ export function AuditView() {
     queryFn: () => api.audit(200),
     staleTime: 30_000,
   })
+  const { t, tn } = useI18n()
   return (
     <div>
-      <h2 className="text-lg font-semibold">Auditoria</h2>
+      <h2 className="text-lg font-semibold">{t("audit.title")}</h2>
       <p className="text-muted-foreground mb-5 text-sm">
-        {isPending
-          ? "Carregando…"
-          : `${entries?.length ?? 0} gravação(ões) recentes em ~/.ai_management_local/audit.log`}
+        {isPending ? t("audit.loading") : tn("audit.count", entries?.length ?? 0)}
       </p>
       {isPending ? (
         <ViewSkeleton rows={6} />
       ) : !entries?.length ? (
-        <p className="text-muted-foreground text-sm">Nenhuma gravação registrada ainda.</p>
+        <p className="text-muted-foreground text-sm">{t("audit.empty")}</p>
       ) : (
         <div className="border-border overflow-hidden rounded-lg border">
           {entries.map((entry, index) => (
@@ -533,6 +539,7 @@ export function AuditView() {
 
 export function SearchView() {
   const [params] = useSearchParams()
+  const { t, tn } = useI18n()
   const q = params.get("q") ?? ""
   const { data: catalog } = useCatalog()
   const { data: results, isFetching } = useQuery({
@@ -554,13 +561,13 @@ export function SearchView() {
       ),
     )
   }
-  if (q.length < 2) return <p className="text-muted-foreground text-sm">Digite ao menos 2 letras para buscar.</p>
+  if (q.length < 2) return <p className="text-muted-foreground text-sm">{t("search.hint")}</p>
   const groups = groupBy(results ?? [], (r) => r.s)
   return (
     <div>
-      <h2 className="text-lg font-semibold">Busca</h2>
+      <h2 className="text-lg font-semibold">{t("search.title")}</h2>
       <p className="text-muted-foreground mb-5 text-sm">
-        {isFetching ? "Buscando…" : `${results?.length ?? 0} arquivo(s) para “${q}”`}
+        {isFetching ? t("search.searching") : tn("search.results", results?.length ?? 0, { q })}
       </p>
       {isFetching && !results ? (
         <ViewSkeleton rows={5} />
@@ -593,6 +600,7 @@ export function SearchView() {
 const GLOBAL_SEARCH_PATHS = new Set(["/", "/busca", "/f"])
 
 export function SearchInput() {
+  const { t } = useI18n()
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
   const location = useLocation()
@@ -622,7 +630,7 @@ export function SearchInput() {
       <Input
         id="search"
         value={value}
-        placeholder={global ? "Buscar por nome ou conteúdo (mín. 2 letras)…" : "Filtrar nesta tela…"}
+        placeholder={global ? t("header.searchGlobal") : t("header.searchFilter")}
         className="pr-14 pl-9"
         onChange={(e) => {
           const v = e.target.value

@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CAT_LABEL } from "@/hooks/useCatalog"
 import type { Incident, Source } from "@/lib/api"
+import { useI18n } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
 const CAT_ICON: Record<string, LucideIcon> = {
@@ -52,26 +53,29 @@ export function SourceBadge({ source }: { source?: Source }) {
 }
 
 export function CatBadge({ cat }: { cat: string }) {
+  const { t } = useI18n()
   return (
     <Badge variant="secondary" className="text-muted-foreground font-normal">
-      {CAT_LABEL[cat] ?? cat}
+      {CAT_LABEL[cat] ? t(`cats.${cat}_one`) : cat}
     </Badge>
   )
 }
 
 export function IncidentIcon({ incident }: { incident?: Incident | null }) {
+  const { t } = useI18n()
   if (!incident || incident.ok !== false) return null
   const severe = ["critical", "major", "high"].includes(incident.indicator ?? "")
   return (
-    <span title={incident.description ?? "incidente ativo"} className="shrink-0">
+    <span title={incident.description ?? t("common.activeIncident")} className="shrink-0">
       <TriangleAlert className={cn("size-3.5", severe ? "text-red-500" : "text-amber-400")} />
     </span>
   )
 }
 
 export function EmptyFilter({ query, count }: { query: string; count: number }) {
+  const { t } = useI18n()
   if (!query || count > 0) return null
-  return <p className="text-muted-foreground text-sm">Nenhum item corresponde a “{query}”.</p>
+  return <p className="text-muted-foreground text-sm">{t("filter.empty", { q: query })}</p>
 }
 
 export function ViewSkeleton({ rows = 6 }: { rows?: number }) {
@@ -99,16 +103,17 @@ export function VersionBadges({
   latest?: string | null
   update?: boolean | null
 }) {
+  const { t } = useI18n()
   if (!installed && update == null) return null
   return (
     <span className="flex flex-wrap items-center gap-2">
       {installed && <span className="text-muted-foreground font-mono text-[11px]">v{installed}</span>}
       {update === true && (
         <Badge variant="outline" className="border-amber-400/40 font-normal text-amber-400">
-          {latest ? `nova v${latest}` : "atualização disponível"}
+          {latest ? t("versions.newVersion", { version: latest }) : t("versions.updateAvailable")}
         </Badge>
       )}
-      {update === false && <span className="text-muted-foreground text-[11px]">atualizado</span>}
+      {update === false && <span className="text-muted-foreground text-[11px]">{t("versions.updated")}</span>}
     </span>
   )
 }

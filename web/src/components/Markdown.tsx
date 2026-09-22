@@ -3,13 +3,15 @@ import { useEffect, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
-mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "strict" })
+import { useTheme } from "@/lib/theme"
 
 function Mermaid({ code }: { code: string }) {
   const ref = useRef<HTMLDivElement>(null)
   const [failedCode, setFailedCode] = useState<string | null>(null)
+  const { theme } = useTheme()
 
   useEffect(() => {
+    mermaid.initialize({ startOnLoad: false, theme: theme === "dark" ? "dark" : "default", securityLevel: "strict" })
     let cancelled = false
     const id = "m" + Math.random().toString(36).slice(2)
     mermaid
@@ -23,7 +25,7 @@ function Mermaid({ code }: { code: string }) {
     return () => {
       cancelled = true
     }
-  }, [code])
+  }, [code, theme])
 
   if (failedCode === code)
     return <pre className="border-border bg-card rounded-lg border p-4 font-mono text-xs">{code}</pre>

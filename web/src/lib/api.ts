@@ -1,5 +1,6 @@
 import axios from "axios"
 
+import { getLang, translate } from "@/lib/i18n"
 import { createLog } from "@/lib/log"
 
 const log = createLog("api")
@@ -222,11 +223,14 @@ type ApiFailure = Error & { status?: number; data?: unknown }
 const client = axios.create({ headers: { "X-AIM": "1" } })
 
 client.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    log.debug(`${response.config.method?.toUpperCase()} ${response.config.url} → ${response.status}`)
+    return response
+  },
   (error: unknown) => {
     if (axios.isAxiosError(error)) {
       log.warn(
-        `${error.config?.method?.toUpperCase()} ${error.config?.url} → ${error.response?.status ?? "sem resposta"}`,
+        `${error.config?.method?.toUpperCase()} ${error.config?.url} → ${error.response?.status ?? translate(getLang(), "api.noResponse")}`,
       )
     }
     return Promise.reject(error)

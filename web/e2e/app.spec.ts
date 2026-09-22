@@ -7,6 +7,15 @@ const MOD = process.platform === "darwin" ? "Meta" : "Control"
 const NOVO_TEXTO = "# Editado pelo E2E"
 const FIXTURE = path.resolve(import.meta.dirname, ".tmp/projetos/meu-projeto")
 
+test.beforeEach(async ({ page }) => {
+  // fixa idioma e tema: o navegador de teste usa en-US e light por padrão
+  await page.addInitScript(() => {
+    const storage = (globalThis as unknown as { localStorage: Storage }).localStorage
+    storage.setItem("aim:lang", "pt")
+    storage.setItem("aim:theme", "dark")
+  })
+})
+
 /**
  * Escreve no Monaco de forma determinística: colar é atômico, enquanto
  * `keyboard.type` digita tecla a tecla e o Monaco acaba perdendo caracteres.

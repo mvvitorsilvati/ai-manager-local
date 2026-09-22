@@ -7,6 +7,7 @@ import { ToolIcon } from "@/components/ToolIcon"
 import { Badge } from "@/components/ui/badge"
 import { useCatalog } from "@/hooks/useCatalog"
 import { api, type SkillRow } from "@/lib/api"
+import { useI18n } from "@/lib/i18n"
 import { tokens } from "@/views/Spend"
 
 export function useSkillUsage(days: number, tool?: string, enabled = true) {
@@ -21,12 +22,13 @@ export function useSkillUsage(days: number, tool?: string, enabled = true) {
 const MEDALS = ["#F5C518", "#C0C0C0", "#CD7F32"]
 
 export function TopSkillBadge({ skill, rank }: { skill: string; rank: number }) {
+  const { t } = useI18n()
   if (rank < 0) return null
   return (
     <Badge
       variant="secondary"
       className="border-amber-400/40 font-normal text-amber-300"
-      title={`${skill} é a ${rank + 1}ª skill mais usada (todas as IAs, todo o período)`}
+      title={t("skills.topBadge", { skill, n: rank + 1 })}
     >
       <Trophy className="size-3" style={rank < MEDALS.length ? { color: MEDALS[rank] } : undefined} />
       Top {rank + 1}
@@ -36,6 +38,7 @@ export function TopSkillBadge({ skill, rank }: { skill: string; rank: number }) 
 
 export function SkillTable({ rows, showTools }: { rows: SkillRow[]; showTools: boolean }) {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const { data: catalog } = useCatalog()
   const targetOf = (name: string) => {
     const needle = name.toLowerCase()
@@ -66,7 +69,7 @@ export function SkillTable({ rows, showTools }: { rows: SkillRow[]; showTools: b
                 <button
                   onClick={() => navigate(`/f?s=${encodeURIComponent(target.s)}&r=${encodeURIComponent(target.r)}`)}
                   className="min-w-0 shrink truncate text-left font-mono hover:underline"
-                  title={`${row.skill} — ver SKILL.md`}
+                  title={t("skills.viewFile", { skill: row.skill })}
                 >
                   {row.skill}
                 </button>
@@ -80,27 +83,27 @@ export function SkillTable({ rows, showTools }: { rows: SkillRow[]; showTools: b
               <Badge
                 variant="outline"
                 className="shrink-0 border-zinc-500/40 px-1 py-0 text-[9px] font-normal text-zinc-400"
-                title="Sem arquivo SKILL.md em disco para abrir"
+                title={t("skills.noFileTitle")}
               >
-                sem arquivo
+                {t("skills.noFile")}
               </Badge>
             ) : null}
             {row.by_origin.user > 0 && (
               <Badge
                 variant="outline"
                 className="shrink-0 border-sky-400/40 px-1 py-0 text-[9px] font-normal text-sky-400"
-                title={`Invocada pelo usuário ${row.by_origin.user}×`}
+                title={t("skills.userTitle", { n: row.by_origin.user })}
               >
-                usuário
+                {t("skills.user")}
               </Badge>
             )}
             {row.by_origin.model > 0 && (
               <Badge
                 variant="outline"
                 className="shrink-0 border-violet-400/40 px-1 py-0 text-[9px] font-normal text-violet-400"
-                title={`Invocada pelo modelo ${row.by_origin.model}×`}
+                title={t("skills.modelTitle", { n: row.by_origin.model })}
               >
-                modelo
+                {t("skills.model")}
               </Badge>
             )}
           </span>
@@ -123,6 +126,7 @@ export function SkillTable({ rows, showTools }: { rows: SkillRow[]; showTools: b
 }
 
 export function SkillsTop({ days = 7 }: { days?: number }) {
+  const { t } = useI18n()
   const { data, isPending } = useSkillUsage(days)
   const top = data?.top ?? []
   if (isPending) return <div className="bg-muted h-40 animate-pulse rounded-lg" />
@@ -134,7 +138,7 @@ export function SkillsTop({ days = 7 }: { days?: number }) {
       </div>
       <div className="bg-card flex justify-end px-3 py-2">
         <Link to="/consumo" className="text-muted-foreground text-xs hover:underline">
-          ver Consumo
+          {t("spend.viewUsage")}
         </Link>
       </div>
     </div>
@@ -142,16 +146,16 @@ export function SkillsTop({ days = 7 }: { days?: number }) {
 }
 
 export default function SpendSkills({ days, tool }: { days: number; tool?: string }) {
+  const { t } = useI18n()
   const { data, isPending, isError } = useSkillUsage(days, tool)
   if (isPending) return <ViewSkeleton rows={3} />
   if (isError || !data || !data.top.length) return null
   return (
     <section className="border-border bg-card mb-4 rounded-lg border p-4">
-      <h3 className="mb-1 text-sm font-semibold">Skills mais usadas — top 20 global</h3>
-      <p className="text-muted-foreground mb-3 text-[11px]">
-        Invocações e tokens aproximados de contexto (conteúdo da skill por chamada). O detalhe por IA está no card de
-        cada ferramenta. Codex e Copilot não registram invocações nos logs locais.
-      </p>
+      <h3 className="mb-1 text-sm font-semibold">
+        {t("skills.top")} — {t("skills.topGlobal")}
+      </h3>
+      <p className="text-muted-foreground mb-3 text-[11px]">{t("skills.note")}</p>
       <SkillTable rows={data.top} showTools />
     </section>
   )

@@ -14,6 +14,7 @@ import { useUsage } from "@/hooks/useUsage"
 import { useVersions } from "@/hooks/useVersions"
 import { api } from "@/lib/api"
 import { ago } from "@/lib/format"
+import { SpendOverviewCard } from "@/views/Spend"
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -92,6 +93,11 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      <div>
+        <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">Consumo das IAs</h3>
+        <SpendOverviewCard />
+      </div>
 
       {(versionsPending || versions) && (
         <div>

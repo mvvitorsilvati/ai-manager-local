@@ -1,6 +1,7 @@
 import { useIsFetching, useQueryClient } from "@tanstack/react-query"
 import {
   BookOpen,
+  CircleDollarSign,
   Cpu,
   ExternalLink,
   FileText,
@@ -32,6 +33,7 @@ import { useIncidents } from "@/hooks/useIncidents"
 import { refreshUsage } from "@/hooks/useUsage"
 import { cn } from "@/lib/utils"
 import Dashboard from "@/views/Dashboard"
+import SpendView from "@/views/Spend"
 import {
   CategoryView,
   DocsView,
@@ -51,6 +53,7 @@ type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean }
 export const NAV: NavItem[] = [
   { to: "/", label: "Visão geral", icon: LayoutGrid, end: true },
   { to: "/ia", label: "Por IA", icon: Layers },
+  { to: "/consumo", label: "Consumo", icon: CircleDollarSign },
   { to: "/contextos", label: "Contextos", icon: BookOpen },
   { to: "/skills", label: "Skills", icon: Zap },
   { to: "/agentes", label: "Agentes", icon: Cpu },
@@ -200,6 +203,7 @@ export default function App() {
           <Routes location={isViewer ? lastLocation : location}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/ia" element={<ToolsView />} />
+            <Route path="/consumo" element={<SpendView />} />
             <Route path="/contextos" element={<CategoryView cat="context" />} />
             <Route path="/skills" element={<SkillsView />} />
             <Route path="/agentes" element={<CategoryView cat="agent" />} />

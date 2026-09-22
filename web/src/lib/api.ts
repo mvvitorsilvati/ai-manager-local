@@ -90,6 +90,50 @@ export type ToolUsage = {
   updated_at?: number
   unlimited?: string[]
 }
+export type SpendBucket = {
+  input_tokens: number
+  output_tokens: number
+  cache_read_tokens: number
+  cache_write_tokens: number
+  reasoning_tokens: number
+  total_tokens: number
+  cost: number
+  requests: number
+}
+
+export type SpendTool = {
+  id: string
+  label: string
+  available: boolean
+  currency: string
+  note: string
+  error?: string | null
+  scanned: number
+  dupes: number
+  unknown_models: string[]
+  span: { from: string; to: string } | null
+  total: SpendBucket & { active_seconds: number; sessions: number }
+  by_model: (SpendBucket & { model: string })[]
+  by_project: (SpendBucket & { project: string })[]
+  by_day: (SpendBucket & { day: string })[]
+  by_day_model: (SpendBucket & { day: string; model: string })[]
+  by_origin: (SpendBucket & { origin: string })[]
+  sessions: (SpendBucket & {
+    session: string
+    project: string
+    model: string
+    origin: string
+    start: string
+    end: string
+  })[]
+}
+
+export type SpendResponse = {
+  generated_at: string
+  days: number | null
+  tools: Record<string, SpendTool>
+}
+
 export type UsageTool = "claude" | "codex" | "copilot"
 export type UsageResponse = Partial<Record<UsageTool, ToolUsage | null>>
 
@@ -173,6 +217,8 @@ export const api = {
     unwrap<UsageResponse>(
       client.get("/api/usage", { params: { ...(refresh ? { refresh: "1" } : {}), ...(tool ? { tool } : {}) } }),
     ),
+  spend: (days = 30, tool?: string) =>
+    unwrap<SpendResponse>(client.get("/api/spend", { params: { days, ...(tool ? { tool } : {}) } })),
   versions: (refresh = false) =>
     unwrap<VersionsResponse>(client.get("/api/versions", { params: refresh ? { refresh: "1" } : {} })),
   update: (body: { tool: string } | { source: string; name: string }) =>

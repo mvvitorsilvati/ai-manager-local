@@ -33,6 +33,7 @@ Roda 100% local (`127.0.0.1`), sem telemetria e sem enviar nada para fora — ex
 - **Busca contextual**: na Visão geral o campo busca global; nas demais telas ele filtra os itens exibidos por nome, caminho e **conteúdo**, com contagem e empty state
 - **IAs por registro**: o registro `TOOLS` define scan, MCP, CLI, autenticação e status de cada IA, com auto-discovery de `~/.<ia>/mcp.json` — a sidebar mostra só o que está configurado
 - **Uso das IAs**: cards com a conta autenticada e limites/reset do Claude Code (janelas 5h/7d ou créditos), Codex (5h/7d, lidos do último rollout) e GitHub Copilot (premium requests + reset mensal)
+- **Consumo**: custo e tokens lidos dos logs locais (Claude Code, Codex, opencode e Copilot CLI), com gráficos de área/barra por dia — por modelo ou consolidado por IA — além de tabelas por modelo e projeto. Preço de tabela, não a fatura; Copilot em AIU. Resumo também na Visão geral e em Por IA
 - **Versões e atualizações**: versão instalada de cada CLI vs. a última publicada no npm, com botão **Atualizar** (via brew, npm ou o próprio updater) e **Copiar comando** para rodar a atualização no seu terminal; se o canal de instalação ainda não tiver versão nova, o painel avisa "Nada mudou" em vez de dar sucesso falso; nos plugins, versão instalada, atualização disponível, indicação visual de **update automático** (verde, ícone de sincronismo) ou **manual** (âmbar, ícone de mão) — clicável para alternar no `settings.json` do Claude Code
 - **Status pages**: os links das IAs na sidebar mostram um ícone de alerta (âmbar/vermelho) quando há incidente ativo, consultando as APIs de status (Anthropic, OpenAI, GitHub, Google Cloud e Cursor)
 - **MCPs**: ativar/desativar direto no card (opencode e Codex editam o config com backup; Copilot e Gemini usam o CLI), autenticar/sair via OAuth (Claude, opencode e Codex) e **Ver config** em todos — inclusive os do Claude, que vivem em `~/.claude.json` (fonte especial somente leitura de caminho)
@@ -218,6 +219,7 @@ O backend escaneia as fontes a cada requisição de catálogo (sem banco de dado
 | GET | `/api/search?q=` | busca por nome e conteúdo |
 | GET | `/api/backups?s=&r=` | versões de backup do arquivo |
 | GET | `/api/usage[?refresh=1][&tool=claude\|codex\|copilot]` | uso/limites de Claude, Codex e Copilot (cache 60 s); `tool` limita o refresh a uma IA |
+| GET | `/api/spend[?days=30][&tool=][&refresh=1]` | custo e tokens locais (claude, codex, opencode, copilot). `days=0` lê tudo. Cache 60 s |
 | GET | `/api/versions[?refresh=1]` | versões instaladas/últimas das CLIs, contas autenticadas e atualizações de plugins (cache 10 min) |
 | GET | `/api/incidents[?refresh=1]` | incidentes ativos nas status pages das IAs (cache 5 min) |
 | GET | `/api/audit[?limit=200]` | últimas gravações do painel (save/restore) do `audit.log` |

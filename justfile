@@ -38,6 +38,10 @@ dev:
 build:
     cd web && pnpm build
 
+# builda o frontend e sobe o backend em http://127.0.0.1:4747
+start: build
+    just run
+
 # testes do backend (pytest) e do frontend (vitest)
 test: test-backend test-web
 

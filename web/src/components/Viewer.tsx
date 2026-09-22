@@ -41,10 +41,20 @@ export function Viewer() {
   const canRender = RENDERABLE_RE.test(r)
   const isSkill = !isImage && r.toLowerCase().endsWith("/skill.md")
   const skillName = isSkill ? (r.split("/").slice(-2, -1)[0] ?? "") : ""
-  const { data: skillUsage } = useSkillUsage(0, undefined, isSkill)
+  const rawDays = Number(params.get("skilldays"))
+  const skillDays = Number.isFinite(rawDays) && rawDays >= 0 ? rawDays : 7
+  const { data: skillUsage } = useSkillUsage(skillDays, undefined, isSkill)
   const skillRank = isSkill
     ? (skillUsage?.top.findIndex((row) => row.skill.toLowerCase() === skillName.toLowerCase()) ?? -1)
     : -1
+  const skillWindow =
+    skillDays === 0
+      ? t("spend.pAll")
+      : skillDays === 30
+        ? t("spend.p30")
+        : skillDays === 7
+          ? t("spend.p7")
+          : `${skillDays}`
   const dirty = buffer !== null && data !== undefined && buffer !== data.content
   const text = buffer ?? data?.content ?? ""
 
@@ -261,7 +271,7 @@ export function Viewer() {
                 ≈ {tokens(Math.ceil(data.content.length / 4))} tokens
               </Badge>
             )}
-            <TopSkillBadge skill={skillName} rank={skillRank} />
+            <TopSkillBadge skill={skillName} rank={skillRank} window={skillWindow} />
             <span title={new Date(data.created * 1000).toISOString()}>
               {t("viewer.created", { date: fmtDT(data.created * 1000) })}
             </span>

@@ -157,8 +157,13 @@
         text-decoration: none;
       }
 
-      .nav a:hover {
+      .nav a:hover,
+      .nav a.ativo {
         color: var(--texto);
+      }
+
+      .nav a.ativo svg {
+        color: color-mix(in srgb, var(--violeta) 75%, var(--texto));
       }
 
       .nav svg {
@@ -432,6 +437,68 @@
         width: 20px;
         height: 20px;
         border-radius: 6px;
+      }
+
+      /* ------------------------------------------------------- print do app */
+      .tela {
+        position: relative;
+        padding: clamp(2.5rem, 5vw, 4rem) 0 0;
+      }
+
+      .tela::before {
+        content: "";
+        position: absolute;
+        inset: 0 10% 20% 10%;
+        background: radial-gradient(60% 60% at 50% 40%, color-mix(in srgb, var(--violeta) 20%, transparent), transparent 70%);
+        pointer-events: none;
+      }
+
+      .janela {
+        position: relative;
+        margin: 0;
+        border: 1px solid var(--borda);
+        border-radius: var(--raio);
+        background: var(--cartao);
+        box-shadow: 0 40px 90px -50px rgba(0, 0, 0, 0.8);
+        overflow: hidden;
+      }
+
+      .janela__barra {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.7rem 1rem;
+        border-bottom: 1px solid var(--borda);
+      }
+
+      .janela__barra i {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: color-mix(in srgb, var(--suave) 45%, transparent);
+      }
+
+      .janela__url {
+        margin-left: 0.6rem;
+        padding: 0.2rem 0.75rem;
+        border: 1px solid var(--borda);
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--fundo) 55%, transparent);
+        color: var(--suave);
+        font-size: 0.78rem;
+      }
+
+      .janela img {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+
+      .janela figcaption {
+        padding: 0.9rem 1.2rem;
+        border-top: 1px solid var(--borda);
+        color: var(--suave);
+        font-size: 0.85rem;
       }
 
       /* ------------------------------------------------------------ seções */
@@ -721,7 +788,7 @@
     </header>
 
     <main id="conteudo">
-      <section class="heroi">
+      <section class="heroi" id="inicio">
         <div class="container heroi__grade">
           <div>
             <p class="selo">Roda 100% na sua máquina</p>
@@ -768,6 +835,28 @@
             <li><img src="assets/ia/copilot.png" alt="" width="20" height="20" />GitHub Copilot CLI</li>
             <li><img src="assets/ia/gemini.png" alt="" width="20" height="20" />Gemini / Antigravity</li>
           </ul>
+        </div>
+      </section>
+
+      <section class="tela" aria-label="Tela do painel">
+        <div class="container">
+          <figure class="janela">
+            <div class="janela__barra" aria-hidden="true">
+              <i></i><i></i><i></i>
+              <span class="janela__url">127.0.0.1:4747</span>
+            </div>
+            <img
+              src="assets/painel.jpg"
+              width="1800"
+              height="1125"
+              loading="lazy"
+              alt="Visão geral do painel: contadores de contextos, skills, agentes, comandos, regras, docs, MCPs, plugins, projetos e arquivos; cards de uso do Codex e do GitHub Copilot com limites e reset; e o gráfico de consumo por dia."
+            />
+            <figcaption>
+              Visão geral: o que existe em cada IA, uso das contas e consumo por dia — tudo lido do que já está na
+              máquina.
+            </figcaption>
+          </figure>
         </div>
       </section>
 
@@ -985,5 +1074,31 @@ just start   <span class="c"># build do front + sobe na 4747</span></code></pre>
         </div>
       </div>
     </footer>
+
+    <script>
+      (() => {
+        const links = [...document.querySelectorAll(".nav a[href^='#']")];
+        const inicio = document.querySelector("#inicio");
+        const alvos = [...(inicio ? [inicio] : []), ...links.map((a) => document.querySelector(a.hash))].filter(Boolean);
+        if (!alvos.length) return;
+
+        const marcar = (id) => {
+          if (location.hash !== `#${id}`) history.replaceState(null, "", `#${id}`);
+          links.forEach((a) => a.classList.toggle("ativo", a.hash === `#${id}`));
+        };
+
+        const observador = new IntersectionObserver(
+          (entradas) => {
+            const visivel = entradas
+              .filter((e) => e.isIntersecting)
+              .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+            if (visivel) marcar(visivel.target.id);
+          },
+          { rootMargin: "-45% 0px -45% 0px" },
+        );
+
+        alvos.forEach((alvo) => observador.observe(alvo));
+      })();
+    </script>
   </body>
 </html>

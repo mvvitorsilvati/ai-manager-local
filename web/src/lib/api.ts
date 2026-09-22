@@ -1,5 +1,9 @@
 import axios from "axios"
 
+import { createLog } from "@/lib/log"
+
+const log = createLog("api")
+
 export type FileEntry = {
   s: string
   r: string
@@ -216,6 +220,18 @@ export type SaveConflict = { error: string; conflict: true; mtime: number; mtime
 type ApiFailure = Error & { status?: number; data?: unknown }
 
 const client = axios.create({ headers: { "X-AIM": "1" } })
+
+client.interceptors.response.use(
+  (response) => response,
+  (error: unknown) => {
+    if (axios.isAxiosError(error)) {
+      log.warn(
+        `${error.config?.method?.toUpperCase()} ${error.config?.url} → ${error.response?.status ?? "sem resposta"}`,
+      )
+    }
+    return Promise.reject(error)
+  },
+)
 
 function toApiError(error: unknown): ApiFailure {
   if (axios.isAxiosError(error)) {

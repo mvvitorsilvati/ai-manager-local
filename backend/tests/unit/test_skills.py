@@ -129,6 +129,24 @@ def test_opencode_conta_comando_digitado_como_usuario(tmp_path):
     assert tool["rows"][0]["context_tokens"] == 100
 
 
+def test_opencode_ignora_skill_embutida(tmp_path):
+    db = tmp_path / "opencode.db"
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE part (id text, message_id text, session_id text, time_created integer, data text)")
+    now = int(datetime.now(UTC).timestamp() * 1000)
+    part = {
+        "type": "tool",
+        "tool": "skill",
+        "state": {"input": {"name": "customize-opencode"}, "output": "<!--\n Built-in skill. registered in code."},
+    }
+    conn.execute("INSERT INTO part VALUES (?, ?, ?, ?, ?)", ("p1", "m1", "s1", now, json.dumps(part)))
+    conn.commit()
+    conn.close()
+    tool = skills.build(days=2, tool="opencode", roots={"opencode": db})["tools"]["opencode"]
+    assert tool["rows"] == []
+    assert tool["invocations"] == 0
+
+
 def test_top20_mescla_ferramentas(tmp_path):
     root = tmp_path / "projects" / "demo"
     root.mkdir(parents=True)

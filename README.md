@@ -38,6 +38,7 @@ Roda 100% local (`127.0.0.1`), sem telemetria e sem enviar nada para fora — ex
 - **Versões e atualizações**: versão instalada de cada CLI vs. a última publicada no npm, com botão **Atualizar** (via brew, npm ou o próprio updater) e **Copiar comando** para rodar a atualização no seu terminal; se o canal de instalação ainda não tiver versão nova, o painel avisa "Nada mudou" em vez de dar sucesso falso; nos plugins, versão instalada, atualização disponível, indicação visual de **update automático** (verde, ícone de sincronismo) ou **manual** (âmbar, ícone de mão) — clicável para alternar no `settings.json` do Claude Code
 - **Status pages**: os links das IAs na sidebar mostram um ícone de alerta (âmbar/vermelho) quando há incidente ativo, consultando as APIs de status (Anthropic, OpenAI, GitHub, Google Cloud e Cursor)
 - **MCPs**: ativar/desativar direto no card (opencode e Codex editam o config com backup; Copilot e Gemini usam o CLI), autenticar/sair via OAuth (Claude, opencode e Codex) e **Ver config** em todos — inclusive os do Claude, que vivem em `~/.claude.json` (fonte especial somente leitura de caminho)
+- **Abrir no terminal/app**: ícone junto de cada IA (Por IA, Uso e Versões) que abre a CLI no terminal detectado (Terminal, iTerm2 e outros) — no diretório do projeto quando houver contexto, senão em `AIM_PROJECTS_DIR` — ou no app nativo (Claude, OpenCode, Gemini/Antigravity), com dropdown quando houver mais de uma opção
 - **Atalhos de teclado**: `⌘K` busca, `⌘E` editar, `⌘S` salvar, `Esc` fecha painéis/cancela a edição
 - **Histórico**: botão voltar do mouse/navegador navega entre seções e fecha o viewer, com guarda para alterações não salvas
 - **Auditoria**: lista as últimas gravações do painel (save/restore) com data, caminho e backup, lidas de `~/.ai_management_local/audit.log`
@@ -232,6 +233,9 @@ O backend escaneia as fontes a cada requisição de catálogo (sem banco de dado
 | POST | `/api/update` | atualiza uma CLI (`{tool}`) ou um plugin (`{source, name}`) para a versão mais recente |
 | POST | `/api/plugin-auto-update` | liga/desliga o update automático de um marketplace (`{name, auto}`) no `settings.json` do Claude Code |
 | POST | `/api/mcp` | ativa/desativa (`enable`/`disable`) ou autentica/desconecta (`login`/`logout`) um MCP (`{source, name, action}`) |
+| GET | `/api/open-targets?tool=` | terminais detectados e apps nativos vinculados à IA |
+| GET | `/api/app-icon?app=` | PNG do ícone do app nativo (só ids do registro; 404 fora dele) |
+| POST | `/api/open` | abre a IA (`{tool, target: "terminal:<id>"\|"app:<id>", project?}`; projeto resolve só contra fontes registradas) |
 
 ## Fontes escaneadas
 

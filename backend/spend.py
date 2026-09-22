@@ -17,6 +17,8 @@ from pathlib import Path
 
 from loguru import logger
 
+import scan_home
+
 IDLE_GAP = 300
 CACHE_SECONDS = 60
 TOP = 15
@@ -85,16 +87,16 @@ _cache: dict[tuple, tuple[float, dict]] = {}
 
 def default_roots() -> dict[str, Path]:
     configured = os.environ.get("CLAUDE_CONFIG_DIR")
-    claude = Path.home() / ".claude" / "projects"
+    claude = scan_home.scan_home() / ".claude" / "projects"
     if configured:
         candidate = Path(configured).expanduser() / "projects"
         if candidate.is_dir():
             claude = candidate
     return {
         "claude": claude,
-        "codex": Path.home() / ".codex" / "sessions",
-        "opencode": Path.home() / ".local" / "share" / "opencode" / "opencode.db",
-        "copilot": Path.home() / ".copilot" / "session-store.db",
+        "codex": scan_home.scan_home() / ".codex" / "sessions",
+        "opencode": scan_home.scan_home() / ".local" / "share" / "opencode" / "opencode.db",
+        "copilot": scan_home.scan_home() / ".copilot" / "session-store.db",
     }
 
 
@@ -124,7 +126,7 @@ def parse_ts(value) -> datetime | None:
 def project_label(path: str | None) -> str:
     if not path:
         return "(sem projeto)"
-    home = str(Path.home())
+    home = str(scan_home.scan_home())
     text = str(path).replace("\\", "/")
     if text.startswith(home):
         text = text[len(home):].lstrip("/")

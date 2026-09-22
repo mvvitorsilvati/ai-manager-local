@@ -15,6 +15,7 @@ from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
 
+import scan_home
 import spend
 
 CACHE_SECONDS = 60
@@ -38,7 +39,7 @@ _cache: dict[tuple, tuple[float, dict]] = {}
 
 
 def default_skill_dirs() -> list[Path]:
-    home = Path.home()
+    home = scan_home.scan_home()
     return [
         home / ".agents" / "skills",
         home / ".claude" / "skills",
@@ -59,7 +60,7 @@ def resolve_skill(name: str, dirs: list[Path]) -> Path | None:
         candidate = base / key / "SKILL.md"
         if candidate.is_file():
             return candidate
-    for candidate in Path.home().glob(".claude/plugins/*/skills/*/SKILL.md"):
+    for candidate in scan_home.scan_home().glob(".claude/plugins/*/skills/*/SKILL.md"):
         if candidate.parent.name == key:
             return candidate
     return None

@@ -50,6 +50,50 @@ def test_spend_devolve_o_snapshot(servidor, monkeypatch):
     assert json.loads(body)["tools"]["claude"]["available"] is True
 
 
+def test_open_targets_lista_terminais_e_apps(servidor, monkeypatch):
+    import open_with
+
+    monkeypatch.setattr(open_with, "list_terminals", lambda: [{"id": "iterm2", "label": "iTerm2"}])
+    monkeypatch.setattr(open_with, "apps_for_tool", lambda tool: [{"id": "Claude", "label": "Claude"}])
+    status, body = request(f"{servidor.url}/api/open-targets?tool=claude")
+    assert status == 200
+    assert json.loads(body) == {
+        "terminals": [{"id": "iterm2", "label": "iTerm2"}],
+        "apps": [{"id": "Claude", "label": "Claude"}],
+    }
+
+
+def test_app_icon_serve_png_e_nega_id_ruim(servidor, tmp_path, monkeypatch):
+    import open_with
+
+    png = tmp_path / "x.png"
+    png.write_bytes(b"fakepng")
+    monkeypatch.setattr(open_with, "app_icon_png", lambda app_id, cache: png if app_id == "Claude" else None)
+    status, body = request(f"{servidor.url}/api/app-icon?app=Claude")
+    assert status == 200
+    assert body == b"fakepng"
+    status, _ = request(f"{servidor.url}/api/app-icon?app=../../etc/passwd")
+    assert status == 404
+
+
+def test_open_abre_via_launch_e_rejeita_alvo_ruim(servidor, monkeypatch):
+    import open_with
+
+    chamadas = []
+    monkeypatch.setattr(open_with, "launch", lambda argv: chamadas.append(argv))
+    monkeypatch.setattr(app, "OPENABLE", {"claude": "claude"})
+    monkeypatch.setattr(open_with, "list_terminals", lambda: [{"id": "iterm2", "label": "iTerm2"}])
+    monkeypatch.setattr(open_with, "apps_for_tool", lambda tool: [])
+    monkeypatch.setattr(app, "AUDIT_LOG", servidor.root / "audit.log")
+
+    status, _ = request(f"{servidor.url}/api/open", {"tool": "claude", "target": "rm -rf /"})
+    assert status == 400
+    status, body = request(f"{servidor.url}/api/open", {"tool": "claude", "target": "terminal:iterm2"})
+    assert status == 200
+    assert json.loads(body) == {"ok": True}
+    assert chamadas and chamadas[0][0] == "osascript"
+
+
 def test_skill_usage_devolve_o_snapshot(servidor, monkeypatch):
     monkeypatch.setattr(skills, "snapshot", lambda *args, **kwargs: {"top": [{"skill": "demo"}]})
     status, body = request(f"{servidor.url}/api/skill-usage?days=7")

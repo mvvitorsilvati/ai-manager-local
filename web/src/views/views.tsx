@@ -20,6 +20,7 @@ import { useCollapsible } from "@/components/collapse"
 import { CopyCommandButton } from "@/components/CopyCommandButton"
 import { FileTree, type TreeEntry } from "@/components/FileTree"
 import { McpActions } from "@/components/McpActions"
+import { OpenWith } from "@/components/OpenWith"
 import { ToolIcon } from "@/components/ToolIcon"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -110,7 +111,17 @@ function orderGroups<T>(catalog: Catalog, groups: Map<string, T[]>) {
   })
 }
 
-function SourceSection({ catalog, id, children }: { catalog: Catalog; id: string; children: React.ReactNode }) {
+function SourceSection({
+  catalog,
+  id,
+  children,
+  tool,
+}: {
+  catalog: Catalog
+  id: string
+  children: React.ReactNode
+  tool?: string
+}) {
   const source = catalog.sources.find((s) => s.id === id)
   return (
     <Section
@@ -123,6 +134,7 @@ function SourceSection({ catalog, id, children }: { catalog: Catalog; id: string
           <SourceBadge source={source} />
         )
       }
+      extra={tool && source?.project ? <OpenWith tool={tool} project={id} /> : undefined}
     >
       {children}
     </Section>
@@ -318,6 +330,7 @@ export function ToolsView() {
           <ToolIcon id={selected} className="size-4" />
           <span className="font-medium">{selectedLabel}</span>
           <VersionBadges installed={version.installed} latest={version.latest} update={version.update} />
+          <OpenWith tool={selected} />
           {version.account && !hasUsageCard && (
             <span className="text-muted-foreground truncate text-[11px]">{version.account}</span>
           )}
@@ -337,7 +350,7 @@ export function ToolsView() {
       {(hasUsageCard || selected === "opencode") && <ToolSection tool={selected} />}
       <EmptyFilter query={q} count={files.length} />
       {ordered.map(([sid, list]) => (
-        <SourceSection key={sid} catalog={catalog} id={sid}>
+        <SourceSection key={sid} catalog={catalog} id={sid} tool={selected}>
           <FileTree entries={list.map((f) => ({ f }))} onOpen={open} />
         </SourceSection>
       ))}

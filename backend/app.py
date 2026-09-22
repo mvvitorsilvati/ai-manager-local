@@ -27,6 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
+import open_with
 import skills
 import spend
 
@@ -1181,6 +1182,61 @@ def usage_snapshot(force: bool = False, tool: str | None = None) -> dict:
     return fresh
 
 
+# ---------------------------------------------------------------- abrir em terminal/app
+
+OPENABLE = {t["id"]: t["cli"]["binary"] for t in TOOLS if t.get("cli")}
+
+
+def resolve_open_cwd(ref: str | None) -> str:
+    """Diretório inicial: projeto registrado, ou a base de projetos como fallback.
+
+    Nunca aceita caminho cru do cliente: só ids presentes no registro de fontes.
+    """
+    if ref:
+        source = SOURCE_BY_ID.get(ref)
+        if source is None:
+            with _project_lock:
+                source = _project_sources.get(ref)
+        if source and source.get("project") and os.path.isdir(source.get("root") or ""):
+            return source["root"]
+    base = os.path.expanduser(project_base())
+    if os.path.isdir(base):
+        return base
+    return str(HOME)
+
+
+def open_targets(tool: str) -> dict:
+    if tool not in OPENABLE:
+        return {"terminals": [], "apps": []}
+    return {"terminals": open_with.list_terminals(), "apps": open_with.apps_for_tool(tool)}
+
+
+def run_open(tool: str, target: str, project: str | None) -> dict:
+    binary = OPENABLE.get(tool)
+    if not binary:
+        raise ApiError(f"{tool} não tem CLI para abrir em terminal", 400)
+    kind, _, ident = (target or "").partition(":")
+    if kind == "terminal":
+        if ident not in {t["id"] for t in open_with.list_terminals()}:
+            raise ApiError("terminal desconhecido ou não instalado", 400)
+        cwd = resolve_open_cwd(project)
+        argv = open_with.argv_for_terminal(ident, binary, cwd)
+        audit_path, action = Path(cwd), "open-terminal"
+    elif kind == "app":
+        if ident not in {a["id"] for a in open_with.apps_for_tool(tool)}:
+            raise ApiError("app desconhecido, não instalado ou sem vínculo com essa IA", 400)
+        argv = open_with.argv_for_app(ident)
+        audit_path, action = Path(ident), "open-app"
+    else:
+        raise ApiError("alvo inválido (use terminal:<id> ou app:<id>)", 400)
+    try:
+        open_with.launch(argv)
+    except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+        raise ApiError(f"falha ao abrir: {exc}", 500) from exc
+    append_audit(action, audit_path, 0)
+    return {"ok": True}
+
+
 # ---------------------------------------------------------------- versões & atualizações
 
 CLI_PACKAGES = tuple(
@@ -2158,6 +2214,16 @@ class Handler(BaseHTTPRequestHandler):
                 force=params.get("refresh", ["0"])[0] == "1",
             ))
             return
+        if url.path == "/api/open-targets":
+            self._json(open_targets(params.get("tool", [""])[0]))
+            return
+        if url.path == "/api/app-icon":
+            png = open_with.app_icon_png(params.get("app", [""])[0], AUDIT_LOG.parent / "icons")
+            if png is None:
+                self._json({"error": "ícone indisponível"}, 404)
+                return
+            self._send(200, png.read_bytes(), "image/png")
+            return
         if url.path == "/api/usage":
             self._json(usage_snapshot(
                 force=params.get("refresh", ["0"])[0] == "1",
@@ -2308,6 +2374,14 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(auto, bool):
                     raise ApiError("campo auto precisa ser booleano", 400)
                 self._json(set_plugin_auto_update(the_name, auto))
+                return
+            if url.path == "/api/open":
+                tool = str(payload.get("tool", ""))
+                target = str(payload.get("target", ""))
+                project = payload.get("project") or None
+                if project is not None and not isinstance(project, str):
+                    raise ApiError("projeto inválido", 400)
+                self._json(run_open(tool, target, project))
                 return
             if url.path == "/api/mcp":
                 action = str(payload.get("action", ""))

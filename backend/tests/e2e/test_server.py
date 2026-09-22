@@ -1,4 +1,5 @@
 import json
+import sys
 import threading
 import urllib.error
 import urllib.request
@@ -92,6 +93,8 @@ def test_app_icon_serve_png_e_nega_id_ruim(servidor, tmp_path, monkeypatch):
 def test_open_abre_via_launch_e_rejeita_alvo_ruim(servidor, monkeypatch):
     import open_with
 
+    # argv_for_terminal valida a plataforma: finge macOS como nos testes unitários
+    monkeypatch.setattr(sys, "platform", "darwin")
     chamadas = []
     monkeypatch.setattr(open_with, "launch", lambda argv: chamadas.append(argv))
     monkeypatch.setattr(app, "OPENABLE", {"claude": "claude"})

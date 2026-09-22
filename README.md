@@ -19,6 +19,8 @@ Painel web local (somente no seu Mac) para visualizar e editar as configuraçõe
 ![testes](https://img.shields.io/badge/testes-pytest%20%2B%20Vitest%20%2B%20Playwright-0A9EDC)
 ![licença](https://img.shields.io/badge/licen%C3%A7a-MIT-3DA639)
 
+**Leia em:** [English](README.en.md)
+
 **Sistemas operacionais:** macOS é o alvo completo (Keychain, Finder, apps nativos e seus ícones). Linux, WSL e container rodam o painel com o que é multiplataforma; as diferenças estão em [Limitações](#limitações). No WSL com as IAs instaladas no Windows, use `AIM_HOME` — veja [Usando no WSL](#usando-no-wsl-ias-instaladas-no-windows).
 
 **Site:** https://mvvitorsilvati.github.io/ai-manager-local/ (landing page servida pelo GitHub Pages a partir de `site/`)

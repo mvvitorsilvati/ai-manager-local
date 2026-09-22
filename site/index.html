@@ -512,10 +512,20 @@
       }
 
       h2 {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
         margin: 0 0 0.75rem;
         font-size: clamp(1.6rem, 3vw, 2.2rem);
         letter-spacing: -0.03em;
         font-weight: 620;
+      }
+
+      h2 svg {
+        flex: none;
+        width: 24px;
+        height: 24px;
+        color: color-mix(in srgb, var(--violeta) 72%, var(--texto));
       }
 
       .secao__texto {
@@ -674,12 +684,20 @@
       }
 
       .privacidade article {
+        position: relative;
+        overflow: hidden;
         padding: 1.3rem 1.4rem;
         border: 1px solid var(--borda);
-        border-left: 3px solid;
-        border-image: var(--gradiente) 1;
         border-radius: var(--raio);
         background: var(--cartao);
+      }
+
+      .privacidade article::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 3px;
+        background: var(--gradiente);
       }
 
       .privacidade h3 {
@@ -864,7 +882,12 @@
 
       <section class="secao" id="funcionalidades">
         <div class="container">
-          <h2>Um painel para tudo que suas IAs leem e escrevem</h2>
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" />
+            </svg>
+            Um painel para tudo que suas IAs leem e escrevem
+          </h2>
           <p class="secao__texto">
             Skills, agentes, comandos, regras, MCPs, plugins e arquivos de configuração — por tipo de artefato, por IA
             ou por projeto. Com viewer, edição segura e auditoria.
@@ -957,7 +980,12 @@
 
       <section class="secao secao--alternada" id="como-rodar">
         <div class="container">
-          <h2>Rodando em um minuto</h2>
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="m4 17 6-6-6-6M12 19h8" />
+            </svg>
+            Rodando em um minuto
+          </h2>
           <p class="secao__texto">
             O backend serve o build do frontend em <code>127.0.0.1:4747</code>. Para desenvolvimento com hot reload,
             suba o Vite em paralelo (<code>just dev</code>).
@@ -994,7 +1022,12 @@ just start   <span class="c"># build do front + sobe na 4747</span></code></pre>
 
       <section class="secao" id="privacidade">
         <div class="container">
-          <h2>Local de verdade</h2>
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+            </svg>
+            Local de verdade
+          </h2>
           <p class="secao__texto">
             O painel foi feito para inspecionar arquivos sensíveis: configurações, regras e credenciais de IA que ficam na
             sua máquina. Por isso ele não manda nada para lugar nenhum.

@@ -53,6 +53,25 @@ def test_custo_anthropic_separa_cache_e_dedup_fica_com_o_ultimo_chunk(tmp_path):
     assert tool["unknown_models"] == []
 
 
+def test_custo_dos_modelos_novos_bate_com_a_tabela():
+    # Opus 5.5: input 4, output 20, cache read 0.2 (5% do input); fast 8/40.
+    assert spend.anthropic_cost("claude-opus-5-5", None, 1_000_000, 0, 0, 0, 0) == 4.0
+    assert spend.anthropic_cost("claude-opus-5-5", None, 0, 0, 0, 0, 1_000_000) == 0.2
+    assert spend.anthropic_cost("claude-opus-5-5", "fast", 1_000_000, 0, 0, 0, 0) == 8.0
+    # GPT-6 Sol 2/10 e Luna 0.1/0.5.
+    assert spend.openai_cost("gpt-6-sol", 1_000_000, 0, 0, 0) == 2.0
+    assert spend.openai_cost("gpt-6-luna", 0, 1_000_000, 0, 0) == 0.5
+
+
+def test_custo_dos_modelos_codex_e_fable_bate_com_a_tabela():
+    # gpt-5.3-codex: 1.75/14, cache read a 10% do input.
+    assert spend.openai_cost("gpt-5.3-codex", 1_000_000, 0, 0, 0) == 1.75
+    assert spend.openai_cost("gpt-5.3-codex", 0, 0, 1_000_000, 0) == 0.175
+    assert spend.openai_cost("gpt-5-codex", 0, 1_000_000, 0, 0) == 10.0
+    # Fable 5.1: cache read a 2.5% do input.
+    assert spend.anthropic_cost("claude-fable-5-1", None, 0, 0, 0, 0, 1_000_000) == 0.25
+
+
 def test_codex_desconta_cache_do_input_e_ignora_turno_acumulado(tmp_path):
     day = datetime.now().astimezone()
     folder = tmp_path / "sessions" / f"{day.year}" / f"{day.month:02d}" / f"{day.day:02d}"

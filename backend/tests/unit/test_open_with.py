@@ -110,6 +110,7 @@ def test_app_resolve_caminho_e_ignora_cwd(mac):
 
 
 def test_run_open_valida_tool_terminal_e_projeto(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "platform", "darwin")
     monkeypatch.setattr(app, "OPENABLE", {"claude": "claude"})
     monkeypatch.setattr(open_with, "list_terminals", lambda: [{"id": "iterm2", "label": "iTerm2"}])
     monkeypatch.setattr(open_with, "apps_for_tool", lambda tool: [])
@@ -153,6 +154,7 @@ def test_run_open_app_ignora_projeto_e_registra_auditoria(tmp_path, monkeypatch)
 
 
 def test_run_open_falha_de_lancamento_vira_500(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "platform", "darwin")
     monkeypatch.setattr(app, "OPENABLE", {"claude": "claude"})
     monkeypatch.setattr(open_with, "list_terminals", lambda: [{"id": "iterm2", "label": "iTerm2"}])
     monkeypatch.setattr(app, "HOME", tmp_path)

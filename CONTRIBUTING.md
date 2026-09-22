@@ -4,21 +4,36 @@ Obrigado pelo interesse! Este é um projeto pessoal/local, mas contribuições s
 
 ## Modelo de branches
 
+Uma branch principal só: **`main`** (default no GitHub), que só recebe merge de PR — o [GitHub Flow](https://docs.github.com/get-started/using-github/github-flow). Branch de trabalho é curta, uma por assunto, e morre no merge.
+
 | Branch | Papel |
 |---|---|
-| `develop` | **branch principal** (default no GitHub) — todo trabalho entra aqui |
-| `main` | estável/release — recebe o `develop` por PR em marcos |
+| `main` | principal — PR com checks verdes e histórico linear (rebase); sem commit direto |
+| `feat/…`, `fix/…`, `docs/…` | curtas, uma por assunto |
 
 Fluxo:
 
 ```bash
-git checkout develop
+git checkout main
 git pull
 git checkout -b feat/minha-mudanca
 # ... commits ...
 git push -u origin feat/minha-mudanca
-# abra o PR com base em develop
+# abra o PR com base em main
 ```
+
+Por que não `develop`: o modelo de duas branches (Git Flow) existe para manter versões antigas em paralelo e release train. Aqui a release é uma tag na `main`, então a branch extra só adicionaria cerimônia e o risco de as duas divergirem — foi o que aconteceu na prática antes de enxugar para uma.
+
+## Releases
+
+Release é **tag anotada + GitHub Release** na `main`:
+
+```bash
+just tag v1.1.0                 # confere a árvore, roda `just check` e publica a tag
+gh release create v1.1.0 --title "v1.1.0 — resumo curto" --notes-file notas.md --latest
+```
+
+A versão sobe por PR antes da tag: `pyproject.toml`, `package.json` e a tag da imagem (`justfile`, `docker-compose.yml`, CI) seguem o mesmo número.
 
 ## Preparando o ambiente
 
@@ -39,7 +54,7 @@ just check     # ruff + pyright + oxlint + pytest + vitest
 
 O repositório traz um **pre-commit** versionado em `.githooks/` (ativado por `just setup` ou `just hooks`): cada commit roda `just check` sozinho. Para pular pontualmente: `git commit --no-verify`.
 
-O mesmo conjunto roda no CI (`.github/workflows/qa.yaml`) em `push`/PR para `develop` e `main`. Lint e type check são **informativos** (não bloqueiam); testes e build **bloqueiam**.
+O mesmo conjunto roda no CI (`.github/workflows/qa.yaml`) em `push` e PR para `main`. Lint e type check são **informativos** (não bloqueiam); testes e build **bloqueiam** — e a `main` só aceita merge com os três checks verdes.
 
 ## Commits
 

@@ -42,6 +42,16 @@ build:
 start: build
     just run
 
+# publica a tag de release (ex.: just tag v1.1.0) — exige árvore limpa e HEAD igual ao tip da main
+tag versao:
+    @test -z "$(git status --porcelain)" || { echo "árvore suja: commite antes de taguear"; exit 1; }
+    @git fetch -q origin
+    @test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" || { echo "HEAD não é o tip da main"; exit 1; }
+    just check
+    git tag -a {{versao}} -m "{{versao}}"
+    git push origin {{versao}}
+    @echo "tag {{versao}} publicada. Agora: gh release create {{versao}} --title \"{{versao}} — resumo\" --notes-file notas.md --latest"
+
 # testes do backend (pytest) e do frontend (vitest)
 test: test-backend test-web
 

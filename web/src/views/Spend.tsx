@@ -542,7 +542,7 @@ function ToolSkills({ id, days }: { id: string; days: number }) {
   return (
     <div className="mt-4">
       <h4 className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wider uppercase">{t("skills.top")}</h4>
-      <SkillTable rows={rows} showTools={false} />
+      <SkillTable rows={rows} showTools={false} days={days} />
     </div>
   )
 }

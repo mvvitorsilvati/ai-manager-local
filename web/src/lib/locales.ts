@@ -160,6 +160,8 @@ export const pt = {
 
   "skills.top": "Skills mais usadas",
   "skills.topGlobal": "Top 20 — global",
+  "skills.tokensTitle": "Tokens por skill — top 10",
+  "skills.tokensSubtitle": "Tokens aproximados de contexto por skill",
   "skills.note":
     "Invocações e tokens aproximados de contexto (conteúdo da skill por chamada). O detalhe por IA está no card de cada ferramenta. Codex e Copilot não registram invocações nos logs locais.",
   "skills.empty": "Sem invocações de skills no período.",
@@ -170,7 +172,7 @@ export const pt = {
   "skills.noFile": "sem arquivo",
   "skills.noFileTitle": "Sem arquivo SKILL.md em disco para abrir",
   "skills.viewFile": "{skill} — ver SKILL.md",
-  "skills.topBadge": "{skill} é a {n}ª skill mais usada (todas as IAs, todo o período)",
+  "skills.topBadge": "{skill} é a {n}ª skill mais usada ({window})",
 
   "viewer.loading": "Carregando…",
   "viewer.render": "Render",
@@ -424,6 +426,8 @@ export const en: Record<Key, string> = {
 
   "skills.top": "Most used skills",
   "skills.topGlobal": "Top 20 — global",
+  "skills.tokensTitle": "Tokens per skill — top 10",
+  "skills.tokensSubtitle": "Approximate context tokens per skill",
   "skills.note":
     "Invocations and approximate context tokens (skill content per call). Per-AI detail is on each tool's card. Codex and Copilot don't record invocations in local logs.",
   "skills.empty": "No skill invocations in the period.",
@@ -434,7 +438,7 @@ export const en: Record<Key, string> = {
   "skills.noFile": "no file",
   "skills.noFileTitle": "No SKILL.md on disk to open",
   "skills.viewFile": "{skill} — view SKILL.md",
-  "skills.topBadge": "{skill} is the #{n} most used skill (all AIs, all time)",
+  "skills.topBadge": "{skill} is the #{n} most used skill ({window})",
 
   "viewer.loading": "Loading…",
   "viewer.render": "Render",

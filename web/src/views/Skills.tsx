@@ -1,10 +1,13 @@
 import { useQuery } from "@tanstack/react-query"
 import { Trophy, Zap } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
+import { Bar, BarChart, LabelList, XAxis, YAxis } from "recharts"
 
 import { ViewSkeleton } from "@/components/bits"
 import { ToolIcon } from "@/components/ToolIcon"
 import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import { useCatalog } from "@/hooks/useCatalog"
 import { api, type SkillRow } from "@/lib/api"
 import { useI18n } from "@/lib/i18n"
@@ -21,14 +24,14 @@ export function useSkillUsage(days: number, tool?: string, enabled = true) {
 
 const MEDALS = ["#F5C518", "#C0C0C0", "#CD7F32"]
 
-export function TopSkillBadge({ skill, rank }: { skill: string; rank: number }) {
+export function TopSkillBadge({ skill, rank, window }: { skill: string; rank: number; window: string }) {
   const { t } = useI18n()
   if (rank < 0) return null
   return (
     <Badge
       variant="secondary"
       className="border-amber-400/40 font-normal text-amber-300"
-      title={t("skills.topBadge", { skill, n: rank + 1 })}
+      title={t("skills.topBadge", { skill, n: rank + 1, window })}
     >
       <Trophy className="size-3" style={rank < MEDALS.length ? { color: MEDALS[rank] } : undefined} />
       Top {rank + 1}
@@ -36,7 +39,7 @@ export function TopSkillBadge({ skill, rank }: { skill: string; rank: number }) 
   )
 }
 
-export function SkillTable({ rows, showTools }: { rows: SkillRow[]; showTools: boolean }) {
+export function SkillTable({ rows, showTools, days = 7 }: { rows: SkillRow[]; showTools: boolean; days?: number }) {
   const navigate = useNavigate()
   const { t } = useI18n()
   const { data: catalog } = useCatalog()
@@ -67,7 +70,9 @@ export function SkillTable({ rows, showTools }: { rows: SkillRow[]; showTools: b
               const target = targetOf(row.skill)
               return target ? (
                 <button
-                  onClick={() => navigate(`/f?s=${encodeURIComponent(target.s)}&r=${encodeURIComponent(target.r)}`)}
+                  onClick={() =>
+                    navigate(`/f?s=${encodeURIComponent(target.s)}&r=${encodeURIComponent(target.r)}&skilldays=${days}`)
+                  }
                   className="min-w-0 shrink truncate text-left font-mono hover:underline"
                   title={t("skills.viewFile", { skill: row.skill })}
                 >
@@ -145,6 +150,63 @@ export function SkillsTop({ days = 7 }: { days?: number }) {
   )
 }
 
+const TOKEN_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#4a3aa7", "#e87ba4", "#008300"]
+
+function SkillsTokenBars({ rows }: { rows: SkillRow[] }) {
+  const { t } = useI18n()
+  const top = [...rows].sort((a, b) => b.context_tokens - a.context_tokens).slice(0, 10)
+  if (!top.length) return null
+  const data = top.map((row, i) => ({
+    skill: row.skill.length > 18 ? `${row.skill.slice(0, 17)}…` : row.skill,
+    full: row.skill,
+    tokens: row.context_tokens,
+    fill: TOKEN_COLORS[i % TOKEN_COLORS.length],
+  }))
+  const config = { tokens: { label: t("spend.statTokens") } } satisfies ChartConfig
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("skills.tokensTitle")}</CardTitle>
+        <CardDescription>{t("skills.tokensSubtitle")}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ChartContainer config={config} className="h-[320px] w-full">
+          <BarChart accessibilityLayer data={data} layout="vertical" margin={{ left: 0, right: 12 }}>
+            <YAxis
+              dataKey="skill"
+              type="category"
+              tickLine={false}
+              tickMargin={10}
+              axisLine={false}
+              width={140}
+              tick={{ fontSize: 11 }}
+            />
+            <XAxis dataKey="tokens" type="number" hide />
+            <ChartTooltip
+              cursor={false}
+              content={
+                <ChartTooltipContent
+                  labelFormatter={(_, payload) => payload?.[0]?.payload?.full ?? ""}
+                  formatter={(value) => `${tokens(Number(value))} ${t("spend.statTokens")}`}
+                />
+              }
+            />
+            <Bar dataKey="tokens" radius={5}>
+              <LabelList
+                dataKey="tokens"
+                position="right"
+                formatter={(value: unknown) => tokens(Number(value))}
+                fontSize={11}
+                fill="var(--muted-foreground)"
+              />
+            </Bar>
+          </BarChart>
+        </ChartContainer>
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function SpendSkills({ days, tool }: { days: number; tool?: string }) {
   const { t } = useI18n()
   const { data, isPending, isError } = useSkillUsage(days, tool)
@@ -156,7 +218,10 @@ export default function SpendSkills({ days, tool }: { days: number; tool?: strin
         {t("skills.top")} — {t("skills.topGlobal")}
       </h3>
       <p className="text-muted-foreground mb-3 text-[11px]">{t("skills.note")}</p>
-      <SkillTable rows={data.top} showTools />
+      <div className="grid items-start gap-4 xl:grid-cols-2">
+        <SkillTable rows={data.top} showTools />
+        <SkillsTokenBars rows={data.top} />
+      </div>
     </section>
   )
 }

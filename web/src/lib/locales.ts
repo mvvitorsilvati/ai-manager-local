@@ -206,6 +206,7 @@ export const pt = {
   "viewer.conflict":
     "O arquivo foi alterado fora do painel.\n\nOK = sobrescrever com a sua versão\nCancelar = recarregar do disco",
   "viewer.reveal": "Abrir no Finder",
+  "viewer.revealMacOnly": "Abrir no Finder (disponível apenas no macOS)",
   "viewer.close": "Fechar (Esc)",
   "viewer.copyPath": "Copiar caminho",
   "viewer.copied": "Caminho copiado",
@@ -472,6 +473,7 @@ export const en: Record<Key, string> = {
   "viewer.conflict":
     "The file changed outside the panel.\n\nOK = overwrite with your version\nCancel = reload from disk",
   "viewer.reveal": "Reveal in Finder",
+  "viewer.revealMacOnly": "Reveal in Finder (macOS only)",
   "viewer.close": "Close (Esc)",
   "viewer.copyPath": "Copy path",
   "viewer.copied": "Path copied",

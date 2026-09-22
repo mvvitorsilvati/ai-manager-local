@@ -123,6 +123,13 @@ def test_catalog_responde_com_fontes(servidor):
     assert any(s["id"] == "teste" for s in json.loads(body)["sources"])
 
 
+def test_catalog_diz_o_que_o_sistema_operacional_suporta(servidor):
+    status, body = request(f"{servidor.url}/api/catalog")
+    assert status == 200
+    caps = json.loads(body)["caps"]
+    assert caps["reveal"] is (sys.platform == "darwin")
+
+
 def test_file_le_arquivo_da_fonte(servidor):
     status, body = request(f"{servidor.url}/api/file?s=teste&r=a.md")
     assert status == 200

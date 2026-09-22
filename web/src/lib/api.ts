@@ -47,6 +47,7 @@ export type Catalog = {
   skills: SkillEntry[]
   mcps: Mcp[]
   plugins: Plugin[]
+  caps: { reveal: boolean }
 }
 
 export type GitInfo = {

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { Zap } from "lucide-react"
+import { Trophy, Zap } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 
 import { ViewSkeleton } from "@/components/bits"
@@ -9,12 +9,29 @@ import { useCatalog } from "@/hooks/useCatalog"
 import { api, type SkillRow } from "@/lib/api"
 import { tokens } from "@/views/Spend"
 
-export function useSkillUsage(days: number, tool?: string) {
+export function useSkillUsage(days: number, tool?: string, enabled = true) {
   return useQuery({
     queryKey: ["skill-usage", days, tool ?? ""],
     queryFn: () => api.skillUsage(days, tool),
     staleTime: 60_000,
+    enabled,
   })
+}
+
+const MEDALS = ["#F5C518", "#C0C0C0", "#CD7F32"]
+
+export function TopSkillBadge({ skill, rank }: { skill: string; rank: number }) {
+  if (rank < 0) return null
+  return (
+    <Badge
+      variant="secondary"
+      className="border-amber-400/40 font-normal text-amber-300"
+      title={`${skill} é a ${rank + 1}ª skill mais usada (todas as IAs, todo o período)`}
+    >
+      <Trophy className="size-3" style={rank < MEDALS.length ? { color: MEDALS[rank] } : undefined} />
+      Top {rank + 1}
+    </Badge>
+  )
 }
 
 export function SkillTable({ rows, showTools }: { rows: SkillRow[]; showTools: boolean }) {
@@ -22,16 +39,25 @@ export function SkillTable({ rows, showTools }: { rows: SkillRow[]; showTools: b
   const { data: catalog } = useCatalog()
   const targetOf = (name: string) => {
     const needle = name.toLowerCase()
-    return catalog?.skills.find(
+    const candidates = (catalog?.skills ?? []).filter(
       (s) => s.skill_name.toLowerCase() === needle || s.r.toLowerCase().endsWith(`/${needle}/skill.md`),
     )
+    // cópias de backup têm o mesmo skill_name: prefere o arquivo canônico (pasta com o nome exato, fora de backups)
+    const live = candidates.filter((s) => !s.r.toLowerCase().includes("backup"))
+    return live.find((s) => s.r.toLowerCase().endsWith(`/${needle}/skill.md`)) ?? live[0] ?? candidates[0]
   }
   if (!rows.length) return null
   return (
     <div className="border-border overflow-hidden rounded-md border">
       {rows.map((row, i) => (
         <div key={row.skill} className="border-border flex items-center gap-2 border-b px-2 py-1 text-xs last:border-0">
-          <span className="text-muted-foreground w-6 shrink-0 text-right">{i + 1}</span>
+          {i < MEDALS.length ? (
+            <span className="flex w-6 shrink-0 justify-end" title={`#${i + 1} skill mais usada`}>
+              <Trophy className="size-3.5" style={{ color: MEDALS[i] }} />
+            </span>
+          ) : (
+            <span className="text-muted-foreground w-6 shrink-0 text-right">{i + 1}</span>
+          )}
           <Zap className="text-muted-foreground size-3 shrink-0" />
           <span className="flex min-w-0 flex-1 items-center gap-1.5">
             {(() => {
@@ -50,6 +76,15 @@ export function SkillTable({ rows, showTools }: { rows: SkillRow[]; showTools: b
                 </span>
               )
             })()}
+            {!targetOf(row.skill) ? (
+              <Badge
+                variant="outline"
+                className="shrink-0 border-zinc-500/40 px-1 py-0 text-[9px] font-normal text-zinc-400"
+                title="Sem arquivo SKILL.md em disco para abrir"
+              >
+                sem arquivo
+              </Badge>
+            ) : null}
             {row.by_origin.user > 0 && (
               <Badge
                 variant="outline"

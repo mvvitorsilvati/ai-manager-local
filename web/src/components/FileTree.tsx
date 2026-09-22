@@ -1,5 +1,5 @@
 import { Folder, FolderOpen } from "lucide-react"
-import { useMemo } from "react"
+import { useMemo, type ReactNode } from "react"
 
 import { CatIcon } from "@/components/bits"
 import { useCollapsible } from "@/components/collapse"
@@ -7,7 +7,7 @@ import type { FileEntry } from "@/lib/api"
 import { fmtBytes } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
-export type TreeEntry = { f: FileEntry; label?: string }
+export type TreeEntry = { f: FileEntry; label?: string; badge?: ReactNode }
 
 export type TreeNode = { dirs: Map<string, TreeNode>; files: TreeEntry[] }
 
@@ -66,6 +66,7 @@ function Level({ node, depth, onOpen }: { node: TreeNode; depth: number; onOpen:
           <span className={COL_ITEMS} />
           <CatIcon cat={entry.f.c} className="size-3.5 shrink-0 opacity-70" />
           <span className="min-w-0 flex-1 truncate">{entry.label ?? entry.f.n}</span>
+          {entry.badge}
           <span className={cn("text-muted-foreground text-[10.5px]", COL_MIME)} title={mimeLabel(entry.f)}>
             {mimeLabel(entry.f)}
           </span>

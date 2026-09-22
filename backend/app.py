@@ -35,6 +35,7 @@ try:
     import httpx
     import trio
     from dotenv import load_dotenv
+    from loguru import logger
 except ModuleNotFoundError as exc:  # guarda de ambiente: dependências vivem na venv do uv
     raise SystemExit(
         f"Dependência ausente: {exc.name}\n\n"
@@ -956,7 +957,8 @@ def claude_usage() -> dict | None:
         )
         response.raise_for_status()
         payload = response.json()
-    except (httpx.HTTPError, ValueError):
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.debug(f"uso do Claude indisponível: {exc}")
         return None
     if not isinstance(payload, dict):
         return None
@@ -1110,7 +1112,8 @@ def github_account(token: str) -> str | None:
         )
         response.raise_for_status()
         payload = response.json()
-    except (httpx.HTTPError, ValueError):
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.debug(f"conta do GitHub indisponível: {exc}")
         return None
     if not isinstance(payload, dict):
         return None
@@ -1153,7 +1156,8 @@ def copilot_usage() -> dict | None:
         response = httpx.get(COPILOT_USAGE_URL, headers=headers, timeout=10)
         response.raise_for_status()
         payload = response.json()
-    except (httpx.HTTPError, ValueError):
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.debug(f"uso do Copilot indisponível: {exc}")
         return None
     if not isinstance(payload, dict):
         return None
@@ -1212,6 +1216,7 @@ def open_targets(tool: str) -> dict:
 
 
 def run_open(tool: str, target: str, project: str | None) -> dict:
+    logger.info(f"open tool={tool} target={target} project={project}")
     binary = OPENABLE.get(tool)
     if not binary:
         raise ApiError(f"{tool} não tem CLI para abrir em terminal", 400)
@@ -1270,7 +1275,8 @@ def npm_latest(package: str) -> str | None:
         response = httpx.get(f"{NPM_REGISTRY}/{quote(package, safe='')}/latest", timeout=10)
         response.raise_for_status()
         payload = response.json()
-    except (httpx.HTTPError, ValueError):
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.debug(f"versão npm de {package} indisponível: {exc}")
         return None
     version = payload.get("version") if isinstance(payload, dict) else None
     return version if isinstance(version, str) else None
@@ -1488,6 +1494,7 @@ def _run_command(command: list[str]) -> dict:
 
 
 def run_update(tool: str) -> dict:
+    logger.info(f"update tool={tool}")
     command = update_command(tool)
     if command is None:
         raise ApiError(f"não sei como atualizar {tool} nesta instalação", 400)
@@ -1509,6 +1516,7 @@ def run_update(tool: str) -> dict:
 
 
 def run_plugin_update(source: str, name: str) -> dict:
+    logger.info(f"update plugin {source}/{name}")
     if source == "claude" and name in claude_known_plugins():
         pass
     elif source == "opencode" and name in opencode_plugins():
@@ -1523,6 +1531,7 @@ def run_plugin_update(source: str, name: str) -> dict:
 
 
 def set_plugin_auto_update(name: str, auto: bool) -> dict:
+    logger.info(f"plugin-auto-update {name} auto={auto}")
     if name not in claude_known_plugins():
         raise ApiError("plugin não encontrado", 404)
     marketplace = name.rsplit("@", 1)[1] if "@" in name else ""
@@ -1592,7 +1601,8 @@ def _status_json(url: str):
         response = httpx.get(url, timeout=10, follow_redirects=True)
         response.raise_for_status()
         return response.json()
-    except (httpx.HTTPError, ValueError):
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.debug(f"status page {url} indisponível via httpx: {exc}")
         pass
     try:
         proc = subprocess.run(
@@ -1803,6 +1813,7 @@ def toggle_mcp_config(text: str, spec: dict, name: str, enabled: bool) -> str | 
 
 
 def run_mcp_action(source: str, name: str, action: str) -> dict:
+    logger.info(f"mcp {action} {source}/{name}")
     known = {m["name"] for m in collect_mcps() if m["source"] == source}
     if name not in known:
         raise ApiError("MCP não encontrado", 404)
@@ -1978,6 +1989,17 @@ def search_catalog(query: str, limit_files: int = 80) -> list[dict]:
 
 BACKUP_DIR = Path(os.path.expanduser("~/.ai_management_local/backups"))
 AUDIT_LOG = Path(os.path.expanduser("~/.ai_management_local/audit.log"))
+
+logger.remove()
+logger.add(sys.stderr, level=os.environ.get("AIM_LOG_LEVEL", "INFO"), format="{time:HH:mm:ss} | {level:<5} | {message}")
+logger.add(
+    AUDIT_LOG.parent / "backend.log",
+    rotation="1 MB",
+    retention=3,
+    level="DEBUG",
+    format="{time:YYYY-MM-DD HH:mm:ss} | {level:<5} | {message}",
+    enqueue=True,
+)
 BACKUP_KEEP = 10
 MAX_SAVE_BYTES = 2_000_000
 AIM_HEADER = "X-AIM"
@@ -2090,6 +2112,7 @@ def validate_content(path: Path, content: str):
 
 def save_file(source_id: str, rel: str, content: str, expected_mtime: int | None = None,
               force: bool = False, expected_mtime_ns: int | None = None) -> dict:
+    logger.info(f"save {source_id}/{rel}")
     try:
         path = resolve_file(source_id, rel)
     except ValueError as exc:
@@ -2135,6 +2158,7 @@ def list_backups(source_id: str, rel: str) -> list[dict]:
 
 
 def restore_backup(source_id: str, rel: str, backup_name: str) -> dict:
+    logger.info(f"restore {source_id}/{rel} backup={backup_name}")
     if Path(backup_name).name != backup_name or not backup_name:
         raise ApiError("nome de backup inválido", 400)
     try:
@@ -2172,6 +2196,10 @@ def dist_file(rel: str) -> Path | None:
 
 class Handler(BaseHTTPRequestHandler):
     def _send(self, code: int, body: bytes, content_type: str):
+        if code >= 500:
+            logger.error(f"{code} {self.path}")
+        elif code >= 400:
+            logger.warning(f"{code} {self.path}")
         self.send_response(code)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
@@ -2187,6 +2215,16 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
+        try:
+            self._do_GET()
+        except Exception:
+            logger.exception(f"GET {self.path} com erro")
+            try:
+                self._json({"error": "erro interno"}, 500)
+            except Exception:
+                pass
+
+    def _do_GET(self):
         url = urlparse(self.path)
         params = parse_qs(url.query)
         path = url.path
@@ -2312,6 +2350,16 @@ class Handler(BaseHTTPRequestHandler):
         self._json({"error": "não encontrado"}, 404)
 
     def do_POST(self):
+        try:
+            self._do_POST()
+        except Exception:
+            logger.exception(f"POST {self.path} com erro")
+            try:
+                self._json({"error": "erro interno"}, 500)
+            except Exception:
+                pass
+
+    def _do_POST(self):
         url = urlparse(self.path)
         if self.headers.get(AIM_HEADER) != "1":
             self._json({"error": "header de segurança ausente"}, 403)
@@ -2359,6 +2407,7 @@ class Handler(BaseHTTPRequestHandler):
                 if sys.platform != "darwin":
                     self._json({"error": "reveal disponível apenas no macOS"}, 400)
                     return
+                logger.info(f"reveal {path}")
                 subprocess.Popen(["open", "-R", str(path)])
                 self._json({"ok": True})
                 return
@@ -2415,6 +2464,7 @@ def main():
     url = f"http://{'127.0.0.1' if host == '0.0.0.0' else host}:{port}/"
     if "--no-open" not in sys.argv:
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()
+    logger.info(f"AI Manager Local em {url}  (Ctrl+C para parar)")
     print(f"AI Manager Local em {url}  (Ctrl+C para parar)")
     try:
         server = ThreadingHTTPServer((host, port), Handler)

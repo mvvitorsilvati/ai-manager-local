@@ -63,6 +63,19 @@ def test_open_targets_lista_terminais_e_apps(servidor, monkeypatch):
     }
 
 
+def test_open_invalido_registra_warning_no_log(servidor):
+    from loguru import logger
+
+    registros = []
+    hid = logger.add(lambda mensagem: registros.append(mensagem), level="WARNING")
+    try:
+        status, _ = request(f"{servidor.url}/api/open", {"tool": "x", "target": "y"})
+        assert status == 400
+        assert any("/api/open" in r for r in registros)
+    finally:
+        logger.remove(hid)
+
+
 def test_app_icon_serve_png_e_nega_id_ruim(servidor, tmp_path, monkeypatch):
     import open_with
 

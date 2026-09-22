@@ -43,6 +43,11 @@ Roda 100% local (`127.0.0.1`), sem telemetria e sem enviar nada para fora — ex
 - **Histórico**: botão voltar do mouse/navegador navega entre seções e fecha o viewer, com guarda para alterações não salvas
 - **Auditoria**: lista as últimas gravações do painel (save/restore) com data, caminho e backup, lidas de `~/.ai_management_local/audit.log`
 
+## Logs e debug
+
+- **Backend** (Loguru): nível por `AIM_LOG_LEVEL` (`DEBUG`, padrão `INFO`); crises vão para o stderr e tudo vai para `~/.ai_management_local/backend.log` (rotação 1 MB, 3 arquivos). `info` nas mutações (save/restore/update/mcp/open), `warning` nos 4xx, `error` com traceback nos 500, `debug` nas chamadas externas
+- **Frontend** (`web/src/lib/log.ts`, sem dependências): `warn`/`error` sempre no console; `debug`/`info` só com `?debug=1` ou `localStorage "aim:debug" = "1"`. Buffer dos últimos 500 registros exportável via `downloadLogs()` (ou `__AIM_LOGS__` no console); erros não tratados e promises rejeitadas caem no log. Falhas de API geram `warn` com método, rota e status (sem corpos nem segredos)
+
 ## Stack
 
 - **Backend**: Python 3.14, biblioteca padrão (`http.server`) + [trio](https://trio.readthedocs.io/) e [httpx](https://www.python-httpx.org/), gerenciados pelo [uv](https://docs.astral.sh/uv/)

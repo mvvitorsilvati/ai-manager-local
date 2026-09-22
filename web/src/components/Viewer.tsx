@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { RENDERABLE_RE, IMAGE_RE, useCatalog } from "@/hooks/useCatalog"
 import { api, type Backup } from "@/lib/api"
 import { baseName, fmtBytes, fmtDT, resolveRelative } from "@/lib/format"
+import { TopSkillBadge, useSkillUsage } from "@/views/Skills"
 import { tokens } from "@/views/Spend"
 
 type Mode = "render" | "raw" | "edit"
@@ -36,6 +37,12 @@ export function Viewer() {
 
   const isImage = IMAGE_RE.test(r)
   const canRender = RENDERABLE_RE.test(r)
+  const isSkill = !isImage && r.toLowerCase().endsWith("/skill.md")
+  const skillName = isSkill ? (r.split("/").slice(-2, -1)[0] ?? "") : ""
+  const { data: skillUsage } = useSkillUsage(0, undefined, isSkill)
+  const skillRank = isSkill
+    ? (skillUsage?.top.findIndex((row) => row.skill.toLowerCase() === skillName.toLowerCase()) ?? -1)
+    : -1
   const dirty = buffer !== null && data !== undefined && buffer !== data.content
   const text = buffer ?? data?.content ?? ""
 
@@ -254,6 +261,7 @@ export function Viewer() {
                 ≈ {tokens(Math.ceil(data.content.length / 4))} tokens
               </Badge>
             )}
+            <TopSkillBadge skill={skillName} rank={skillRank} />
             <span title={new Date(data.created * 1000).toISOString()}>Criado: {fmtDT(data.created * 1000)}</span>
             <span title={new Date(data.mtime * 1000).toISOString()}>Modificado: {fmtDT(data.mtime * 1000)}</span>
             <span>

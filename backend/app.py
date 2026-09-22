@@ -27,6 +27,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
+import spend
+
 try:
     import httpx
     import trio
@@ -2131,6 +2133,18 @@ class Handler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         params = parse_qs(url.query)
         path = url.path
+        if url.path == "/api/spend":
+            raw = params.get("days", ["30"])[0]
+            try:
+                days = int(raw)
+            except ValueError:
+                days = 30
+            self._json(spend.snapshot(
+                None if days <= 0 else min(days, 3650),
+                params.get("tool", [""])[0] or None,
+                force=params.get("refresh", ["0"])[0] == "1",
+            ))
+            return
         if url.path == "/api/usage":
             self._json(usage_snapshot(
                 force=params.get("refresh", ["0"])[0] == "1",

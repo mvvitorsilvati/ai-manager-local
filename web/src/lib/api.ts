@@ -134,6 +134,32 @@ export type SpendResponse = {
   tools: Record<string, SpendTool>
 }
 
+export type SkillRow = {
+  skill: string
+  invocations: number
+  sessions: number
+  context_tokens: number
+  by_origin: { user: number; model: number }
+  resolved: boolean
+  tools?: Record<string, number>
+}
+
+export type SkillTool = {
+  id: string
+  label: string
+  available: boolean
+  note: string
+  invocations: number
+  rows: SkillRow[]
+}
+
+export type SkillUsageResponse = {
+  generated_at: string
+  days: number | null
+  tools: Record<string, SkillTool>
+  top: SkillRow[]
+}
+
 export type UsageTool = "claude" | "codex" | "copilot"
 export type UsageResponse = Partial<Record<UsageTool, ToolUsage | null>>
 
@@ -217,8 +243,10 @@ export const api = {
     unwrap<UsageResponse>(
       client.get("/api/usage", { params: { ...(refresh ? { refresh: "1" } : {}), ...(tool ? { tool } : {}) } }),
     ),
-  spend: (days = 30, tool?: string) =>
+  spend: (days = 7, tool?: string) =>
     unwrap<SpendResponse>(client.get("/api/spend", { params: { days, ...(tool ? { tool } : {}) } })),
+  skillUsage: (days = 7, tool?: string) =>
+    unwrap<SkillUsageResponse>(client.get("/api/skill-usage", { params: { days, ...(tool ? { tool } : {}) } })),
   versions: (refresh = false) =>
     unwrap<VersionsResponse>(client.get("/api/versions", { params: refresh ? { refresh: "1" } : {} })),
   update: (body: { tool: string } | { source: string; name: string }) =>

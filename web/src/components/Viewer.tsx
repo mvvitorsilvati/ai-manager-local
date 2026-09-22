@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { RENDERABLE_RE, IMAGE_RE, useCatalog } from "@/hooks/useCatalog"
 import { api, type Backup } from "@/lib/api"
 import { baseName, fmtBytes, fmtDT, resolveRelative } from "@/lib/format"
+import { tokens } from "@/views/Spend"
 
 type Mode = "render" | "raw" | "edit"
 
@@ -244,6 +245,15 @@ export function Viewer() {
             <Badge variant="secondary" className="font-normal">
               {fmtBytes(data.size)}
             </Badge>
+            {!isImage && (
+              <Badge
+                variant="secondary"
+                className="font-normal"
+                title={`Estimativa de tokens no contexto (caracteres ÷ 4)${data.truncated ? " — calculada sobre os primeiros 400 KB" : ""}`}
+              >
+                ≈ {tokens(Math.ceil(data.content.length / 4))} tokens
+              </Badge>
+            )}
             <span title={new Date(data.created * 1000).toISOString()}>Criado: {fmtDT(data.created * 1000)}</span>
             <span title={new Date(data.mtime * 1000).toISOString()}>Modificado: {fmtDT(data.mtime * 1000)}</span>
             <span>

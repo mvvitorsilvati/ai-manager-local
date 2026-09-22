@@ -14,6 +14,7 @@ import { useUsage } from "@/hooks/useUsage"
 import { useVersions } from "@/hooks/useVersions"
 import { api } from "@/lib/api"
 import { ago } from "@/lib/format"
+import { SkillsTop } from "@/views/Skills"
 import { SpendOverviewCard } from "@/views/Spend"
 
 export default function Dashboard() {
@@ -97,6 +98,11 @@ export default function Dashboard() {
       <div>
         <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">Consumo das IAs</h3>
         <SpendOverviewCard />
+      </div>
+
+      <div>
+        <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">Skills mais usadas</h3>
+        <SkillsTop />
       </div>
 
       {(versionsPending || versions) && (

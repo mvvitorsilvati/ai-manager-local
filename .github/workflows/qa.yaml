@@ -131,3 +131,30 @@ jobs:
           name: playwright-test-results
           path: web/test-results/
           retention-days: 7
+
+  docker:
+    name: Docker (imagem sobe e responde)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build da imagem
+        run: docker build -t localhost/ai-manager-local-py-3.14:0.1.0 .
+
+      - name: Sobe o container e confere a API
+        run: |
+          docker run -d --name aim-smoke -p 127.0.0.1:4799:4747 \
+            -e HOME=/tmp/host-home localhost/ai-manager-local-py-3.14:0.1.0
+          for _ in $(seq 1 20); do
+            if curl -sf -o /dev/null http://127.0.0.1:4799/api/catalog; then
+              echo "GET /api/catalog respondeu 200"
+              docker rm -f aim-smoke
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API não respondeu; logs do container:"
+          docker logs aim-smoke
+          docker rm -f aim-smoke
+          exit 1

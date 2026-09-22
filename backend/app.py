@@ -27,6 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
+import skills
 import spend
 
 try:
@@ -2134,12 +2135,24 @@ class Handler(BaseHTTPRequestHandler):
         params = parse_qs(url.query)
         path = url.path
         if url.path == "/api/spend":
-            raw = params.get("days", ["30"])[0]
+            raw = params.get("days", ["7"])[0]
             try:
                 days = int(raw)
             except ValueError:
-                days = 30
+                days = 7
             self._json(spend.snapshot(
+                None if days <= 0 else min(days, 3650),
+                params.get("tool", [""])[0] or None,
+                force=params.get("refresh", ["0"])[0] == "1",
+            ))
+            return
+        if url.path == "/api/skill-usage":
+            raw = params.get("days", ["7"])[0]
+            try:
+                days = int(raw)
+            except ValueError:
+                days = 7
+            self._json(skills.snapshot(
                 None if days <= 0 else min(days, 3650),
                 params.get("tool", [""])[0] or None,
                 force=params.get("refresh", ["0"])[0] == "1",

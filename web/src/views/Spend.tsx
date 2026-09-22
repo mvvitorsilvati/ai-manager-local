@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api, type SpendBucket, type SpendTool } from "@/lib/api"
+import SpendSkills, { SkillTable, useSkillUsage } from "@/views/Skills"
 
 const PERIODS = [
   { days: 7, label: "7 dias" },
@@ -468,11 +469,12 @@ function Table({
     <div>
       <h4 className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wider uppercase">{title}</h4>
       <div className="border-border overflow-hidden rounded-md border">
-        {rows.map((row) => (
+        {rows.map((row, i) => (
           <div
             key={String(row[name])}
             className="border-border flex items-center gap-2 border-b px-2 py-1 text-xs last:border-0"
           >
+            <span className="text-muted-foreground w-6 shrink-0 text-right">{i + 1}</span>
             <span className="min-w-0 flex-1 truncate" title={String(row[name])}>
               {String(row[name])}
             </span>
@@ -489,7 +491,7 @@ function Table({
 
 export function ToolCard({
   id,
-  initialDays = 30,
+  initialDays = 7,
   detailLink = false,
 }: {
   id: string
@@ -511,6 +513,20 @@ export function ToolCard({
       onDays={setDays}
       detailLink={detailLink}
     />
+  )
+}
+
+function ToolSkills({ id, days }: { id: string; days: number }) {
+  const { data } = useSkillUsage(days, id)
+  const rows = data?.tools[id]?.rows ?? []
+  if (!rows.length) return null
+  return (
+    <div className="mt-4">
+      <h4 className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wider uppercase">
+        Skills mais usadas
+      </h4>
+      <SkillTable rows={rows} showTools={false} />
+    </div>
   )
 }
 
@@ -613,6 +629,7 @@ function ToolCardBody({
             <Table title="por modelo" rows={tool.by_model} name="model" currency={tool.currency} />
             <Table title="por projeto" rows={tool.by_project} name="project" currency={tool.currency} />
           </div>
+          <ToolSkills id={tool.id} days={days} />
           {tool.unknown_models.length > 0 && (
             <p className="text-muted-foreground mt-3 text-[11px]">
               Sem preço de tabela: {tool.unknown_models.join(", ")}. O custo desses modelos está zerado.
@@ -679,7 +696,7 @@ const OVERVIEW_PERIODS = [
 ]
 
 export function SpendOverviewCard() {
-  const [days, setDays] = useState(30)
+  const [days, setDays] = useState(7)
   const [metric, setMetric] = useState<Metric>("cost")
   const { data, isPending } = useSpend(days)
   const tools = data ? Object.values(data.tools) : []
@@ -734,7 +751,7 @@ export function SpendOverviewCard() {
 
 export default function SpendView() {
   const [params, setParams] = useSearchParams()
-  const days = Number(params.get("days") ?? 30)
+  const days = Number(params.get("days") ?? 7)
   const tool = params.get("tool") || undefined
   const selected = tool && TOOLS.includes(tool) ? tool : undefined
   const [metric, setMetric] = useState<Metric>("cost")
@@ -760,43 +777,45 @@ export default function SpendView() {
       <p className="text-muted-foreground mb-4 text-sm">
         Tokens e custo lidos dos logs locais. A primeira leitura do período pode levar alguns segundos.
       </p>
-      <div className="mb-3 flex flex-wrap gap-2">
-        {PERIODS.map((period) => (
-          <Button
-            key={period.days}
-            size="sm"
-            variant={days === period.days ? "secondary" : "outline"}
-            className="rounded-full"
-            onClick={() => set({ days: period.days })}
-          >
-            {period.label}
-          </Button>
-        ))}
-      </div>
-      <div className="mb-3 flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant={!selected ? "secondary" : "outline"}
-          className="rounded-full"
-          onClick={() => set({ tool: "" })}
-        >
-          Todas
-        </Button>
-        {TOOLS.map((id) => (
-          <Button
-            key={id}
-            size="sm"
-            variant={selected === id ? "secondary" : "outline"}
-            className="rounded-full"
-            onClick={() => set({ tool: id })}
-          >
-            <ToolIcon id={id} className="size-3.5" />
-            {id}
-          </Button>
-        ))}
-      </div>
-      <div className="mb-5 flex flex-wrap gap-4">
-        <MetricToggle value={metric} onChange={setMetric} />
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant={!selected ? "secondary" : "outline"}
+              className="rounded-full"
+              onClick={() => set({ tool: "" })}
+            >
+              Todas
+            </Button>
+            {TOOLS.map((id) => (
+              <Button
+                key={id}
+                size="sm"
+                variant={selected === id ? "secondary" : "outline"}
+                className="rounded-full"
+                onClick={() => set({ tool: id })}
+              >
+                <ToolIcon id={id} className="size-3.5" />
+                {id}
+              </Button>
+            ))}
+          </div>
+          <MetricToggle value={metric} onChange={setMetric} />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {PERIODS.map((period) => (
+            <Button
+              key={period.days}
+              size="sm"
+              variant={days === period.days ? "secondary" : "outline"}
+              className="rounded-full"
+              onClick={() => set({ days: period.days })}
+            >
+              {period.label}
+            </Button>
+          ))}
+        </div>
       </div>
       {isPending ? (
         <ViewSkeleton rows={4} />
@@ -824,6 +843,7 @@ export default function SpendView() {
               />
             </div>
           )}
+          <SpendSkills days={period} tool={selected} />
           {selected ? (
             <ToolCard key={`${selected}-${period}`} id={selected} initialDays={period} />
           ) : (

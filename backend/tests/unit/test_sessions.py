@@ -1,0 +1,499 @@
+from __future__ import annotations
+
+import json
+import sqlite3
+from pathlib import Path
+
+import app
+import sessions
+
+
+def test_higienizacao_titulo_e_preview():
+    # Remove tags <USER_REQUEST> e HTML
+    raw = "<USER_REQUEST>Criar testes unitários para o sistema</USER_REQUEST>"
+    assert sessions.clean_title(raw) == "Criar testes unitários para o sistema"
+
+    raw_html = "<div>Título <b>com</b> formatação</div>"
+    assert sessions.clean_title(raw_html) == "Título com formatação"
+
+    # Truncamento com reticências
+    long_title = "A" * 150
+    cleaned = sessions.clean_title(long_title, max_len=50)
+    assert len(cleaned) == 51  # 50 chars + "…"
+    assert cleaned.endswith("…")
+
+    # Preview com ANSI escapes
+    ansi_text = "\x1b[32mSucesso na execução\x1b[0m do comando"
+    assert sessions.clean_preview(ansi_text) == "Sucesso na execução do comando"
+
+
+def test_sanitizacao_skills():
+    raw_skills = ["tgrep", "linear-mcp", "a", "invalid skill with space", "true", "tgrep"]
+    sanitized = sessions.sanitize_skills(raw_skills)
+    assert sanitized == ["linear-mcp", "tgrep"]
+
+
+def test_rotulo_projeto():
+    assert sessions.project_label("/Users/dev/Projetos/Activesoft/sigaweb") == "Activesoft/sigaweb"
+    assert sessions.project_label("/Users/dev/repo") == "dev/repo"
+    assert sessions.project_label(None) == "global"
+
+
+def test_comando_reabertura_por_ia():
+    assert sessions.resume_command("claude", "claude", "sess-123") == "claude --resume sess-123"
+    assert sessions.resume_command("codex", "codex", "sess-456") == "codex resume sess-456"
+    assert sessions.resume_command("opencode", "opencode", "sess-789") == "opencode session sess-789"
+    assert sessions.resume_command("copilot", "copilot", "sess-abc") == "copilot --resume sess-abc"
+    assert "resume sess-xyz" in sessions.resume_command("gemini", "gemini", "sess-xyz")
+
+
+def test_metodo_instalacao_cli(monkeypatch):
+    import shutil
+
+    # Simula binário no Homebrew Cask
+    monkeypatch.setattr(shutil, "which", lambda b: "/opt/homebrew/Caskroom/codex/0.157.1/bin/codex")
+    assert app.cli_install_method("codex") == "brew (cask)"
+
+    # Simula binário no Homebrew Cellar
+    monkeypatch.setattr(shutil, "which", lambda b: "/opt/homebrew/Cellar/opencode/1.18.32/bin/opencode")
+    assert app.cli_install_method("opencode") == "brew"
+
+    # Simula binário via npm / fnm
+    monkeypatch.setattr(
+        shutil, "which", lambda b: "/Users/dev/.local/share/fnm/node-versions/v24/lib/node_modules/copilot"
+    )
+    assert app.cli_install_method("copilot") == "npm"
+
+    # Simula binário via script install.sh (.local/share/claude)
+    monkeypatch.setattr(shutil, "which", lambda b: "/Users/dev/.local/share/claude/versions/2.1.283")
+    assert app.cli_install_method("claude") == "install.sh"
+
+    # Simula binário ausente
+    monkeypatch.setattr(shutil, "which", lambda b: None)
+    assert app.cli_install_method("inexistente") is None
+
+
+def test_scan_sessoes_claude(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True)
+    history_file = claude_dir / "history.jsonl"
+    projects_dir = claude_dir / "projects" / "p1"
+    projects_dir.mkdir(parents=True)
+
+    # Escreve entrada no history
+    history_file.write_text(
+        json.dumps({
+            "sessionId": "session-claude-1",
+            "display": "Refatoração de serviço de cobrança",
+            "project": "/Users/dev/Projetos/sigaweb",
+            "timestamp": 1727400000000,
+        })
+        + "\n"
+    )
+
+    # Escreve transcript no projects
+    transcript_file = projects_dir / "session-claude-1.jsonl"
+    lines = [
+        json.dumps({
+            "type": "user",
+            "timestamp": "2026-09-27T10:00:00Z",
+            "message": {"content": "Como refatorar o boleto?"},
+        }),
+        json.dumps({
+            "type": "assistant",
+            "timestamp": "2026-09-27T10:01:00Z",
+            "message": {
+                "content": [
+                    {"type": "tool_use", "name": "Skill", "input": {"skill": "tgrep"}},
+                    {"type": "text", "text": "Aqui está a proposta de refatoração."},
+                ],
+                "usage": {"input_tokens": 100, "output_tokens": 50, "cache_read_input_tokens": 20},
+            },
+        }),
+    ]
+    transcript_file.write_text("\n".join(lines) + "\n")
+
+    res = sessions.scan_claude_sessions(home=tmp_path)
+    assert len(res) == 1
+    s = res[0]
+    assert s["id"] == "session-claude-1"
+    assert s["title"] == "Refatoração de serviço de cobrança"
+    assert s["skills"] == ["tgrep"]
+    assert s["tokens"] == 170
+    assert s["resume_cmd"] == "claude --resume session-claude-1"
+
+
+def test_scan_sessoes_gemini(tmp_path: Path):
+    gemini_root = tmp_path / ".gemini" / "antigravity-cli"
+    gemini_root.mkdir(parents=True)
+    history_file = gemini_root / "history.jsonl"
+    history_file.write_text(
+        json.dumps({
+            "conversationId": "gemini-conv-1",
+            "display": "Ajuste de statusline e monitoramento",
+            "workspace": "/Users/dev/Projetos/ai-manager-local",
+            "timestamp": 1727400000000,
+        })
+        + "\n"
+    )
+
+    brain_dir = gemini_root / "brain" / "gemini-conv-1" / ".system_generated" / "logs"
+    brain_dir.mkdir(parents=True)
+    transcript_file = brain_dir / "transcript.jsonl"
+    transcript_file.write_text(
+        json.dumps({
+            "type": "USER_INPUT",
+            "source": "USER_EXPLICIT",
+            "content": "<USER_REQUEST>Configurar statusline do agy</USER_REQUEST>",
+            "created_at": "2026-09-27T10:00:00Z",
+        })
+        + "\n"
+        + json.dumps({
+            "type": "PLANNER_RESPONSE",
+            "content": "Statusline configurado com sucesso.",
+            "created_at": "2026-09-27T10:02:00Z",
+        })
+        + "\n"
+    )
+
+    cache_dir = gemini_root / "cache"
+    cache_dir.mkdir(parents=True)
+    usage_file = cache_dir / "session_usage.json"
+    usage_file.write_text(
+        json.dumps({
+            "gemini-conv-1": {
+                "total_in": 500,
+                "total_out": 200,
+                "cache_read": 100,
+                "cost_usd": 0.0025,
+            }
+        })
+    )
+
+    res = sessions.scan_gemini_sessions(home=tmp_path)
+    assert len(res) == 1
+    s = res[0]
+    assert s["id"] == "gemini-conv-1"
+    assert s["tokens"] == 800
+    assert s["cost"] == 0.0025
+    assert "resume" in s["resume_cmd"]
+
+
+def test_scan_sessoes_opencode(tmp_path: Path):
+    db_dir = tmp_path / ".local" / "share" / "opencode"
+    db_dir.mkdir(parents=True)
+    db_file = db_dir / "opencode.db"
+
+    conn = sqlite3.connect(db_file)
+    conn.execute("""
+        CREATE TABLE session (
+            id TEXT PRIMARY KEY,
+            title TEXT,
+            directory TEXT,
+            cost REAL,
+            tokens_input INTEGER,
+            tokens_output INTEGER,
+            tokens_cache_read INTEGER,
+            time_created INTEGER,
+            time_updated INTEGER
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE message (
+            id TEXT PRIMARY KEY,
+            session_id TEXT,
+            data TEXT,
+            time_created INTEGER
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE part (
+            id TEXT PRIMARY KEY,
+            session_id TEXT,
+            data TEXT
+        )
+    """)
+
+    conn.execute(
+        """
+        INSERT INTO session VALUES (
+            'ses_1', 'Correção de bug de autenticação', '/tmp/repo',
+            0.015, 1000, 500, 200, 1727400000000, 1727401000000
+        )
+        """
+    )
+    conn.execute(
+        """
+        INSERT INTO message VALUES ('msg_1', 'ses_1', '{"content": "Erro ao autenticar"}', 1727400000000)
+    """
+    )
+    conn.execute(
+        """
+        INSERT INTO part VALUES ('part_1', 'ses_1', '{"tool": "skill", "args": {"name": "github-pr-metrics"}}')
+    """
+    )
+    conn.commit()
+    conn.close()
+
+    res = sessions.scan_opencode_sessions(home=tmp_path)
+    assert len(res) == 1
+    s = res[0]
+    assert s["id"] == "ses_1"
+    assert s["title"] == "Correção de bug de autenticação"
+    assert s["skills"] == ["github-pr-metrics"]
+    assert s["tokens"] == 1700
+    assert s["cost"] == 0.015
+    assert s["resume_cmd"] == "opencode session ses_1"
+
+
+def test_busca_e_filtro_multi_termo(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True)
+    history_file = claude_dir / "history.jsonl"
+    history_file.write_text(
+        json.dumps({
+            "sessionId": "s-1",
+            "display": "Refatorar banco de dados PostgreSQL",
+            "project": "/Projetos/financeiro",
+            "timestamp": 1727400000000,
+        })
+        + "\n"
+        + json.dumps({
+            "sessionId": "s-2",
+            "display": "Ajustar testes de frontend com vitest",
+            "project": "/Projetos/ui",
+            "timestamp": 1727401000000,
+        })
+        + "\n"
+    )
+
+    # Busca que casa apenas com a primeira sessão
+    res1 = sessions.get_sessions("claude", query="postgres financeiro", home=tmp_path, force_refresh=True)
+    assert res1["total"] == 1
+    assert res1["sessions"][0]["id"] == "s-1"
+
+    # Busca que casa apenas com a segunda sessão
+    res2 = sessions.get_sessions("claude", query="vitest", home=tmp_path, force_refresh=True)
+    assert res2["total"] == 1
+    assert res2["sessions"][0]["id"] == "s-2"
+
+    # Busca sem correspondência
+    res3 = sessions.get_sessions("claude", query="inexistente termo", home=tmp_path, force_refresh=True)
+    assert res3["total"] == 0
+
+
+def test_abertura_sessao_com_diretorio(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(app, "OPENABLE", {"claude": "claude"})
+    launched = []
+    monkeypatch.setattr(app.open_with, "launch", lambda argv: launched.append(argv))
+    monkeypatch.setattr(app.open_with, "list_terminals", lambda: [{"id": "terminal", "label": "Terminal"}])
+    monkeypatch.setattr(
+        app.open_with,
+        "argv_for_terminal",
+        lambda ident, cmd, cwd: ["osascript", "-e", f"cd '{cwd}' && {cmd}"],
+    )
+
+    proj_dir = tmp_path / "meu_projeto"
+    proj_dir.mkdir()
+
+    res = app.run_open(
+        tool="claude",
+        target="terminal:terminal",
+        project=None,
+        session_id="ses-12345",
+        cwd=str(proj_dir),
+    )
+    assert res["ok"] is True
+    assert len(launched) == 1
+    assert f"cd '{proj_dir}' && claude --resume ses-12345" in launched[0][2]
+
+
+def test_get_sessions_todas_as_ias(tmp_path: Path):
+    # Cria uma sessão claude e uma sessão gemini
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True)
+    hist_claude = claude_dir / "history.jsonl"
+    hist_claude.write_text(
+        json.dumps({
+            "sessionId": "s-c1",
+            "display": "Refatoração de API",
+            "project": str(tmp_path),
+            "timestamp": 1727400000000,
+        })
+        + "\n"
+    )
+
+    agy_root = tmp_path / ".gemini" / "antigravity-cli"
+    agy_root.mkdir(parents=True)
+    hist_agy = agy_root / "history.jsonl"
+    hist_agy.write_text(
+        json.dumps({
+            "conversationId": "s-g1",
+            "display": "Análise arquitetural",
+            "workspace": str(tmp_path),
+            "timestamp": 1727400005000,
+        })
+        + "\n"
+    )
+
+    res = sessions.get_sessions("all", home=tmp_path, force_refresh=True)
+    assert res["ok"] is True
+    assert res["tool"] == "all"
+    assert res["total"] >= 2
+    ids = [s["id"] for s in res["sessions"]]
+    assert "s-g1" in ids
+    assert "s-c1" in ids
+
+    # Busca cross-tool por termo
+    res_search = sessions.get_sessions("all", query="arquitetural", home=tmp_path, force_refresh=True)
+    assert res_search["total"] == 1
+    assert res_search["sessions"][0]["id"] == "s-g1"
+
+
+def test_scan_sessoes_windows_caminhos(tmp_path: Path):
+    # Simula estrutura do OpenCode no AppData do Windows
+    opencode_win = tmp_path / "AppData" / "Local" / "opencode"
+    opencode_win.mkdir(parents=True)
+    db_file = opencode_win / "opencode.db"
+    conn = sqlite3.connect(db_file)
+    conn.execute(
+        """
+        CREATE TABLE session (
+            id TEXT, title TEXT, directory TEXT, cost REAL, tokens_input INT,
+            tokens_output INT, tokens_cache_read INT, time_created INT, time_updated INT
+        )
+        """
+    )
+    conn.execute(
+        """
+        INSERT INTO session VALUES (
+            'win_ses_1', 'Sessão no Windows', 'C:\\Projetos\\sigaweb', 0.05, 100, 200, 50, 1727400000000, 1727400000000
+        )
+        """
+    )
+    conn.commit()
+    conn.close()
+
+    res = sessions.scan_opencode_sessions(home=tmp_path)
+    assert len(res) == 1
+    assert res[0]["id"] == "win_ses_1"
+    assert res[0]["title"] == "Sessão no Windows"
+
+
+def test_terminal_powershell_windows(monkeypatch):
+    import sys
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(app.open_with, "_which", lambda names: "C:\\Windows\\System32\\powershell.exe")
+
+    terms = app.open_with.list_terminals()
+    term_ids = {t["id"] for t in terms}
+    assert "powershell" in term_ids
+
+    ps_entry = next(t for t in app.open_with.TERMINALS if t["id"] == "powershell")
+    argv = ps_entry["argv"]("claude", "C:\\workspace")
+    assert "powershell.exe" in argv[0]
+    assert "Set-Location -LiteralPath 'C:\\workspace'; claude" in argv[3]
+
+
+def test_detalhes_sessao_claude_com_mensagens(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True)
+    history_file = claude_dir / "history.jsonl"
+    projects_dir = claude_dir / "projects" / "p1"
+    projects_dir.mkdir(parents=True)
+
+    history_file.write_text(
+        json.dumps({
+            "sessionId": "ses-det-claude",
+            "display": "Refatorar módulo de pagamentos",
+            "project": "/Projetos/pagamentos",
+            "timestamp": 1727400000000,
+        })
+        + "\n"
+    )
+
+    transcript_file = projects_dir / "ses-det-claude.jsonl"
+    lines = [
+        json.dumps({
+            "type": "user",
+            "timestamp": "2026-09-27T10:00:00Z",
+            "message": {"content": "Como implementar o split de pagamentos?"},
+        }),
+        json.dumps({
+            "type": "assistant",
+            "timestamp": "2026-09-27T10:01:00Z",
+            "message": {
+                "content": [
+                    {"type": "tool_use", "name": "Skill", "input": {"skill": "payment-splitter"}},
+                    {"type": "text", "text": "Segue o desenho arquitetural do split."},
+                ],
+            },
+        }),
+    ]
+    transcript_file.write_text("\n".join(lines) + "\n")
+
+    res = sessions.get_session_details("claude", "ses-det-claude", home=tmp_path)
+    assert res["ok"] is True
+    assert res["id"] == "ses-det-claude"
+    assert res["title"] == "Refatorar módulo de pagamentos"
+    assert "payment-splitter" in res["skills"]
+    assert len(res["messages"]) == 2
+    assert res["messages"][0]["role"] == "user"
+    assert "Como implementar o split" in res["messages"][0]["content"]
+    assert res["messages"][1]["role"] == "assistant"
+    assert "Segue o desenho arquitetural" in res["messages"][1]["content"]
+
+
+def test_detalhes_sessao_gemini_com_ferramentas(tmp_path: Path):
+    gemini_root = tmp_path / ".gemini" / "antigravity-cli"
+    gemini_root.mkdir(parents=True)
+    history_file = gemini_root / "history.jsonl"
+    history_file.write_text(
+        json.dumps({
+            "conversationId": "conv-gemini-det",
+            "display": "Auditoria de agentes",
+            "workspace": "/Projetos/ai-manager-local",
+            "timestamp": 1727400000000,
+        })
+        + "\n"
+    )
+
+    brain_dir = gemini_root / "brain" / "conv-gemini-det" / ".system_generated" / "logs"
+    brain_dir.mkdir(parents=True)
+    transcript_file = brain_dir / "transcript.jsonl"
+    lines = [
+        json.dumps({
+            "type": "USER_INPUT",
+            "source": "USER_EXPLICIT",
+            "content": "<USER_REQUEST>Auditar o tier do repositório</USER_REQUEST>",
+            "created_at": "2026-09-27T10:00:00Z",
+        }),
+        json.dumps({
+            "type": "PLANNER_RESPONSE",
+            "content": "Iniciando a auditoria das 10 dimensões.",
+            "tool_calls": [{"toolAction": "Checking files", "toolSummary": "Verify configs"}],
+            "created_at": "2026-09-27T10:01:00Z",
+        }),
+    ]
+    transcript_file.write_text("\n".join(lines) + "\n")
+
+    res = sessions.get_session_details("gemini", "conv-gemini-det", home=tmp_path)
+    assert res["ok"] is True
+    assert res["id"] == "conv-gemini-det"
+    assert len(res["messages"]) == 2
+    assert res["messages"][0]["role"] == "user"
+    assert res["messages"][0]["content"] == "Auditar o tier do repositório"
+    assert res["messages"][1]["role"] == "assistant"
+    assert "Iniciando a auditoria" in res["messages"][1]["content"]
+    assert "Checking files" in res["messages"][1]["tool_calls"]
+
+
+def test_detalhes_sessao_fallback_metadados(tmp_path: Path):
+    # Sessão inexistente no transcript retorna fallback estruturado sem erro
+    res = sessions.get_session_details("codex", "sess-inexistente", home=tmp_path)
+    assert res["ok"] is True
+    assert res["id"] == "sess-inexistente"
+    assert res["tool"] == "codex"
+    assert isinstance(res["messages"], list)
+
+

@@ -28,7 +28,7 @@ import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom"
 import { IncidentIcon } from "@/components/bits"
 import { CollapseAllButton, useCollapseContext } from "@/components/collapse"
 import { CommandMenu } from "@/components/CommandMenu"
-import { FlagBR, FlagUS } from "@/components/flags"
+import { FlagBR, FlagES, FlagUS } from "@/components/flags"
 import { ToolIcon } from "@/components/ToolIcon"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -155,10 +155,10 @@ export default function App() {
         return
       }
 
-      // Cmd/Ctrl + L -> Alternar idioma entre pt e en
+      // Cmd/Ctrl + L -> Alternar idioma entre pt, en e es
       if (key === "l") {
         e.preventDefault()
-        setLang(lang === "pt" ? "en" : "pt")
+        setLang(lang === "pt" ? "en" : lang === "en" ? "es" : "pt")
         return
       }
 
@@ -333,7 +333,13 @@ export default function App() {
                     title={`${t("header.language")} (⌘L)`}
                     aria-label={t("header.language")}
                   >
-                    {lang === "pt" ? <FlagBR className="size-4" /> : <FlagUS className="size-4" />}
+                    {lang === "pt" ? (
+                      <FlagBR className="size-4" />
+                    ) : lang === "es" ? (
+                      <FlagES className="size-4" />
+                    ) : (
+                      <FlagUS className="size-4" />
+                    )}
                     <ChevronDown className="size-3.5 opacity-60" />
                   </Button>
                 }
@@ -346,6 +352,10 @@ export default function App() {
                 <DropdownMenuItem onClick={() => setLang("en")}>
                   <FlagUS className="size-4 shrink-0" />
                   English (US)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setLang("es")}>
+                  <FlagES className="size-4 shrink-0" />
+                  Español (ES)
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

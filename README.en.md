@@ -19,7 +19,7 @@ Local web panel (on your Mac only) to view and edit the settings of the AIs inst
 ![tests](https://img.shields.io/badge/tests-pytest%20%2B%20Vitest%20%2B%20Playwright-0A9EDC)
 ![license](https://img.shields.io/badge/license-MIT-3DA639)
 
-**Read this in:** [Português (Brasil)](README.md)
+**Read this in:** [Português (Brasil)](README.md) · [Español](README.es.md)
 
 **Operating systems:** macOS is the full target (Keychain, Finder, native apps and their icons). Linux, WSL and containers run the panel with what is cross-platform; the differences are under [Limitations](#limitations). On WSL with the AIs installed on Windows, use `AIM_HOME` — see [Using on WSL](#using-on-wsl-ais-installed-on-windows).
 
@@ -35,7 +35,7 @@ It runs 100% locally (`127.0.0.1`), with no telemetry and nothing sent out — e
 - **Viewer and safe editing**: Markdown/Mermaid, JSON, images, Monaco editor with automatic backup and conflict detection
 - **Usage, spend and skills**: account limits, cost/tokens per model, project and day (charts) and the top 20 skills
 - **Operations**: MCPs, plugins, versions and updates, opening the AI in a terminal or native app, audit and logs
-- **Search, languages and theme**: global and contextual search, PT-BR/EN interface and light/dark mode
+- **Search, languages and theme**: global and contextual search, PT-BR/EN/ES interface and light/dark mode
 
 Details in [What it does](#what-it-does).
 

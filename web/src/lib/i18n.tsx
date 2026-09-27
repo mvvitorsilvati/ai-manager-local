@@ -1,9 +1,9 @@
-import { enUS, ptBR, type Locale } from "date-fns/locale"
+import { enUS, es as esLocale, ptBR, type Locale } from "date-fns/locale"
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 
-import { en, pt, type Key } from "./locales"
+import { en, es, pt, type Key } from "./locales"
 
-export type Lang = "pt" | "en"
+export type Lang = "pt" | "en" | "es"
 export type Vars = Record<string, string | number>
 
 const STORAGE_KEY = "aim:lang"
@@ -11,8 +11,9 @@ const STORAGE_KEY = "aim:lang"
 function detect(): Lang {
   try {
     const saved = window.localStorage.getItem(STORAGE_KEY)
-    if (saved === "pt" || saved === "en") return saved
+    if (saved === "pt" || saved === "en" || saved === "es") return saved
     const nav = window.navigator.language?.toLowerCase() ?? ""
+    if (nav.startsWith("es")) return "es"
     return nav.startsWith("pt") ? "pt" : "en"
   } catch {
     return "pt"
@@ -26,15 +27,20 @@ export function getLang(): Lang {
 }
 
 export function getLocale(): string {
-  return current === "pt" ? "pt-BR" : "en-US"
+  if (current === "pt") return "pt-BR"
+  if (current === "es") return "es-ES"
+  return "en-US"
 }
 
 export function getDateLocale(): Locale {
-  return current === "pt" ? ptBR : enUS
+  if (current === "pt") return ptBR
+  if (current === "es") return esLocale
+  return enUS
 }
 
 export function translate(lang: Lang, key: Key, vars?: Vars): string {
-  let text: string = (lang === "pt" ? pt : en)[key] ?? pt[key] ?? key
+  const dict = lang === "pt" ? pt : lang === "es" ? es : en
+  let text: string = dict[key] ?? pt[key] ?? key
   if (vars) {
     for (const [name, value] of Object.entries(vars)) {
       text = text.replaceAll(`{${name}}`, String(value))
@@ -62,7 +68,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const value = useMemo(() => ({ lang, setLang }), [lang, setLang])
   useEffect(() => {
     try {
-      document.documentElement.lang = lang === "pt" ? "pt-BR" : "en"
+      document.documentElement.lang = lang === "pt" ? "pt-BR" : lang === "es" ? "es" : "en"
     } catch {
       // sem DOM (testes)
     }

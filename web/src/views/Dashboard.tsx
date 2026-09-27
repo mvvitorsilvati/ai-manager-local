@@ -4,10 +4,10 @@ import { useNavigate } from "react-router-dom"
 import { CatIcon, IncidentIcon, SourceBadge, VersionBadges } from "@/components/bits"
 import { CopyCommandButton } from "@/components/CopyCommandButton"
 import { OpenWith } from "@/components/OpenWith"
+import { StatuslineCard } from "@/components/StatuslineCard"
 import { ToolIcon } from "@/components/ToolIcon"
 import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { StatuslineCard } from "@/components/StatuslineCard"
 import { UpdateButton } from "@/components/UpdateButton"
 import { UsageCard } from "@/components/UsageCard"
 import { useCatalog } from "@/hooks/useCatalog"
@@ -133,7 +133,12 @@ export default function Dashboard() {
                     <ToolIcon id={id} className="size-4 shrink-0" />
                     <span className="w-36 shrink-0 truncate font-medium">{label}</span>
                     <IncidentIcon incident={incidents?.sources[id]} />
-                    <VersionBadges installed={v.installed} latest={v.latest} update={v.update} installMethod={v.install_method} />
+                    <VersionBadges
+                      installed={v.installed}
+                      latest={v.latest}
+                      update={v.update}
+                      installMethod={v.install_method}
+                    />
                     <OpenWith tool={id} />
                     {v.update === true && <UpdateButton body={{ tool: id }} label={label} />}
                     {v.update === true && v.command && <CopyCommandButton command={v.command} label={label} />}

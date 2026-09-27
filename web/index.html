@@ -7,23 +7,23 @@
     <title>AI Manager Local</title>
     <script>
       try {
-        var theme = localStorage.getItem("aim:theme");
+        var theme = localStorage.getItem("aim:theme")
         if (theme !== "dark" && theme !== "light") {
-          theme = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+          theme = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"
         }
-        if (theme === "dark") document.documentElement.classList.add("dark");
+        if (theme === "dark") document.documentElement.classList.add("dark")
         document.documentElement.lang =
           (function () {
             try {
-              return localStorage.getItem("aim:lang") || "";
+              return localStorage.getItem("aim:lang") || ""
             } catch (e) {
-              return "";
+              return ""
             }
           })() === "en"
             ? "en"
-            : "pt-BR";
+            : "pt-BR"
       } catch (e) {
-        document.documentElement.classList.add("dark");
+        document.documentElement.classList.add("dark")
       }
     </script>
   </head>

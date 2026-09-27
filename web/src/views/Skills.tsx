@@ -56,7 +56,10 @@ export function SkillTable({ rows, showTools, days = 7 }: { rows: SkillRow[]; sh
   return (
     <div className="border-border overflow-x-auto rounded-md border">
       {rows.map((row, i) => (
-        <div key={row.skill} className="border-border flex items-center gap-2 border-b px-2 py-1 text-xs last:border-0 whitespace-nowrap min-w-[500px]">
+        <div
+          key={row.skill}
+          className="border-border flex min-w-[500px] items-center gap-2 border-b px-2 py-1 text-xs whitespace-nowrap last:border-0"
+        >
           {i < MEDALS.length ? (
             <span className="flex w-6 shrink-0 justify-end" title={`#${i + 1} skill mais usada`}>
               <Trophy className="size-3.5" style={{ color: MEDALS[i] }} />

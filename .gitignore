@@ -1,13 +1,37 @@
+# Tools & Indexers
 .tgrep/
 .playwright-cli/
+
+# Python & Virtualenv
 __pycache__/
-node_modules/
-dist/
-.DS_Store
-
+*.py[cod]
+*$py.class
 .venv/
-
-.env
+backend/.venv/
+venv/
+.pytest_cache/
 .coverage
 htmlcov/
-.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node & Frontend build
+node_modules/
+dist/
+.vite/
+*.local
+
+# Environment & Backups
+.env
+.env.*
+!.env.example
+*.bak
+*.bak-*
+
+# Operating System & IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json

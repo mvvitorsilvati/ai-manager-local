@@ -19,6 +19,7 @@ import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 import { OpenSessionWith } from "@/components/OpenWith"
+import { Markdown } from "@/components/Markdown"
 import { SessionDrawer } from "@/components/SessionDrawer"
 import { ToolIcon } from "@/components/ToolIcon"
 import { Badge } from "@/components/ui/badge"
@@ -260,32 +261,52 @@ export function SessionList({
 
         {/* Linha 3: Prévia da conversa */}
         {s.preview && (
-          <div className="border-border/40 mt-2.5 border-t pt-2">
-            <button
-              type="button"
-              onClick={(e) => toggleExpand(s.id, e)}
-              className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-[11px] font-medium transition-colors"
-            >
-              {isExpanded ? (
-                <>
-                  <ChevronUp className="size-3" />
-                  {t("sessions.collapsePreview")}
-                </>
-              ) : (
-                <>
-                  <ChevronDown className="size-3" />
-                  {t("sessions.expandPreview")}
-                </>
+          <div className="border-border/40 mt-2.5 border-t pt-2" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={(e) => toggleExpand(s.id, e)}
+                className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-[11px] font-medium transition-colors select-none"
+              >
+                {isExpanded ? (
+                  <>
+                    <ChevronUp className="size-3" />
+                    {t("sessions.collapsePreview")}
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="size-3" />
+                    {t("sessions.expandPreview")}
+                  </>
+                )}
+              </button>
+
+              {isExpanded && (
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="text-muted-foreground hover:text-primary h-5 px-1.5 text-[10px]"
+                  onClick={() => openDrawer(s)}
+                >
+                  <ExternalLink className="mr-1 size-2.5" />
+                  <span>{t("sessions.openDrawer")}</span>
+                </Button>
               )}
-            </button>
+            </div>
 
             <div
               className={cn(
-                "mt-1.5 rounded bg-muted/40 p-2 font-mono text-[11px] text-muted-foreground whitespace-pre-wrap transition-all",
-                !isExpanded && "line-clamp-2 max-h-14 overflow-hidden",
+                "mt-1.5 rounded bg-muted/40 p-2.5 text-xs text-muted-foreground transition-all select-text",
+                isExpanded
+                  ? "max-h-80 overflow-y-auto"
+                  : "line-clamp-2 max-h-12 overflow-hidden font-mono text-[11px] whitespace-pre-wrap",
               )}
             >
-              {s.preview}
+              {isExpanded ? (
+                <Markdown content={s.preview} className="text-xs prose-sm max-w-none" />
+              ) : (
+                s.preview
+              )}
             </div>
           </div>
         )}

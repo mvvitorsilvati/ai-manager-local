@@ -130,6 +130,38 @@ def get_git_branch(cwd, vcs_obj):
     return "", False
 
 
+def get_worktree(cwd, data):
+    wt_obj = data.get("worktree")
+    if isinstance(wt_obj, dict) and wt_obj.get("name"):
+        return str(wt_obj["name"])
+    elif isinstance(wt_obj, str) and wt_obj.strip():
+        return wt_obj.strip()
+
+    workspace = data.get("workspace") or {}
+    if workspace.get("git_worktree"):
+        return str(workspace["git_worktree"])
+    if workspace.get("worktree"):
+        return str(workspace["worktree"])
+
+    if cwd and os.path.exists(cwd):
+        try:
+            gd = subprocess.check_output(
+                ["git", "-C", cwd, "--no-optional-locks", "rev-parse", "--git-dir"],
+                stderr=subprocess.DEVNULL, timeout=0.5
+            ).decode().strip()
+            gcd = subprocess.check_output(
+                ["git", "-C", cwd, "--no-optional-locks", "rev-parse", "--git-common-dir"],
+                stderr=subprocess.DEVNULL, timeout=0.5
+            ).decode().strip()
+            abs_gd = os.path.abspath(os.path.join(cwd, gd))
+            abs_gcd = os.path.abspath(os.path.join(cwd, gcd))
+            if abs_gd != abs_gcd:
+                return os.path.basename(abs_gd)
+        except Exception:
+            pass
+    return ""
+
+
 def get_git_pr(cwd, branch):
     if not cwd or not branch or branch in ["develop", "main", "master", "HEAD", "dev"]:
         return ""
@@ -583,19 +615,20 @@ def render(data):
             go_ver = f"v{go_ver}"
         line1_segments.append(f"{C_CYAN}🐹 {go_ver}{RESET}")
 
-    # Worktree (if present)
-    worktree = data.get("worktree", {}).get("name") or workspace.get("git_worktree")
-    if worktree:
-        line1_segments.append(f"{C_BLUE}wt:{worktree}{RESET}")
-
-    # 4. Git Branch & PR (PR placed before branch)
+    # 4. Git Branch & PR — when inside a worktree, show the worktree name
+    #    in place of the branch to make it immediately visible which checkout
+    #    the session is running in.
+    worktree_name = get_worktree(cwd, data)
     branch, dirty = get_git_branch(cwd, data.get("vcs"))
     if branch:
         pr_number = get_git_pr(cwd, branch)
         if pr_number:
             line1_segments.append(f"{C_CYAN}🔀 {pr_number}{RESET}")
         dirty_flag = f"{C_YELLOW}*{RESET}" if dirty else ""
-        line1_segments.append(f"{C_MAGENTA}⎇ {branch}{dirty_flag}{RESET}")
+        if worktree_name:
+            line1_segments.append(f"{C_BLUE}⎇ {worktree_name}{dirty_flag}{RESET}")
+        else:
+            line1_segments.append(f"{C_MAGENTA}⎇ {branch}{dirty_flag}{RESET}")
 
     # Vim Mode
     vim = data.get("vim") or {}

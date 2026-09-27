@@ -112,7 +112,19 @@ if [ -n "$search_dir" ] && [ -d "$search_dir" ]; then
 fi
 
 # --- Worktree ---
-worktree=$(echo "$input" | jq -r '.worktree.name // .workspace.git_worktree // empty')
+# Priority: payload .worktree.name > .workspace.git_worktree > .workspace.worktree > git auto-detect
+worktree=$(echo "$input" | jq -r '.worktree.name // .workspace.git_worktree // .workspace.worktree // empty')
+if [ -z "$worktree" ] && [ -n "$cwd" ] && [ -d "$cwd" ]; then
+  _gd=$(git -C "$cwd" --no-optional-locks rev-parse --git-dir 2>/dev/null)
+  _gcd=$(git -C "$cwd" --no-optional-locks rev-parse --git-common-dir 2>/dev/null)
+  if [ -n "$_gd" ] && [ -n "$_gcd" ]; then
+    _abs_gd=$(cd "$cwd" && cd "$_gd" && pwd)
+    _abs_gcd=$(cd "$cwd" && cd "$_gcd" && pwd)
+    if [ "$_abs_gd" != "$_abs_gcd" ]; then
+      worktree=$(basename "$_abs_gd")
+    fi
+  fi
+fi
 
 # --- Agent ---
 agent_name=$(echo "$input" | jq -r '.agent.name // empty')
@@ -265,9 +277,13 @@ if [ -n "$go_ver" ]; then
   [[ "$go_ver" != v* ]] && go_ver="v${go_ver}"
   line1_segments+=("$(printf "${C_CYAN}🐹 %s${RESET}" "$go_ver")")
 fi
-[ -n "$worktree" ] && line1_segments+=("$(printf "${C_BLUE}wt:%s${RESET}" "$worktree")")
 [ -n "$pr_info" ] && line1_segments+=("$(printf "${C_CYAN}🔀 %s${RESET}" "$pr_info")")
-[ -n "$git_branch" ] && line1_segments+=("$(printf "${C_MAGENTA}⎇ %s${RESET}" "$git_branch")")
+# When inside a worktree, show its name in place of the branch
+if [ -n "$worktree" ]; then
+  line1_segments+=("$(printf "${C_BLUE}⎇ %s${RESET}" "$worktree")")
+elif [ -n "$git_branch" ]; then
+  line1_segments+=("$(printf "${C_MAGENTA}⎇ %s${RESET}" "$git_branch")")
+fi
 
 # Vim mode
 if [ -n "$vim_mode" ]; then

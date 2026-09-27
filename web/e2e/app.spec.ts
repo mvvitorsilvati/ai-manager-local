@@ -172,3 +172,58 @@ test("atualizar do card de uso recarrega só aquela IA", async ({ page }) => {
   expect(chamadas[0]).toContain("tool=codex")
   expect(chamadas.join(" ")).not.toContain("tool=copilot")
 })
+
+test("tela de mcps exibe botões de autenticação condicionalmente e com cores", async ({ page }) => {
+  await page.route("**/api/catalog*", async (route) => {
+    const response = await route.fetch()
+    const json = await response.json()
+    json.tools_meta = [
+      { id: "codex", label: "Codex", mcp_enable: true, mcp_auth: true },
+    ]
+    json.mcps = [
+      {
+        name: "local-mcp",
+        source: "codex",
+        type: "local",
+        detail: "npx local-mcp",
+        enabled: true,
+        has_auth: false,
+        authenticated: false,
+      },
+      {
+        name: "auth-needed-mcp",
+        source: "codex",
+        type: "remote",
+        detail: "https://auth.mcp/api",
+        enabled: true,
+        has_auth: true,
+        authenticated: false,
+      },
+      {
+        name: "authed-mcp",
+        source: "codex",
+        type: "remote",
+        detail: "https://linear.mcp/api",
+        enabled: true,
+        has_auth: true,
+        authenticated: true,
+      },
+    ]
+    return route.fulfill({ json })
+  })
+
+  await page.goto("/mcps")
+  await expect(page.getByRole("heading", { name: "MCPs" })).toBeVisible()
+
+  const cardLocal = page.locator("div.border.p-3").filter({ has: page.getByText("local-mcp", { exact: true }) })
+  await expect(cardLocal.getByRole("button", { name: /Autenticar|Sign in/ })).toHaveCount(0)
+  await expect(cardLocal.getByRole("button", { name: /Sair|Sign out/ })).toHaveCount(0)
+
+  const cardAuthNeeded = page.locator("div.border.p-3").filter({ has: page.getByText("auth-needed-mcp", { exact: true }) })
+  await expect(cardAuthNeeded.getByRole("button", { name: /Autenticar|Sign in/ })).toBeVisible()
+  await expect(cardAuthNeeded.getByRole("button", { name: /Sair|Sign out/ })).toHaveCount(0)
+
+  const cardAuthed = page.locator("div.border.p-3").filter({ has: page.getByText("authed-mcp", { exact: true }) })
+  await expect(cardAuthed.getByRole("button", { name: /Sair|Sign out/ })).toBeVisible()
+  await expect(cardAuthed.getByRole("button", { name: /Autenticar|Sign in/ })).toHaveCount(0)
+})

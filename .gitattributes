@@ -1,0 +1,43 @@
+# Set default behaviour to automatically normalize line endings to LF
+* text=auto eol=lf
+
+# Python sources
+*.py text eol=lf diff=python
+*.pyi text eol=lf diff=python
+
+# Shell scripts
+*.sh text eol=lf
+
+# Web sources
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.json text eol=lf
+*.jsonc text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.svg text eol=lf
+
+# Config & documentation
+*.toml text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
+justfile text eol=lf
+Dockerfile text eol=lf
+
+# Lockfiles
+pnpm-lock.yaml -diff
+uv.lock -diff
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.eot binary
+*.ttf binary

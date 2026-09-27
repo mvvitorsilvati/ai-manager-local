@@ -172,12 +172,37 @@ export type SkillUsageResponse = {
 export type UsageTool = "claude" | "codex" | "copilot" | "gemini"
 export type UsageResponse = Partial<Record<UsageTool, ToolUsage | null>>
 
+export type SessionItem = {
+  id: string
+  tool: string
+  title: string
+  cwd: string
+  project: string
+  created_at: string
+  updated_at: string
+  preview: string
+  skills: string[]
+  tokens: number
+  cost: number
+  currency: string
+  message_count: number
+  resume_cmd: string
+}
+
+export type SessionsResponse = {
+  ok: boolean
+  tool: string
+  total: number
+  sessions: SessionItem[]
+}
+
 export type ToolVersion = {
   installed: string | null
   latest: string | null
   update: boolean | null
   command?: string | null
   account?: string | null
+  install_method?: string | null
 }
 
 export type PluginUpdate = {
@@ -321,8 +346,19 @@ export const api = {
     unwrap<UpdateResult>(client.post("/api/mcp", body)),
   authors: (files: { s: string; r: string }[]) => unwrap<AuthorInfo[]>(client.post("/api/authors", { files })),
   openTargets: (tool: string) => unwrap<OpenTargets>(client.get("/api/open-targets", { params: { tool } })),
-  openWith: (body: { tool: string; target: string; project?: string }) =>
+  openWith: (body: { tool: string; target: string; project?: string; session_id?: string; cwd?: string }) =>
     unwrap<{ ok: boolean }>(client.post("/api/open", body)),
+  sessions: (tool: string, q?: string, limit = 50, refresh = false) =>
+    unwrap<SessionsResponse>(
+      client.get("/api/sessions", {
+        params: {
+          tool,
+          ...(q ? { q } : {}),
+          ...(limit ? { limit } : {}),
+          ...(refresh ? { refresh: "1" } : {}),
+        },
+      }),
+    ),
   statuslineStatus: () => unwrap<StatuslineStatusResponse>(client.get("/api/statusline")),
   installStatusline: (target: StatuslineTarget) =>
     unwrap<StatuslineInstallResult>(client.post("/api/statusline", { target })),

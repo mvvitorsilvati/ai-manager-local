@@ -25,7 +25,7 @@ Painel web local (somente no seu Mac) para visualizar e editar as configuraçõe
 
 **Site:** https://mvvitorsilvati.github.io/ai-manager-local/ (landing page servida pelo GitHub Pages a partir de `site/`)
 
-Roda 100% local (`127.0.0.1`), sem telemetria e sem enviar nada para fora — exceto as chamadas às APIs oficiais: uso/limites das contas (Claude, Codex e Copilot), versões publicadas no npm e as páginas de status, sempre com as credenciais que já existem na sua máquina.
+Roda 100% local (`127.0.0.1`), sem telemetria e sem enviar nada para fora — exceto as chamadas às APIs oficiais: uso/limites das contas (Claude, Codex, Copilot e Gemini), versões publicadas no npm e as páginas de status, sempre com as credenciais que já existem na sua máquina.
 
 ![Visão geral do painel: contadores de contextos, skills, agentes, comandos, regras, docs, MCPs, plugins, projetos e arquivos; cards de uso do Codex e do GitHub Copilot com limites e reset; e o gráfico de consumo por dia](site/assets/painel.jpg)
 
@@ -70,7 +70,7 @@ Na Visão geral, o campo busca por nome e por conteúdo em tudo, destacando as l
 
 ### Uso e consumo
 
-Os cards de uso mostram a conta autenticada e os limites do Claude Code (janelas de 5h e 7d, ou créditos), do Codex (5h e 7d, lidos do último rollout) e do GitHub Copilot (premium requests e reset mensal). O Consumo lê os logs locais das CLIs e monta gráficos de custo e tokens por dia, por modelo ou por IA, com tabelas por modelo e projeto. São preços de tabela, não a fatura; o Copilot aparece em AIU.
+Os cards de uso mostram a conta autenticada e os limites do Claude Code (janelas de 5h e 7d, ou créditos), do Codex (5h e 7d, lidos do último rollout), do GitHub Copilot (premium requests e reset mensal) e do Gemini/Antigravity (janelas de 5h e 7d). O Consumo lê os logs locais das CLIs e monta gráficos de custo e tokens por dia, por modelo ou por IA, com tabelas por modelo e projeto. São preços de tabela, não a fatura; o Copilot aparece em AIU.
 
 ### Skills
 
@@ -176,9 +176,49 @@ just stop       # encerra a instância que estiver na porta 4747
 | `just format` | oxfmt (frontend) + `ruff check --fix` (backend) |
 | `just check` | lint + testes |
 | `just hooks` | liga os git hooks versionados (pre-commit roda `just check`) |
+| `just statusline [target]` | instala o statusline para Claude Code e/ou Antigravity (interativo; padrão: não fazer nada) |
 | `just docker-build` | build da imagem `localhost/ai-manager-local-py-3.14:1.0.0` |
 | `just docker-run` | sobe o painel em container montando o seu `$HOME` |
 | `just docker-test` | roda a suíte de testes dentro da imagem (sem rede) |
+
+### Statusline (Claude Code e Antigravity / agy)
+
+O projeto inclui statuslines customizados de alta performance para o **Claude Code** (`~/.claude/`) e para o **Google Antigravity CLI (`agy`)** (`~/.gemini/antigravity-cli/`).
+Eles exibem cotas de tokens em tempo real (janelas de 5h, 7d e mensal), janela de contexto, custos acumulados da sessão, branch Git e diff stats (+X/-Y) com zero overhead de tokens.
+
+A instalação é sempre opcional e orientada por escolha:
+
+```text
+Deseja instalar os statusline para o claude-code e ou agy?
+
+  [ ] 1. Ambos
+  [ ] 2. Claude
+  [ ] 3. Antigravity
+  [X] 4. Não fazer nada (padrão)
+```
+
+**Formas de uso e instalação:**
+
+1. **Via linha de comando (`just`):**
+   ```bash
+   just statusline             # interativo (padrão: não fazer nada ao teclar Enter)
+   just statusline both        # instala Claude Code e Antigravity
+   just statusline claude      # instala apenas Claude Code
+   just statusline antigravity # instala apenas Antigravity
+   just statusline none        # opção padrão explícita (nenhuma alteração)
+   ```
+   Também é executado interativamente durante o `just setup`.
+
+2. **No container (Docker / Podman):**
+   - **Alternativa padrão**: se não quiser usar nenhum dos dois, basta não configurar nada; o container roda sem alterar seu host.
+   - **Instalação automática no startup**: configure `AIM_STATUSLINE_INSTALL: "both"` (ou `"claude"` / `"antigravity"`) no `docker-compose.yml`.
+   - **Execução manual no container**:
+     ```bash
+     docker compose exec app bash statusline/install.sh
+     ```
+
+3. **Dentro do sistema (Web UI):**
+   - No **Dashboard** e na tela **Por IA** (`/ia`), o card **Statusline (CLI)** exibe o estado de cada ferramenta (instalado e configurado), os caminhos dos scripts e permite selecionar e instalar diretamente pela interface gráfica, com criação automática de backups com timestamp (`.bak-<timestamp>`).
 
 ### Rodando em container (Docker/Podman)
 
@@ -300,7 +340,7 @@ O backend escaneia as fontes a cada requisição de catálogo (sem banco de dado
 | GET | `/api/raw?s=&r=` | bytes crus (imagens, até 20 MB) |
 | GET | `/api/search?q=` | busca por nome e conteúdo |
 | GET | `/api/backups?s=&r=` | versões de backup do arquivo |
-| GET | `/api/usage[?refresh=1][&tool=claude\|codex\|copilot]` | uso/limites de Claude, Codex e Copilot (cache 60 s); `tool` limita o refresh a uma IA |
+| GET | `/api/usage[?refresh=1][&tool=claude\|codex\|copilot\|gemini]` | uso/limites de Claude, Codex, Copilot e Gemini (cache 60 s); `tool` limita o refresh a uma IA |
 | GET | `/api/spend[?days=7][&tool=][&refresh=1]` | custo e tokens locais (claude, codex, opencode, copilot). `days=0` lê tudo. Cache 60 s |
 | GET | `/api/skill-usage[?days=7][&tool=][&refresh=1]` | invocações de skills e tokens aprox. de contexto, com top 20 global agrupado por nome. Só Claude e opencode têm registro; Codex/Copilot vêm com nota. Cache 60 s |
 | GET | `/api/versions[?refresh=1]` | versões instaladas/últimas das CLIs, contas autenticadas e atualizações de plugins (cache 10 min) |
@@ -420,7 +460,8 @@ O backend responde `503` pedindo o build quando `web/dist` não existe. Rode `ju
 - Claude: precisa do Claude Code logado (Keychain) ou `~/.claude/.credentials.json`
 - Copilot: precisa de `GITHUB_TOKEN`/`GH_TOKEN` ou `gh auth token`
 - Codex: lê o último rollout em `~/.codex/sessions` — sem sessão recente, não há dados
-- opencode (Zen/Go) e Gemini/Antigravity não expõem uso localmente; o consumo do Zen aparece só no console da opencode
+- Gemini/Antigravity: lê o status das quotas em `~/.gemini/antigravity-cli/cache/latest_status.json` ou as credenciais do Keychain (`security`)
+- opencode (Zen/Go) não expõe uso localmente; o consumo do Zen aparece só no console da opencode
 
 **Os projetos não aparecem / aparecem de outro diretório**
 Confira `AIM_PROJECTS_DIR` no `.env` (o valor atual aparece no subtítulo da tela *Projetos*) e reinicie o servidor.

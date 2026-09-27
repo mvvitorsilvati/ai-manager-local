@@ -10,6 +10,11 @@ setup:
     cd backend && uv sync
     cd web && pnpm install
     just hooks
+    just statusline
+
+# instala ou atualiza o statusline para Claude Code e/ou Antigravity (interativo ou: just statusline [both|claude|antigravity|none])
+statusline target="":
+    bash statusline/install.sh {{target}}
 
 # aponta o Git para os hooks versionados em .githooks (pre-commit roda `just check`)
 hooks:

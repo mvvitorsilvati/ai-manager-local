@@ -1011,6 +1011,20 @@
                 <code>⌘K</code>, <code>⌘E</code> e <code>⌘S</code>.
               </p>
             </article>
+
+            <article class="cartao">
+              <div class="icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <polyline points="4 17 10 11 4 5" />
+                  <line x1="12" y1="19" x2="20" y2="19" />
+                </svg>
+              </div>
+              <h3>Statusline em tempo real</h3>
+              <p>
+                Barra de status no terminal com cotas de tokens (5h, 7d), janela de contexto, custos acumulados e
+                Git diff para Claude Code e Antigravity. Instalador interativo, prévia no painel e restauração de backups.
+              </p>
+            </article>
           </div>
         </div>
       </section>
@@ -1043,8 +1057,9 @@
             <pre><code>gh repo clone mvvitorsilvati/ai-manager-local
 cd ai-manager-local
 
-just setup   <span class="c"># deps: uv sync + pnpm install</span>
-just start   <span class="c"># build do front + sobe na 4747</span></code></pre>
+just setup      <span class="c"># deps: uv sync + pnpm install</span>
+just start      <span class="c"># build do front + sobe na 4747</span>
+just statusline <span class="c"># instala statusline (Claude/Antigravity)</span></code></pre>
           </div>
 
           <p class="rodape-nota">
@@ -1092,8 +1107,8 @@ just start   <span class="c"># build do front + sobe na 4747</span></code></pre>
               </div>
               <h3>Skills por invocação</h3>
               <p>
-                Só Claude Code e opencode guardam esse histórico. Nas outras IAs a tela lista as skills que existem em
-                disco, sem contagem de uso.
+                Claude Code, opencode e Antigravity guardam esse histórico nos logs locais. No Codex e Copilot a tela lista as
+                skills que existem em disco, sem contagem de uso.
               </p>
             </article>
 

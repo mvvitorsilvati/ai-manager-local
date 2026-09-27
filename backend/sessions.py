@@ -160,15 +160,37 @@ def clean_preview(text: str | None, max_len: int = 1000) -> str:
 
 def clean_claude_user_text(text: str) -> str:
     """Mostra invocações de skills como o comando digitado, sem o envelope interno do Claude."""
-    command = re.fullmatch(
-        r"\s*<command-message>[\s\S]*?</command-message>\s*"
-        r"<command-name>([\s\S]*?)</command-name>\s*"
-        r"(?:<command-args>([\s\S]*?)</command-args>)?\s*",
-        text,
-    )
+    command = _claude_command(text)
     if command:
-        return clean_message_content(" ".join(part.strip() for part in command.groups() if part and part.strip()))
-    return clean_message_content(text)
+        return clean_message_content(command)
+    return clean_message_content(_strip_claude_internal_envelopes(text))
+
+
+def _claude_command(text: str) -> str:
+    """Extrai `/comando args` quando o texto é só o envelope de invocação de skill, em qualquer ordem."""
+    name = re.search(r"<command-name>\s*([\s\S]*?)\s*</command-name>", text)
+    args = re.search(r"<command-args>\s*([\s\S]*?)\s*</command-args>", text)
+    if not name or "<command-message>" not in text:
+        return ""
+    leftovers = re.sub(
+        r"<command-(?:message|name|args)>[\s\S]*?</command-(?:message|name|args)>", "", text
+    )
+    if leftovers.strip():
+        return ""
+    parts = [name.group(1).strip()]
+    if args and args.group(1).strip():
+        parts.append(args.group(1).strip())
+    return " ".join(part for part in parts if part)
+
+
+def _strip_claude_internal_envelopes(text: str) -> str:
+    """Remove notificações internas e desembrulha lembretes, mantendo só o texto relevante."""
+    for tag in ("task-notification", "local-command-caveat"):
+        text = re.sub(rf"<{tag}>[\s\S]*?</{tag}>", "", text)
+    for tag in ("system-reminder", "local-command-stdout", "teammate-message", "command-message"):
+        text = re.sub(rf"<{tag}[^>]*>", "", text)
+        text = re.sub(rf"</{tag}>", "", text)
+    return text
 
 
 def is_claude_user_prompt(record: dict) -> bool:

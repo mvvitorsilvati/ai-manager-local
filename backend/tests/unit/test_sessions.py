@@ -768,6 +768,45 @@ def test_claude_exibe_apenas_prompts_e_formata_comando_com_imagem(tmp_path: Path
     }]
 
 
+def test_claude_remove_notificacoes_internas_e_desembrulha_lembretes(tmp_path: Path):
+    sid = "ses-claude-noise"
+    proj_dir = tmp_path / ".claude" / "projects" / "p1"
+    proj_dir.mkdir(parents=True)
+    notification = (
+        "<task-notification>\n<task-id>abc</task-id>\n"
+        "<tool-use-id>toolu_123</tool-use-id>\n<status>stopped</status>\n"
+        "<summary>Comando em background encerrado.</summary>\n</task-notification>"
+    )
+    caveat = "<local-command-caveat>Caveat: mensagens geradas pelo usuário.</local-command-caveat>"
+    reminder = "<system-reminder>\nLembrete interno.\n</system-reminder>"
+    records = [
+        {"type": "user", "message": {"content": notification}},
+        {"type": "user", "message": {"content": caveat}},
+        {
+            "type": "user",
+            "message": {"content": "<command-name>/effort</command-name>\n<command-message>effort</command-message>"},
+        },
+        {
+            "type": "user",
+            "message": {"content": [{"type": "text", "text": reminder}]},
+        },
+        {"type": "user", "message": {"content": "Pedido real"}},
+        {"type": "assistant", "message": {"content": [{"type": "text", "text": "Resposta."}]}},
+    ]
+    (proj_dir / f"{sid}.jsonl").write_text("\n".join(json.dumps(record) for record in records) + "\n")
+
+    overview = sessions.scan_claude_sessions(home=tmp_path)[0]
+    assert overview["title"] == "Lembrete interno."
+
+    messages = sessions.get_session_details("claude", sid, home=tmp_path)["messages"]
+    assert [(msg["role"], msg["content"]) for msg in messages] == [
+        ("user", "/effort"),
+        ("user", "Lembrete interno."),
+        ("user", "Pedido real"),
+        ("assistant", "Resposta."),
+    ]
+
+
 def test_obter_nome_exibicao_usuario(monkeypatch):
     import subprocess
     import sys

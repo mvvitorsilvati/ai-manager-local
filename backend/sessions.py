@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shlex
 import shutil
 import sqlite3
+import subprocess
 import threading
 import time
 from datetime import UTC, datetime
@@ -915,6 +917,29 @@ def resume_command(tool: str, binary: str, session_id: str) -> str:
     return f"{binary} {sid}"
 
 
+def get_user_display_name() -> str:
+    """Obtém o nome amigável do usuário pelo Git ou sistema operacional."""
+    try:
+        res = subprocess.check_output(
+            ["git", "config", "user.name"], text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        if res:
+            return res
+    except Exception:
+        pass
+    try:
+        import pwd
+        gecos = pwd.getpwuid(os.getuid()).pw_gecos.strip()
+        if gecos:
+            return gecos
+    except Exception:
+        pass
+    user = os.getenv("USER") or os.getenv("USERNAME") or ""
+    if user:
+        return user.replace(".", " ").title()
+    return "Vitor Silva"
+
+
 def get_session_details(
     tool: str,
     session_id: str,
@@ -986,6 +1011,7 @@ def get_session_details(
                         elif rec_type == "assistant":
                             text_parts = []
                             tool_calls = []
+                            tool_details = []
                             if isinstance(raw_content, list):
                                 for b in raw_content:
                                     if isinstance(b, dict):
@@ -997,6 +1023,18 @@ def get_session_details(
                                             tinput: dict = raw_input if isinstance(raw_input, dict) else {}
                                             formatted = format_tool_call(str(tname or ""), tinput, home=h)
                                             tool_calls.append(formatted)
+                                            cmd_val = (
+                                                tinput.get("command")
+                                                or tinput.get("cmd")
+                                                or tinput.get("file_path")
+                                                or tinput.get("path")
+                                            )
+                                            raw_str = str(cmd_val) if cmd_val else formatted
+                                            tool_details.append({
+                                                "display": formatted,
+                                                "name": str(tname or ""),
+                                                "raw": raw_str,
+                                            })
                                             if tname == "Skill":
                                                 sk = tinput.get("skill")
                                                 if sk:
@@ -1020,6 +1058,11 @@ def get_session_details(
                                     for tc in tool_calls:
                                         if tc not in existing_tools:
                                             existing_tools.append(tc)
+                                if tool_details:
+                                    existing_details = last_msg.setdefault("tool_details", [])
+                                    for td in tool_details:
+                                        if td not in existing_details:
+                                            existing_details.append(td)
                                 if ts:
                                     last_msg["timestamp"] = _iso_from_ts(ts)
                             else:
@@ -1029,6 +1072,7 @@ def get_session_details(
                                         "content": clean_resp,
                                         "timestamp": _iso_from_ts(ts),
                                         "tool_calls": tool_calls,
+                                        "tool_details": tool_details,
                                     })
                 except Exception as exc:
                     logger.debug(f"erro ao parsear transcript claude {sid}: {exc}")
@@ -1047,11 +1091,25 @@ def get_session_details(
                     ts = rec.get("created_at")
                     content = str(rec.get("content") or "").strip()
                     tool_calls = []
+                    tool_details = []
                     for tc in rec.get("tool_calls") or []:
                         tname = tc.get("name") or tc.get("toolAction") or ""
                         targs = tc.get("args") if isinstance(tc.get("args"), dict) else {}
                         formatted = format_tool_call(str(tname), targs, home=h)
                         tool_calls.append(formatted)
+                        cmd_val = (
+                            targs.get("CommandLine")
+                            or targs.get("command")
+                            or targs.get("AbsolutePath")
+                            or targs.get("TargetFile")
+                            or targs.get("pattern")
+                        )
+                        raw_str = str(cmd_val) if cmd_val else formatted
+                        tool_details.append({
+                            "display": formatted,
+                            "name": str(tname),
+                            "raw": raw_str,
+                        })
                         raw = str(targs.get("AbsolutePath") or "")
                         if "/skills/" in raw and raw.endswith("SKILL.md"):
                             skills_all.add(raw.split("/skills/")[1].split("/")[0])
@@ -1096,6 +1154,11 @@ def get_session_details(
                                 for tc in tool_calls:
                                     if tc not in existing_tools:
                                         existing_tools.append(tc)
+                            if tool_details:
+                                existing_details = last_msg.setdefault("tool_details", [])
+                                for td in tool_details:
+                                    if td not in existing_details:
+                                        existing_details.append(td)
                             if ts:
                                 last_msg["timestamp"] = _iso_from_ts(ts)
                         else:
@@ -1105,6 +1168,7 @@ def get_session_details(
                                     "content": clean_c,
                                     "timestamp": _iso_from_ts(ts),
                                     "tool_calls": tool_calls,
+                                    "tool_details": tool_details,
                                 })
                     elif stype == "ERROR_MESSAGE":
                         clean_err = clean_message_content(content)
@@ -1264,6 +1328,7 @@ def get_session_details(
         "currency": currency,
         "skills": sanitize_skills(skills_all),
         "resume_cmd": resume_cmd,
+        "user_name": get_user_display_name(),
         "messages": messages,
     }
 

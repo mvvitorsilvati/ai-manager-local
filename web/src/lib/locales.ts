@@ -184,6 +184,11 @@ export const pt = {
   "sessions.copyContent": "Copiar mensagem",
   "sessions.contentCopied": "Mensagem copiada!",
   "sessions.toolsExecuted": "ferramentas executadas",
+  "sessions.copyResumeCmd": "Copiar comando de terminal",
+  "sessions.resumeCmdCopied": "Comando do terminal copiado!",
+  "sessions.commandDetails": "Detalhes do comando",
+  "sessions.copyCommand": "Copiar comando",
+  "sessions.commandCopied": "Comando copiado!",
 
   "command.title": "Comandos e navegação",
   "command.description": "Navegue rapidamente entre os menus e IAs do sistema",
@@ -546,6 +551,11 @@ export const en: Record<Key, string> = {
   "sessions.copyContent": "Copy message",
   "sessions.contentCopied": "Message copied!",
   "sessions.toolsExecuted": "executed tools",
+  "sessions.copyResumeCmd": "Copy terminal command",
+  "sessions.resumeCmdCopied": "Terminal command copied!",
+  "sessions.commandDetails": "Command details",
+  "sessions.copyCommand": "Copy command",
+  "sessions.commandCopied": "Command copied!",
 
   "command.title": "Commands & Navigation",
   "command.description": "Quickly navigate across menus and AI assistants",

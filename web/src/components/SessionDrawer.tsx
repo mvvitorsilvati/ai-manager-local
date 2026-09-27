@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
-import { AlertCircle, Coins, Copy, Folder, MessageSquare, Sparkles, Terminal, X } from "lucide-react"
+import { AlertCircle, Check, Coins, Copy, Folder, MessageSquare, Sparkles, Terminal, X } from "lucide-react"
+import { useState } from "react"
 import { toast } from "sonner"
 
 import { Markdown } from "@/components/Markdown"
@@ -9,6 +10,14 @@ import { TumblrPhotoGrid } from "@/components/TumblrPhotoGrid"
 import { Badge } from "@/components/ui/badge"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   Drawer,
   DrawerClose,
@@ -54,6 +63,15 @@ function getToolColor(tc: string): string {
   return "text-muted-foreground"
 }
 
+function formatRawCommand(raw: string): string {
+  if (!raw) return ""
+  let text = raw.trim()
+  if (text.includes("\\n") && !text.includes("\n")) {
+    text = text.replace(/\\n/g, "\n").replace(/\\t/g, "\t")
+  }
+  return text
+}
+
 export function SessionDrawer({
   session,
   open,
@@ -64,6 +82,8 @@ export function SessionDrawer({
   onOpenChange: (open: boolean) => void
 }) {
   const { t } = useI18n()
+  const [selectedTool, setSelectedTool] = useState<{ title: string; raw: string; name?: string } | null>(null)
+  const [toolCopied, setToolCopied] = useState(false)
 
   const { data: detail, isPending } = useQuery({
     queryKey: ["session-detail", session?.tool, session?.id],
@@ -76,6 +96,7 @@ export function SessionDrawer({
 
   const title = detail?.title || session.title || session.id
   const toolName = TOOL_NAMES[session.tool] || session.tool
+  const userName = detail?.user_name || "Vitor Silva"
   const messages: SessionMessage[] = detail?.messages || []
 
   const copyText = (text: string) => {
@@ -88,6 +109,13 @@ export function SessionDrawer({
       navigator.clipboard.writeText(session.cwd)
       toast.success(t("sessions.directoryCopied"))
     }
+  }
+
+  const copyRawCommand = (raw: string) => {
+    navigator.clipboard.writeText(formatRawCommand(raw))
+    setToolCopied(true)
+    toast.success(t("sessions.commandCopied"))
+    setTimeout(() => setToolCopied(false), 2000)
   }
 
   return (
@@ -225,7 +253,7 @@ export function SessionDrawer({
 
                     <MessageContent className={cn("max-w-[85%]", isUser && "items-end")}>
                       <MessageHeader className="gap-1.5 text-[11px]">
-                        <span>{isUser ? t("sessions.user") : toolName}</span>
+                        <span>{isUser ? userName : toolName}</span>
                         {msg.timestamp && <span className="opacity-60">• {until(msg.timestamp)}</span>}
                         {hasContent && (
                           <button
@@ -271,19 +299,25 @@ export function SessionDrawer({
                       {!isUser && msg.tool_calls && msg.tool_calls.length > 0 && (
                         <div className="mt-2 flex flex-col gap-1 w-full">
                           {msg.tool_calls.length <= 8 ? (
-                            msg.tool_calls.map((tc, tcIdx) => (
-                              <Marker
-                                key={tcIdx}
-                                variant="default"
-                                title={tc}
-                                className="border-border/70 bg-muted/30 hover:bg-muted/50 text-foreground/90 w-full justify-start rounded-md border px-2.5 py-1 font-mono text-[11px] transition-colors"
-                              >
-                                <MarkerIcon className={cn("mr-1.5 shrink-0", getToolColor(tc))}>
-                                  <Terminal className="size-3 opacity-90" />
-                                </MarkerIcon>
-                                <MarkerContent className="truncate text-left select-text">{tc}</MarkerContent>
-                              </Marker>
-                            ))
+                            msg.tool_calls.map((tc, tcIdx) => {
+                              const detail = msg.tool_details?.[tcIdx]
+                              const rawCmd = detail?.raw || tc
+                              const displayName = detail?.display || tc
+                              return (
+                                <Marker
+                                  key={tcIdx}
+                                  variant="default"
+                                  title={tc}
+                                  onClick={() => setSelectedTool({ title: displayName, raw: rawCmd, name: detail?.name })}
+                                  className="border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-foreground/40 text-foreground/90 w-full justify-start rounded-md border px-2.5 py-1 font-mono text-[11px] transition-colors cursor-pointer"
+                                >
+                                  <MarkerIcon className={cn("mr-1.5 shrink-0", getToolColor(tc))}>
+                                    <Terminal className="size-3 opacity-90" />
+                                  </MarkerIcon>
+                                  <MarkerContent className="truncate text-left select-text">{tc}</MarkerContent>
+                                </Marker>
+                              )
+                            })
                           ) : (
                             <details className="group/tools w-full">
                               <summary className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1.5 rounded px-1.5 py-0.5 font-mono text-[11px] transition-colors select-none">
@@ -293,31 +327,31 @@ export function SessionDrawer({
                                 </span>
                               </summary>
                               <div className="mt-1 flex flex-col gap-1 w-full pl-1">
-                                {msg.tool_calls.map((tc, tcIdx) => (
-                                  <Marker
-                                    key={tcIdx}
-                                    variant="default"
-                                    title={tc}
-                                    className="border-border/70 bg-muted/30 hover:bg-muted/50 text-foreground/90 w-full justify-start rounded-md border px-2.5 py-1 font-mono text-[11px] transition-colors"
-                                  >
-                                    <MarkerIcon className={cn("mr-1.5 shrink-0", getToolColor(tc))}>
-                                      <Terminal className="size-3 opacity-90" />
-                                    </MarkerIcon>
-                                    <MarkerContent className="truncate text-left select-text">{tc}</MarkerContent>
-                                  </Marker>
-                                ))}
+                                {msg.tool_calls.map((tc, tcIdx) => {
+                                  const detail = msg.tool_details?.[tcIdx]
+                                  const rawCmd = detail?.raw || tc
+                                  const displayName = detail?.display || tc
+                                  return (
+                                    <Marker
+                                      key={tcIdx}
+                                      variant="default"
+                                      title={tc}
+                                      onClick={() => setSelectedTool({ title: displayName, raw: rawCmd, name: detail?.name })}
+                                      className="border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-foreground/40 text-foreground/90 w-full justify-start rounded-md border px-2.5 py-1 font-mono text-[11px] transition-colors cursor-pointer"
+                                    >
+                                      <MarkerIcon className={cn("mr-1.5 shrink-0", getToolColor(tc))}>
+                                        <Terminal className="size-3 opacity-90" />
+                                      </MarkerIcon>
+                                      <MarkerContent className="truncate text-left select-text">{tc}</MarkerContent>
+                                    </Marker>
+                                  )
+                                })}
                               </div>
                             </details>
                           )}
                         </div>
                       )}
                     </MessageContent>
-
-                    {isUser && (
-                      <MessageAvatar className="bg-primary text-primary-foreground size-7 text-xs font-semibold">
-                        U
-                      </MessageAvatar>
-                    )}
                   </Message>
                 )
               })}
@@ -332,6 +366,52 @@ export function SessionDrawer({
           <OpenSessionWith tool={session.tool} sessionId={session.id} cwd={session.cwd} title={title} />
         </DrawerFooter>
       </DrawerContent>
+
+      {/* Modal para exibir o comando completo e formatado ao clicar */}
+      {selectedTool && (
+        <Dialog open={Boolean(selectedTool)} onOpenChange={(open) => !open && setSelectedTool(null)}>
+          <DialogContent className="z-[70] max-w-2xl sm:max-w-3xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 font-mono text-sm">
+                <Terminal className="size-4 text-emerald-500 shrink-0" />
+                <span className="truncate">{selectedTool.title}</span>
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                {t("sessions.commandDetails")}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="relative mt-2 max-h-[60vh] overflow-auto rounded-lg border border-border bg-muted/50 p-3 font-mono text-xs leading-relaxed select-text">
+              <pre className="whitespace-pre-wrap break-all">{formatRawCommand(selectedTool.raw)}</pre>
+            </div>
+
+            <DialogFooter className="mt-4 flex sm:justify-between items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => copyRawCommand(selectedTool.raw)}
+                className="gap-1.5"
+              >
+                {toolCopied ? (
+                  <>
+                    <Check className="size-3.5 text-emerald-500" />
+                    <span>{t("sessions.commandCopied")}</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="size-3.5" />
+                    <span>{t("sessions.copyCommand")}</span>
+                  </>
+                )}
+              </Button>
+              <Button variant="default" size="sm" onClick={() => setSelectedTool(null)}>
+                {t("sessions.close")}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </Drawer>
   )
 }
+

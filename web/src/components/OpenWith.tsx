@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query"
-import { Play, SquareTerminal } from "lucide-react"
+import { Check, Copy, Play, SquareTerminal } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 
 import { ToolIcon } from "@/components/ToolIcon"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -224,7 +225,28 @@ export function OpenProjectShell({ project }: { project: string }) {
   )
 }
 
-/** Botão para reabrir uma conversa/sessão específica no terminal. */
+/** Gera o comando de terminal para reabrir a sessão da IA */
+export function getResumeCommand(tool: string, sessionId: string): string {
+  const t = tool.toLowerCase().trim()
+  if (t === "claude" || t === "claude-code") {
+    return `claude --resume "${sessionId}"`
+  }
+  if (t === "gemini" || t === "antigravity") {
+    return `agy --resume "${sessionId}"`
+  }
+  if (t === "codex") {
+    return `codex resume "${sessionId}"`
+  }
+  if (t === "opencode") {
+    return `opencode session "${sessionId}"`
+  }
+  if (t === "copilot") {
+    return `copilot --resume "${sessionId}"`
+  }
+  return `${tool} --resume "${sessionId}"`
+}
+
+/** Botão para reabrir uma conversa/sessão específica no terminal e copiar comando. */
 export function OpenSessionWith({
   tool,
   sessionId,
@@ -246,57 +268,92 @@ export function OpenSessionWith({
     staleTime: 60_000,
   })
   const [busy, setBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
   const { t } = useI18n()
-  if (!data || !data.terminals.length) return null
+
+  const handleCopyCmd = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const cmd = getResumeCommand(tool, sessionId)
+    navigator.clipboard.writeText(cmd)
+    setCopied(true)
+    toast.success(t("sessions.resumeCmdCopied"))
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const renderCopyButton = () => (
+    <Button
+      size={size}
+      variant="outline"
+      className="px-2"
+      title={t("sessions.copyResumeCmd")}
+      onClick={handleCopyCmd}
+    >
+      {copied ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3 opacity-70" />}
+      <span className="sr-only">{t("sessions.copyResumeCmd")}</span>
+    </Button>
+  )
+
+  if (!data || !data.terminals.length) {
+    return (
+      <div className={cn("inline-flex items-center gap-1", className)}>
+        {renderCopyButton()}
+      </div>
+    )
+  }
 
   const terminals = data.terminals.map((term) => ({ target: `terminal:${term.id}`, label: term.label }))
   if (terminals.length === 1) {
     const only = terminals[0]
     return (
-      <Button
-        size={size}
-        variant="outline"
-        className={className}
-        title={t("sessions.resumeIn", { target: only.label })}
-        disabled={busy}
-        onClick={() => openTarget(tool, only.target, undefined, setBusy, sessionId, cwd)}
-      >
-        <Play className="size-3 fill-emerald-500/20 text-emerald-500" />
-        {t("sessions.resume")}
-      </Button>
+      <div className={cn("inline-flex items-center gap-1", className)}>
+        <Button
+          size={size}
+          variant="outline"
+          title={t("sessions.resumeIn", { target: only.label })}
+          disabled={busy}
+          onClick={() => openTarget(tool, only.target, undefined, setBusy, sessionId, cwd)}
+        >
+          <Play className="size-3 fill-emerald-500/20 text-emerald-500" />
+          {t("sessions.resume")}
+        </Button>
+        {renderCopyButton()}
+      </div>
     )
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            size={size}
-            variant="outline"
-            className={className}
-            disabled={busy}
-            title={title ?? t("sessions.resumeShort")}
-          >
-            <Play className="size-3 fill-emerald-500/20 text-emerald-500" />
-            {t("sessions.resume")}
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>{t("open.terminals")}</DropdownMenuLabel>
-          {terminals.map((term) => (
-            <DropdownMenuItem
-              key={term.target}
-              onClick={() => openTarget(tool, term.target, undefined, setBusy, sessionId, cwd)}
+    <div className={cn("inline-flex items-center gap-1", className)}>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              size={size}
+              variant="outline"
+              disabled={busy}
+              title={title ?? t("sessions.resumeShort")}
             >
-              <SquareTerminal className="size-3.5 opacity-60" />
-              {term.label}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+              <Play className="size-3 fill-emerald-500/20 text-emerald-500" />
+              {t("sessions.resume")}
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="end">
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>{t("open.terminals")}</DropdownMenuLabel>
+            {terminals.map((term) => (
+              <DropdownMenuItem
+                key={term.target}
+                onClick={() => openTarget(tool, term.target, undefined, setBusy, sessionId, cwd)}
+              >
+                <SquareTerminal className="size-3.5 opacity-60" />
+                {term.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {renderCopyButton()}
+    </div>
   )
 }
+

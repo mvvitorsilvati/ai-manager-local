@@ -202,16 +202,24 @@ export type SessionImage = {
   mime?: string
 }
 
+export type ToolDetail = {
+  display: string
+  name: string
+  raw: string
+}
+
 export type SessionMessage = {
   role: "user" | "assistant" | "system"
   content: string
   timestamp?: string | null
   tool_calls?: string[]
+  tool_details?: ToolDetail[]
   images?: SessionImage[]
 }
 
 export type SessionDetailResponse = SessionItem & {
   ok: boolean
+  user_name?: string
   messages: SessionMessage[]
 }
 

@@ -1,6 +1,9 @@
 # Tools & Indexers
 .tgrep/
 .playwright-cli/
+.agents/
+.claude/
+skills-lock.json
 
 # Python & Virtualenv
 __pycache__/
@@ -11,6 +14,7 @@ backend/.venv/
 venv/
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 .ruff_cache/
 .mypy_cache/

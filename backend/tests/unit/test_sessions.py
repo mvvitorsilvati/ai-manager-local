@@ -724,4 +724,60 @@ def test_extracao_imagens_mensagens_usuario_claude(tmp_path: Path):
     assert img["name"] == "screenshot.png"
 
 
+def test_obter_nome_exibicao_usuario(monkeypatch):
+    import subprocess
+    import sys
+
+    # Simula retorno do Git
+    monkeypatch.setattr(
+        subprocess, "check_output", lambda *args, **kwargs: "Vitor Silva\n"
+    )
+    assert sessions.get_user_display_name() == "Vitor Silva"
+
+    # Simula falha do Git e pwd com variável USER
+    monkeypatch.setattr(
+        subprocess, "check_output", lambda *args, **kwargs: (_ for _ in ()).throw(Exception("git error"))
+    )
+    monkeypatch.setitem(sys.modules, "pwd", None)
+    monkeypatch.setenv("USER", "joao.souza")
+    assert sessions.get_user_display_name() == "Joao Souza"
+
+
+def test_detalhes_de_ferramentas_em_sessao_claude(tmp_path: Path):
+    sid = "sess-tool-details-1"
+    proj_dir = tmp_path / ".claude" / "projects" / "p1"
+    proj_dir.mkdir(parents=True)
+    tfile = proj_dir / f"{sid}.jsonl"
+
+    lines = [
+        json.dumps({
+            "type": "assistant",
+            "timestamp": "2026-09-27T10:00:00Z",
+            "message": {
+                "content": [
+                    {"type": "text", "text": "Executando teste"},
+                    {
+                        "type": "tool_use",
+                        "name": "Bash",
+                        "input": {"command": "ls -la /tmp/repo"},
+                    },
+                ]
+            },
+        })
+    ]
+    tfile.write_text("\n".join(lines) + "\n")
+
+    res = sessions.get_session_details("claude", sid, home=tmp_path)
+    assert res["ok"] is True
+    assert len(res["messages"]) == 1
+    msg = res["messages"][0]
+    assert "tool_calls" in msg
+    assert "tool_details" in msg
+    assert len(msg["tool_details"]) == 1
+    td = msg["tool_details"][0]
+    assert td["name"] == "Bash"
+    assert "ls -la /tmp/repo" in td["raw"]
+    assert "Bash(ls -la /tmp/repo)" in td["display"]
+
+
 

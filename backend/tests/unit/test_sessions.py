@@ -780,4 +780,59 @@ def test_detalhes_de_ferramentas_em_sessao_claude(tmp_path: Path):
     assert "Bash(ls -la /tmp/repo)" in td["display"]
 
 
+def test_sincronizacao_estrita_tool_calls_e_details_com_comandos_repetidos(tmp_path: Path):
+    """Garante correspondência 1:1 exata de índice entre tool_calls e tool_details sem descompasso."""
+    brain_dir = tmp_path / ".gemini" / "antigravity-cli" / "brain" / "conv-sync-check"
+    log_dir = brain_dir / ".system_generated" / "logs"
+    log_dir.mkdir(parents=True)
+    tfile = log_dir / "transcript.jsonl"
+
+    # Sequência onde o assistente roda git diff duas vezes e depois git push
+    lines = [
+        json.dumps({
+            "step_index": 0,
+            "type": "USER_INPUT",
+            "source": "USER_EXPLICIT",
+            "content": "<USER_REQUEST>verifique e suba as alteracoes</USER_REQUEST>",
+        }),
+        json.dumps({
+            "step_index": 1,
+            "type": "PLANNER_RESPONSE",
+            "source": "MODEL",
+            "tool_calls": [{"name": "run_command", "args": {"CommandLine": "git diff"}}],
+        }),
+        json.dumps({
+            "step_index": 2,
+            "type": "PLANNER_RESPONSE",
+            "source": "MODEL",
+            "tool_calls": [{"name": "run_command", "args": {"CommandLine": "git diff"}}],
+        }),
+        json.dumps({
+            "step_index": 3,
+            "type": "PLANNER_RESPONSE",
+            "source": "MODEL",
+            "tool_calls": [{"name": "run_command", "args": {"CommandLine": "git push origin main"}}],
+        }),
+    ]
+    tfile.write_text("\n".join(lines) + "\n")
+
+    res = sessions.get_session_details("gemini", "conv-sync-check", home=tmp_path)
+    assert res["ok"] is True
+    assert len(res["messages"]) == 2
+    assistant_msg = res["messages"][1]
+
+    tcs = assistant_msg.get("tool_calls", [])
+    tds = assistant_msg.get("tool_details", [])
+
+    # Devem ter o mesmo comprimento exato e correspondência índice por índice
+    assert len(tcs) == 3
+    assert len(tds) == 3
+    for idx in range(3):
+        assert tcs[idx] == tds[idx]["display"]
+
+    assert "git push" in tcs[2]
+    assert "git push origin main" in tds[2]["raw"]
+
+
+
 

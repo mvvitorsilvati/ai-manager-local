@@ -329,61 +329,66 @@ export function SessionDrawer({
                       )}
 
                       {/* Tool Calls executadas pelo assistente */}
-                      {!isUser && msg.tool_calls && msg.tool_calls.length > 0 && (
-                        <div className="mt-2 flex flex-col gap-1 w-full">
-                          {msg.tool_calls.length <= 8 ? (
-                            msg.tool_calls.map((tc, tcIdx) => {
-                              const detail = msg.tool_details?.[tcIdx]
-                              const rawCmd = detail?.raw || tc
-                              const displayName = detail?.display || tc
-                              return (
-                                <Marker
-                                  key={tcIdx}
-                                  variant="default"
-                                  title={tc}
-                                  onClick={() => setSelectedTool({ title: displayName, raw: rawCmd, name: detail?.name })}
-                                  className="border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-foreground/40 text-foreground/90 w-full justify-start rounded-md border px-2.5 py-1 font-mono text-[11px] transition-colors cursor-pointer"
-                                >
-                                  <MarkerIcon className={cn("mr-1.5 shrink-0", getToolColor(tc))}>
-                                    <Terminal className="size-3 opacity-90" />
-                                  </MarkerIcon>
-                                  <MarkerContent className="truncate text-left select-text">{tc}</MarkerContent>
-                                </Marker>
-                              )
-                            })
-                          ) : (
-                            <details className="group/tools w-full">
-                              <summary className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1.5 rounded px-1.5 py-0.5 font-mono text-[11px] transition-colors select-none">
-                                <Terminal className="size-3 opacity-70" />
-                                <span>
-                                  {msg.tool_calls.length} {t("sessions.toolsExecuted")}
-                                </span>
-                              </summary>
-                              <div className="mt-1 flex flex-col gap-1 w-full pl-1">
-                                {msg.tool_calls.map((tc, tcIdx) => {
-                                  const detail = msg.tool_details?.[tcIdx]
-                                  const rawCmd = detail?.raw || tc
-                                  const displayName = detail?.display || tc
-                                  return (
-                                    <Marker
-                                      key={tcIdx}
-                                      variant="default"
-                                      title={tc}
-                                      onClick={() => setSelectedTool({ title: displayName, raw: rawCmd, name: detail?.name })}
-                                      className="border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-foreground/40 text-foreground/90 w-full justify-start rounded-md border px-2.5 py-1 font-mono text-[11px] transition-colors cursor-pointer"
-                                    >
-                                      <MarkerIcon className={cn("mr-1.5 shrink-0", getToolColor(tc))}>
-                                        <Terminal className="size-3 opacity-90" />
-                                      </MarkerIcon>
-                                      <MarkerContent className="truncate text-left select-text">{tc}</MarkerContent>
-                                    </Marker>
-                                  )
-                                })}
-                              </div>
-                            </details>
-                          )}
-                        </div>
-                      )}
+                      {!isUser && ((msg.tool_details && msg.tool_details.length > 0) || (msg.tool_calls && msg.tool_calls.length > 0)) && (() => {
+                        const toolsList = (msg.tool_details && msg.tool_details.length > 0)
+                          ? msg.tool_details
+                          : (msg.tool_calls || []).map((tc) => ({ display: tc, raw: tc, name: "" }))
+                        if (toolsList.length === 0) return null
+
+                        return (
+                          <div className="mt-2 flex flex-col gap-1 w-full">
+                            {toolsList.length <= 8 ? (
+                              toolsList.map((item, itemIdx) => {
+                                const displayName = item.display || item.raw
+                                const rawCmd = item.raw || item.display
+                                return (
+                                  <Marker
+                                    key={itemIdx}
+                                    variant="default"
+                                    title={displayName}
+                                    onClick={() => setSelectedTool({ title: displayName, raw: rawCmd, name: item.name })}
+                                    className="border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-foreground/40 text-foreground/90 w-full justify-start rounded-md border px-2.5 py-1 font-mono text-[11px] transition-colors cursor-pointer"
+                                  >
+                                    <MarkerIcon className={cn("mr-1.5 shrink-0", getToolColor(displayName))}>
+                                      <Terminal className="size-3 opacity-90" />
+                                    </MarkerIcon>
+                                    <MarkerContent className="truncate text-left select-text">{displayName}</MarkerContent>
+                                  </Marker>
+                                )
+                              })
+                            ) : (
+                              <details className="group/tools w-full">
+                                <summary className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1.5 rounded px-1.5 py-0.5 font-mono text-[11px] transition-colors select-none">
+                                  <Terminal className="size-3 opacity-70" />
+                                  <span>
+                                    {toolsList.length} {t("sessions.toolsExecuted")}
+                                  </span>
+                                </summary>
+                                <div className="mt-1 flex flex-col gap-1 w-full pl-1">
+                                  {toolsList.map((item, itemIdx) => {
+                                    const displayName = item.display || item.raw
+                                    const rawCmd = item.raw || item.display
+                                    return (
+                                      <Marker
+                                        key={itemIdx}
+                                        variant="default"
+                                        title={displayName}
+                                        onClick={() => setSelectedTool({ title: displayName, raw: rawCmd, name: item.name })}
+                                        className="border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-foreground/40 text-foreground/90 w-full justify-start rounded-md border px-2.5 py-1 font-mono text-[11px] transition-colors cursor-pointer"
+                                      >
+                                        <MarkerIcon className={cn("mr-1.5 shrink-0", getToolColor(displayName))}>
+                                          <Terminal className="size-3 opacity-90" />
+                                        </MarkerIcon>
+                                        <MarkerContent className="truncate text-left select-text">{displayName}</MarkerContent>
+                                      </Marker>
+                                    )
+                                  })}
+                                </div>
+                              </details>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </MessageContent>
                   </Message>
                 )

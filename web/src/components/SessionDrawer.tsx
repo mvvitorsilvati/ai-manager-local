@@ -413,23 +413,11 @@ export function SessionDrawer({
           overlayClassName="z-[90] bg-black/60 backdrop-blur-xs"
           className="z-[100] w-auto sm:w-fit min-w-[min(94vw,520px)] max-w-[94vw] lg:max-w-5xl max-h-[85vh] flex flex-col p-6 shadow-2xl"
         >
-          <DialogHeader>
-            <div className="flex items-center justify-between gap-3 pr-8">
-              <DialogTitle className="flex items-center gap-2 font-mono text-sm">
-                <Terminal className="size-4 text-emerald-500 shrink-0" />
-                <span className="truncate">{selectedTool.title}</span>
-              </DialogTitle>
-              <Button
-                variant="ghost"
-                size="xs"
-                onClick={() => setWrapLines((prev) => !prev)}
-                className="text-muted-foreground hover:text-foreground text-xs gap-1 h-7 px-2 font-normal"
-                title={wrapLines ? t("sessions.nowrapTitle") : t("sessions.wrapTitle")}
-              >
-                <WrapText className="size-3" />
-                <span>{wrapLines ? t("sessions.nowrap") : t("sessions.wrap")}</span>
-              </Button>
-            </div>
+          <DialogHeader className="pr-10">
+            <DialogTitle className="flex items-center gap-2 font-mono text-sm min-w-0">
+              <Terminal className="size-4 text-emerald-500 shrink-0" />
+              <span className="truncate">{selectedTool.title}</span>
+            </DialogTitle>
             <DialogDescription className="text-xs">
               {selectedTool.name ? `${selectedTool.name} • ` : ""}{t("sessions.commandDetails")}
             </DialogDescription>
@@ -447,24 +435,36 @@ export function SessionDrawer({
           </div>
 
           <DialogFooter className="mt-4 flex sm:justify-between items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => copyRawCommand(selectedTool.raw)}
-              className="gap-1.5"
-            >
-              {toolCopied ? (
-                <>
-                  <Check className="size-3.5 text-emerald-500" />
-                  <span>{t("sessions.commandCopied")}</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="size-3.5" />
-                  <span>{t("sessions.copyCommand")}</span>
-                </>
-              )}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => copyRawCommand(selectedTool.raw)}
+                className="gap-1.5"
+              >
+                {toolCopied ? (
+                  <>
+                    <Check className="size-3.5 text-emerald-500" />
+                    <span>{t("sessions.commandCopied")}</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="size-3.5" />
+                    <span>{t("sessions.copyCommand")}</span>
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setWrapLines((prev) => !prev)}
+                className="gap-1.5 text-muted-foreground hover:text-foreground"
+                title={wrapLines ? t("sessions.nowrapTitle") : t("sessions.wrapTitle")}
+              >
+                <WrapText className="size-3.5" />
+                <span>{wrapLines ? t("sessions.nowrap") : t("sessions.wrap")}</span>
+              </Button>
+            </div>
             <Button variant="default" size="sm" onClick={() => setSelectedTool(null)}>
               {t("sessions.close")}
             </Button>

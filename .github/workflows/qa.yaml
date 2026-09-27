@@ -37,11 +37,9 @@ jobs:
         run: uv run --no-sync pytest
 
       - name: Lint (ruff)
-        continue-on-error: true
         run: uv run --no-sync ruff check --output-format=github .
 
       - name: Type check (pyright)
-        continue-on-error: true
         run: uv run --no-sync pyright
 
   frontend:
@@ -76,7 +74,6 @@ jobs:
         run: pnpm build
 
       - name: Lint (oxlint)
-        continue-on-error: true
         run: pnpm lint
 
       - name: Formatação (oxfmt)
@@ -123,7 +120,6 @@ jobs:
 
       - name: Artifacts das falhas
         if: failure()
-        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: playwright-test-results

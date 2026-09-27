@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { RefreshCw } from "lucide-react"
+import { ArrowRight, RefreshCw } from "lucide-react"
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 
 import { OpenWith } from "@/components/OpenWith"
 import { ToolIcon } from "@/components/ToolIcon"
@@ -19,7 +20,14 @@ const TOOL_LABEL: Record<string, string> = {
   gemini: "Gemini / Antigravity",
 }
 
-export function UsageCard({ tool }: { tool: string }) {
+export function UsageCard({
+  tool,
+  showDetails = false,
+}: {
+  tool: string
+  showDetails?: boolean
+}) {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { t } = useI18n()
   const { data, isFetching, isPending, dataUpdatedAt } = useUsage()
@@ -73,6 +81,18 @@ export function UsageCard({ tool }: { tool: string }) {
           )}
         </div>
         <span className="flex items-center gap-1">
+          {showDetails && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate(`/ia?tool=${tool}`)}
+              title={t("usage.details")}
+              className="gap-1"
+            >
+              <ArrowRight className="size-3.5" />
+              {t("usage.details")}
+            </Button>
+          )}
           <OpenWith tool={tool} />
           <Button size="sm" variant="outline" onClick={refresh} disabled={loading}>
             <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />

@@ -29,6 +29,7 @@ from urllib.parse import parse_qs, quote, urlparse
 
 import open_with
 import scan_home
+import sessions
 import skills
 import spend
 import statusline_installer as statusline
@@ -1331,8 +1332,14 @@ def open_targets(tool: str) -> dict:
     return {"terminals": open_with.list_terminals(), "apps": open_with.apps_for_tool(tool)}
 
 
-def run_open(tool: str, target: str, project: str | None) -> dict:
-    logger.info(f"open tool={tool} target={target} project={project}")
+def run_open(
+    tool: str,
+    target: str,
+    project: str | None,
+    session_id: str | None = None,
+    cwd: str | None = None,
+) -> dict:
+    logger.info(f"open tool={tool} target={target} project={project} session_id={session_id} cwd={cwd}")
     binary = OPENABLE.get(tool)
     if not binary:
         raise ApiError(f"{tool} não tem CLI para abrir em terminal", 400)
@@ -1340,9 +1347,14 @@ def run_open(tool: str, target: str, project: str | None) -> dict:
     if kind == "terminal":
         if ident not in {t["id"] for t in open_with.list_terminals()}:
             raise ApiError("terminal desconhecido ou não instalado", 400)
-        cwd = resolve_open_cwd(project)
-        argv = open_with.argv_for_terminal(ident, binary, cwd)
-        audit_path, action = Path(cwd), "open-terminal"
+        target_cwd = cwd if (cwd and os.path.isdir(cwd)) else resolve_open_cwd(project)
+        if session_id:
+            cmd = sessions.resume_command(tool, binary, session_id)
+            argv = open_with.argv_for_terminal(ident, cmd, target_cwd)
+            audit_path, action = Path(target_cwd), f"resume-session-{tool}"
+        else:
+            argv = open_with.argv_for_terminal(ident, binary, target_cwd)
+            audit_path, action = Path(target_cwd), "open-terminal"
     elif kind == "app":
         if ident not in {a["id"] for a in open_with.apps_for_tool(tool)}:
             raise ApiError("app desconhecido, não instalado ou sem vínculo com essa IA", 400)
@@ -2434,6 +2446,22 @@ class Handler(BaseHTTPRequestHandler):
             tool_param = params.get("tool", ["antigravity"])[0]
             self._json(statusline.get_preview(tool_param))
             return
+        if url.path == "/api/sessions":
+            tool_param = params.get("tool", ["claude"])[0]
+            query = params.get("q", [""])[0]
+            raw_limit = params.get("limit", ["50"])[0]
+            try:
+                limit = int(raw_limit)
+            except ValueError:
+                limit = 50
+            force = params.get("refresh", ["0"])[0] == "1"
+            self._json(sessions.get_sessions(tool_param, query=query, limit=limit, force_refresh=force))
+            return
+        if url.path == "/api/sessions/detail":
+            tool_param = params.get("tool", ["claude"])[0]
+            session_id = params.get("id", [""])[0]
+            self._json(sessions.get_session_details(tool_param, session_id))
+            return
         if url.path == "/api/incidents":
             self._json(incidents_snapshot(force=params.get("refresh", ["0"])[0] == "1"))
             return
@@ -2593,9 +2621,15 @@ class Handler(BaseHTTPRequestHandler):
                 tool = str(payload.get("tool", ""))
                 target = str(payload.get("target", ""))
                 project = payload.get("project") or None
+                session_id = payload.get("session_id") or None
+                cwd = payload.get("cwd") or None
                 if project is not None and not isinstance(project, str):
                     raise ApiError("projeto inválido", 400)
-                self._json(run_open(tool, target, project))
+                if session_id is not None and not isinstance(session_id, str):
+                    raise ApiError("session_id inválido", 400)
+                if cwd is not None and not isinstance(cwd, str):
+                    raise ApiError("cwd inválido", 400)
+                self._json(run_open(tool, target, project, session_id=session_id, cwd=cwd))
                 return
             if url.path == "/api/mcp":
                 action = str(payload.get("action", ""))

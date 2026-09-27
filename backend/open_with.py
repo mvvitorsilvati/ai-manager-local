@@ -168,6 +168,18 @@ TERMINALS: list[dict] = [
         "detect": lambda: sys.platform == "win32",
         "argv": lambda binary, cwd: ["cmd.exe", "/k", f"cd /d {cwd} && {binary}"],
     },
+    {
+        "id": "powershell",
+        "label": "PowerShell",
+        "platforms": ("win32",),
+        "detect": lambda: _which(["powershell.exe", "pwsh.exe", "pwsh"]) is not None,
+        "argv": lambda binary, cwd: [
+            "powershell.exe",
+            "-NoExit",
+            "-Command",
+            f"Set-Location -LiteralPath '{cwd}'; {binary}",
+        ],
+    },
 ]
 
 # Apps nativos por IA. Abrir o app não aceita cwd nem comando: é `open -a`.

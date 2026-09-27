@@ -82,7 +82,7 @@ Compares the installed version of each CLI with the latest published on npm. **U
 
 ### MCPs
 
-Enabling and disabling happens on the card itself: opencode and Codex edit the config (with backup) and Copilot and Gemini go through the CLI. OAuth login also lives here (Claude, opencode and Codex), and **View config** works for all of them, including Claude MCPs, which live in `~/.claude.json`.
+Enabling and disabling happens on the card itself: opencode and Codex edit the config (with backup) and Copilot and Gemini go through the CLI. OAuth login also lives here (Claude, opencode and Codex). Authentication actions appear only for MCPs that need them: when the state is known, the card shows **Sign in** or **Sign out** for the current session. Enable and authentication buttons use distinct colors. **View config** works for all MCPs, including Claude MCPs, which live in `~/.claude.json`.
 
 ### Opening the AI
 

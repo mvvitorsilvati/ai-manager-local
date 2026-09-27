@@ -82,7 +82,7 @@ Compara a versão instalada de cada CLI com a última publicada no npm. O **Atua
 
 ### MCPs
 
-Ativar e desativar é no próprio card: opencode e Codex editam o config (com backup) e Copilot e Gemini passam pelo CLI. O login por OAuth também fica aqui (Claude, opencode e Codex), e o **Ver config** funciona em todos, inclusive nos MCPs do Claude, que ficam em `~/.claude.json`.
+Ativar e desativar é no próprio card: opencode e Codex editam o config (com backup) e Copilot e Gemini passam pelo CLI. O login por OAuth também fica aqui (Claude, opencode e Codex). As ações de autenticação aparecem apenas nos MCPs que precisam delas: quando o estado é conhecido, o card mostra **Autenticar** ou **Sair**, conforme a sessão. Os botões de ativação e autenticação têm cores distintas. O **Ver config** funciona em todos, inclusive nos MCPs do Claude, que ficam em `~/.claude.json`.
 
 ### Abrir a IA
 

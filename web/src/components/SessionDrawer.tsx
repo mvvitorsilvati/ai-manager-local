@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { AlertCircle, Coins, Copy, Folder, MessageSquare, Sparkles, Terminal, X } from "lucide-react"
 import { toast } from "sonner"
 
+import { Markdown } from "@/components/Markdown"
 import { OpenSessionWith } from "@/components/OpenWith"
 import { ToolIcon } from "@/components/ToolIcon"
 import { Badge } from "@/components/ui/badge"
@@ -203,6 +204,8 @@ export function SessionDrawer({
                   )
                 }
 
+                const hasContent = Boolean(msg.content && msg.content.trim())
+
                 return (
                   <Message key={index} align={isUser ? "end" : "start"} className="gap-2.5">
                     {!isUser && (
@@ -215,41 +218,79 @@ export function SessionDrawer({
                       <MessageHeader className="gap-1.5 text-[11px]">
                         <span>{isUser ? t("sessions.user") : toolName}</span>
                         {msg.timestamp && <span className="opacity-60">• {until(msg.timestamp)}</span>}
-                        <button
-                          type="button"
-                          onClick={() => copyText(msg.content)}
-                          className="ml-1 opacity-0 transition-opacity group-hover/message:opacity-60 hover:opacity-100"
-                          title={t("sessions.copyContent")}
-                        >
-                          <Copy className="size-2.5" />
-                        </button>
+                        {hasContent && (
+                          <button
+                            type="button"
+                            onClick={() => copyText(msg.content)}
+                            className="ml-1 opacity-0 transition-opacity group-hover/message:opacity-60 hover:opacity-100"
+                            title={t("sessions.copyContent")}
+                          >
+                            <Copy className="size-2.5" />
+                          </button>
+                        )}
                       </MessageHeader>
 
-                      <Bubble
-                        variant={isUser ? "default" : "secondary"}
-                        align={isUser ? "end" : "start"}
-                        className="w-full"
-                      >
-                        <BubbleContent className="text-xs leading-relaxed whitespace-pre-wrap select-text">
-                          {msg.content}
-                        </BubbleContent>
-                      </Bubble>
+                      {hasContent && (
+                        <Bubble
+                          variant={isUser ? "default" : "secondary"}
+                          align={isUser ? "end" : "start"}
+                          className="w-full"
+                        >
+                          <BubbleContent
+                            className={cn(
+                              "text-xs leading-relaxed select-text",
+                              isUser ? "whitespace-pre-wrap font-sans" : "p-3.5"
+                            )}
+                          >
+                            {isUser ? (
+                              msg.content
+                            ) : (
+                              <Markdown content={msg.content} className="text-xs prose-sm max-w-none" />
+                            )}
+                          </BubbleContent>
+                        </Bubble>
+                      )}
 
                       {/* Tool Calls executadas pelo assistente */}
                       {!isUser && msg.tool_calls && msg.tool_calls.length > 0 && (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {msg.tool_calls.map((tc, tcIdx) => (
-                            <Marker
-                              key={tcIdx}
-                              variant="default"
-                              className="border-border/60 bg-muted/40 text-muted-foreground rounded border px-2 py-0.5 font-mono text-[10px]"
-                            >
-                              <MarkerIcon>
-                                <Terminal className="size-2.5 opacity-70" />
-                              </MarkerIcon>
-                              <MarkerContent>{tc}</MarkerContent>
-                            </Marker>
-                          ))}
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {msg.tool_calls.length <= 6 ? (
+                            msg.tool_calls.map((tc, tcIdx) => (
+                              <Marker
+                                key={tcIdx}
+                                variant="default"
+                                className="border-border/60 bg-muted/40 text-muted-foreground rounded border px-2 py-0.5 font-mono text-[10px]"
+                              >
+                                <MarkerIcon>
+                                  <Terminal className="size-2.5 opacity-70" />
+                                </MarkerIcon>
+                                <MarkerContent>{tc}</MarkerContent>
+                              </Marker>
+                            ))
+                          ) : (
+                            <details className="group/tools w-full">
+                              <summary className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1.5 rounded px-1.5 py-0.5 font-mono text-[10px] transition-colors select-none">
+                                <Terminal className="size-3 opacity-70" />
+                                <span>
+                                  {msg.tool_calls.length} {t("sessions.toolsExecuted")}
+                                </span>
+                              </summary>
+                              <div className="mt-1 flex flex-wrap gap-1 pl-1">
+                                {msg.tool_calls.map((tc, tcIdx) => (
+                                  <Marker
+                                    key={tcIdx}
+                                    variant="default"
+                                    className="border-border/60 bg-muted/40 text-muted-foreground rounded border px-2 py-0.5 font-mono text-[10px]"
+                                  >
+                                    <MarkerIcon>
+                                      <Terminal className="size-2.5 opacity-70" />
+                                    </MarkerIcon>
+                                    <MarkerContent>{tc}</MarkerContent>
+                                  </Marker>
+                                ))}
+                              </div>
+                            </details>
+                          )}
                         </div>
                       )}
                     </MessageContent>

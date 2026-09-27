@@ -70,6 +70,40 @@ def clean_preview(text: str | None, max_len: int = 240) -> str:
     return s
 
 
+def clean_message_content(text: str | None, max_len: int | None = None) -> str:
+    """Higieniza o conteúdo da mensagem preservando formatação Markdown (quebras de linha, tabelas e código)."""
+    if not text:
+        return ""
+    s = str(text)
+    # Remove sequências de escape ANSI
+    s = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", s)
+    # Se envolto em <USER_REQUEST>, extrai o conteúdo interno
+    if "<USER_REQUEST>" in s and "</USER_REQUEST>" in s:
+        try:
+            req_content = s.split("<USER_REQUEST>")[1].split("</USER_REQUEST>")[0]
+            s = req_content
+        except Exception:
+            s = s.replace("<USER_REQUEST>", "").replace("</USER_REQUEST>", "")
+    else:
+        s = s.replace("<USER_REQUEST>", "").replace("</USER_REQUEST>", "")
+
+    # Remove envelopes de metadados do agente/sistema Antigravity / Claude
+    s = re.sub(r"<ADDITIONAL_METADATA>[\s\S]*?</ADDITIONAL_METADATA>", "", s)
+    s = re.sub(r"<USER_SETTINGS_CHANGE>[\s\S]*?</USER_SETTINGS_CHANGE>", "", s)
+
+    # Normaliza quebras de linha
+    s = s.replace("\r\n", "\n").replace("\r", "\n")
+    # Limpa espaços em branco supérfluos no final de cada linha mantendo a estrutura vertical
+    lines = [line.rstrip() for line in s.splitlines()]
+    s = "\n".join(lines).strip()
+    # Evita quebras de linha consecutivas excessivas (> 3)
+    s = re.sub(r"\n{4,}", "\n\n\n", s)
+
+    if max_len and len(s) > max_len:
+        return s[:max_len].rstrip() + "\n\n…"
+    return s
+
+
 def sanitize_skills(skills: set[str] | list[str]) -> list[str]:
     """Filtra e ordena skills válidas encontradas na conversa."""
     valid = []
@@ -832,7 +866,7 @@ def get_session_details(
                                     if isinstance(b, dict) and b.get("type") == "text" and b.get("text"):
                                         text_parts.append(b["text"])
                                 text = "\n".join(text_parts)
-                            clean_t = clean_preview(text, max_len=10000) or text
+                            clean_t = clean_message_content(text)
                             if clean_t:
                                 messages.append({
                                     "role": "user",
@@ -858,14 +892,32 @@ def get_session_details(
                             elif isinstance(raw_content, str):
                                 text_parts.append(raw_content)
                             text = "\n".join(text_parts).strip()
-                            clean_resp = clean_preview(text, max_len=10000) or text
-                            if clean_resp or tool_calls:
-                                messages.append({
-                                    "role": "assistant",
-                                    "content": clean_resp,
-                                    "timestamp": _iso_from_ts(ts),
-                                    "tool_calls": tool_calls,
-                                })
+                            clean_resp = clean_message_content(text)
+
+                            if messages and messages[-1].get("role") == "assistant":
+                                last_msg = messages[-1]
+                                existing_content = last_msg.get("content", "").strip()
+                                if clean_resp:
+                                    last_msg["content"] = (
+                                        f"{existing_content}\n\n{clean_resp}".strip()
+                                        if existing_content
+                                        else clean_resp
+                                    )
+                                if tool_calls:
+                                    existing_tools = last_msg.setdefault("tool_calls", [])
+                                    for tc in tool_calls:
+                                        if tc not in existing_tools:
+                                            existing_tools.append(tc)
+                                if ts:
+                                    last_msg["timestamp"] = _iso_from_ts(ts)
+                            else:
+                                if clean_resp or tool_calls:
+                                    messages.append({
+                                        "role": "assistant",
+                                        "content": clean_resp,
+                                        "timestamp": _iso_from_ts(ts),
+                                        "tool_calls": tool_calls,
+                                    })
                 except Exception as exc:
                     logger.debug(f"erro ao parsear transcript claude {sid}: {exc}")
 
@@ -893,13 +945,7 @@ def get_session_details(
                             skills_all.add(raw.split("/skills/")[1].split("/")[0])
 
                     if stype == "USER_INPUT" or source == "USER_EXPLICIT":
-                        clean_c = content
-                        if "<USER_REQUEST>" in clean_c:
-                            try:
-                                clean_c = clean_c.split("<USER_REQUEST>")[1].split("</USER_REQUEST>")[0].strip()
-                            except Exception:
-                                pass
-                        clean_c = clean_preview(clean_c, max_len=10000) or clean_c
+                        clean_c = clean_message_content(content)
                         if clean_c:
                             messages.append({
                                 "role": "user",
@@ -907,19 +953,37 @@ def get_session_details(
                                 "timestamp": _iso_from_ts(ts),
                             })
                     elif stype == "PLANNER_RESPONSE":
-                        clean_c = clean_preview(content, max_len=10000) or content
-                        if clean_c or tool_calls:
-                            messages.append({
-                                "role": "assistant",
-                                "content": clean_c,
-                                "timestamp": _iso_from_ts(ts),
-                                "tool_calls": tool_calls,
-                            })
+                        clean_c = clean_message_content(content)
+                        if messages and messages[-1].get("role") == "assistant":
+                            last_msg = messages[-1]
+                            existing_content = last_msg.get("content", "").strip()
+                            if clean_c:
+                                last_msg["content"] = (
+                                    f"{existing_content}\n\n{clean_c}".strip()
+                                    if existing_content
+                                    else clean_c
+                                )
+                            if tool_calls:
+                                existing_tools = last_msg.setdefault("tool_calls", [])
+                                for tc in tool_calls:
+                                    if tc not in existing_tools:
+                                        existing_tools.append(tc)
+                            if ts:
+                                last_msg["timestamp"] = _iso_from_ts(ts)
+                        else:
+                            if clean_c or tool_calls:
+                                messages.append({
+                                    "role": "assistant",
+                                    "content": clean_c,
+                                    "timestamp": _iso_from_ts(ts),
+                                    "tool_calls": tool_calls,
+                                })
                     elif stype == "ERROR_MESSAGE":
-                        if content:
+                        clean_err = clean_message_content(content)
+                        if clean_err:
                             messages.append({
                                 "role": "system",
-                                "content": clean_preview(content, max_len=1000) or content,
+                                "content": clean_err,
                                 "timestamp": _iso_from_ts(ts),
                             })
             except Exception as exc:
@@ -944,12 +1008,18 @@ def get_session_details(
                                 )
                             elif isinstance(c, str):
                                 text = c
-                            if text:
-                                messages.append({
-                                    "role": "user" if role == "user" else "assistant",
-                                    "content": clean_preview(text, max_len=10000) or text,
-                                    "timestamp": _iso_from_ts(rec.get("timestamp")),
-                                })
+                            clean_t = clean_message_content(text)
+                            if clean_t:
+                                if role == "assistant" and messages and messages[-1].get("role") == "assistant":
+                                    last_msg = messages[-1]
+                                    existing = last_msg.get("content", "").strip()
+                                    last_msg["content"] = f"{existing}\n\n{clean_t}".strip() if existing else clean_t
+                                else:
+                                    messages.append({
+                                        "role": "user" if role == "user" else "assistant",
+                                        "content": clean_t,
+                                        "timestamp": _iso_from_ts(rec.get("timestamp")),
+                                    })
                 except Exception as exc:
                     logger.debug(f"erro ao parsear codex {sid}: {exc}")
 
@@ -972,10 +1042,11 @@ def get_session_details(
                     mdata = json.loads(d_raw)
                     role = mdata.get("role") or "user"
                     c = mdata.get("content") or ""
-                    if c:
+                    clean_c = clean_message_content(c)
+                    if clean_c:
                         messages.append({
                             "role": "user" if role == "user" else "assistant",
-                            "content": clean_preview(c, max_len=10000) or c,
+                            "content": clean_c,
                             "timestamp": _iso_from_ts(t_created),
                         })
                 conn.close()
@@ -1004,17 +1075,21 @@ def get_session_details(
                 ).fetchall()
                 for u_msg, a_resp, t_created in rows:
                     if u_msg:
-                        messages.append({
-                            "role": "user",
-                            "content": clean_preview(u_msg, max_len=10000) or u_msg,
-                            "timestamp": _iso_from_ts(t_created),
-                        })
+                        clean_u = clean_message_content(u_msg)
+                        if clean_u:
+                            messages.append({
+                                "role": "user",
+                                "content": clean_u,
+                                "timestamp": _iso_from_ts(t_created),
+                            })
                     if a_resp:
-                        messages.append({
-                            "role": "assistant",
-                            "content": clean_preview(a_resp, max_len=10000) or a_resp,
-                            "timestamp": _iso_from_ts(t_created),
-                        })
+                        clean_a = clean_message_content(a_resp)
+                        if clean_a:
+                            messages.append({
+                                "role": "assistant",
+                                "content": clean_a,
+                                "timestamp": _iso_from_ts(t_created),
+                            })
                 conn.close()
             except Exception as exc:
                 logger.debug(f"erro ao ler copilot db para {sid}: {exc}")

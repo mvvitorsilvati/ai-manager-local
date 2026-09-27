@@ -111,11 +111,12 @@ def get_git_branch(cwd, vcs_obj):
     # Fallback to direct git command
     if cwd and os.path.exists(cwd):
         try:
-            branch = subprocess.check_output(
-                ["git", "-C", cwd, "--no-optional-locks", "symbolic-ref", "--short", "HEAD"],
-                stderr=subprocess.DEVNULL, timeout=0.5
-            ).decode().strip()
-            if not branch:
+            try:
+                branch = subprocess.check_output(
+                    ["git", "-C", cwd, "--no-optional-locks", "symbolic-ref", "--short", "HEAD"],
+                    stderr=subprocess.DEVNULL, timeout=0.5
+                ).decode().strip()
+            except subprocess.CalledProcessError:
                 branch = subprocess.check_output(
                     ["git", "-C", cwd, "--no-optional-locks", "rev-parse", "--short", "HEAD"],
                     stderr=subprocess.DEVNULL, timeout=0.5

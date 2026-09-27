@@ -1,0 +1,33 @@
+name: Lint & Validate CI
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # 1. Lint do Dockerfile
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+
+      # 2. Typecheck e Lint dos Workflows
+      - name: Run actionlint
+        run: |
+          bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          ./actionlint -color
+
+      # 3. Formatação dos YAMLs (Prettier não tem parser para Dockerfile)
+      - name: Check Formatting (Prettier)
+        run: npx prettier --check ".github/**/*.yaml" ".github/**/*.yml"

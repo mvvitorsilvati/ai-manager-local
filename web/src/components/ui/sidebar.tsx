@@ -97,11 +97,20 @@ function SidebarProvider({
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
-        event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
+        event.key.toLowerCase() === SIDEBAR_KEYBOARD_SHORTCUT.toLowerCase() &&
         (event.metaKey || event.ctrlKey)
       ) {
-        event.preventDefault()
-        toggleSidebar()
+        const target = event.target as HTMLElement | null
+        const isEditing =
+          target &&
+          (target.tagName === "INPUT" ||
+            target.tagName === "TEXTAREA" ||
+            target.isContentEditable ||
+            Boolean(target.closest(".monaco-editor")))
+        if (!isEditing) {
+          event.preventDefault()
+          toggleSidebar()
+        }
       }
     }
 

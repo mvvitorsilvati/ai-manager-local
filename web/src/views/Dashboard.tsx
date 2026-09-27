@@ -82,23 +82,42 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {(usagePending || usage?.claude || usage?.codex || usage?.copilot || usage?.gemini) && (
-        <div>
-          <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">{t("dash.usage")}</h3>
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            {usage?.claude && <UsageCard tool="claude" showDetails />}
-            {usage?.codex && <UsageCard tool="codex" showDetails />}
-            {usage?.copilot && <UsageCard tool="copilot" showDetails />}
-            {usage?.gemini && <UsageCard tool="gemini" showDetails />}
-            {usagePending && (
-              <>
-                <Skeleton className="h-32" />
-                <Skeleton className="h-32" />
-              </>
-            )}
+      {(() => {
+        const availableTools: ("claude" | "codex" | "copilot" | "gemini")[] = []
+        if (usage?.claude) availableTools.push("claude")
+        if (usage?.codex) availableTools.push("codex")
+        if (usage?.copilot) availableTools.push("copilot")
+        if (usage?.gemini) availableTools.push("gemini")
+
+        if (!usagePending && availableTools.length === 0) return null
+
+        return (
+          <div>
+            <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">
+              {t("dash.usage")}
+            </h3>
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              {availableTools.map((tool, idx) => {
+                const isLastOdd = availableTools.length % 2 !== 0 && idx === availableTools.length - 1
+                return (
+                  <UsageCard
+                    key={tool}
+                    tool={tool}
+                    showDetails
+                    className={isLastOdd ? "lg:col-span-2" : undefined}
+                  />
+                )
+              })}
+              {usagePending && (
+                <>
+                  <Skeleton className="h-32" />
+                  <Skeleton className="h-32" />
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       <div>
         <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">{t("dash.spend")}</h3>

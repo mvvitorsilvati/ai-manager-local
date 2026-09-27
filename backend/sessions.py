@@ -11,6 +11,7 @@ import sqlite3
 import subprocess
 import threading
 import time
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -57,6 +58,63 @@ def clean_title(title: str | None, max_len: int = 120) -> str:
     if len(text) > max_len:
         return text[:max_len].rstrip() + "…"
     return text
+
+
+def is_slash_command(text: str | None) -> bool:
+    """Detecta se uma string é apenas um meta-comando slash (ex: /model, /mcp, /effort) e não um prompt real."""
+    if not text:
+        return False
+    t = str(text).strip()
+    if not t.startswith("/"):
+        return False
+    if t.startswith(("/Users/", "/home/", "/tmp/", "/var/", "/private/", "/etc/")):
+        return False
+    first_token = t.split()[0].lower()
+    known_commands = {
+        "/model",
+        "/mcp",
+        "/effort",
+        "/cost",
+        "/status",
+        "/init",
+        "/help",
+        "/clear",
+        "/compact",
+        "/doctor",
+        "/bug",
+        "/login",
+        "/logout",
+        "/terminal-setup",
+        "/resume",
+        "/review",
+        "/permissions",
+        "/tools",
+        "/verbose",
+        "/memory",
+        "/context",
+        "/config",
+        "/listen",
+        "/mode",
+    }
+    if first_token in known_commands:
+        return True
+    if "\n" not in t and len(t.split()) <= 2 and len(t) < 30:
+        return True
+    return False
+
+
+def pick_meaningful_title(candidates: Sequence[str | None], fallback: str = "Nova conversa") -> str:
+    """Retorna o primeiro título significativo que não seja um comando slash como /model ou /mcp."""
+    for c in candidates:
+        if not c:
+            continue
+        cleaned = str(c).strip()
+        if cleaned and not is_slash_command(cleaned):
+            return cleaned
+    for c in candidates:
+        if c and str(c).strip():
+            return str(c).strip()
+    return fallback
 
 
 def clean_message_content(text: str | None, max_len: int | None = None) -> str:
@@ -292,14 +350,17 @@ def scan_claude_sessions(home: Path | None = None) -> list[dict]:
                 d = json.loads(line)
                 sid = d.get("sessionId")
                 if sid:
+                    disp = d.get("display")
                     if sid not in hist_map:
                         hist_map[sid] = {
-                            "title": d.get("display"),
+                            "candidate_titles": [disp] if disp else [],
                             "cwd": d.get("project"),
                             "first_ts": d.get("timestamp"),
                             "last_ts": d.get("timestamp"),
                         }
                     else:
+                        if disp:
+                            hist_map[sid].setdefault("candidate_titles", []).append(disp)
                         hist_map[sid]["last_ts"] = d.get("timestamp") or hist_map[sid]["last_ts"]
                         if not hist_map[sid]["cwd"] and d.get("project"):
                             hist_map[sid]["cwd"] = d.get("project")
@@ -381,8 +442,13 @@ def scan_claude_sessions(home: Path | None = None) -> list[dict]:
         except Exception:
             pass
 
-        title = h_info.get("title") or (user_prompts[0] if user_prompts else sid)
-        preview = assistant_responses[-1] if assistant_responses else (user_prompts[-1] if user_prompts else "")
+        h_candidates = h_info.get("candidate_titles", [])
+        title = pick_meaningful_title(h_candidates + user_prompts, fallback=sid)
+        preview = (
+            assistant_responses[-1]
+            if assistant_responses
+            else pick_meaningful_title(list(reversed(user_prompts)), fallback="")
+        )
 
         created_iso = first_ts.isoformat() if first_ts else _iso_from_ts(h_info.get("first_ts"))
         updated_iso = last_ts.isoformat() if last_ts else _iso_from_ts(h_info.get("last_ts") or p.stat().st_mtime)
@@ -408,7 +474,7 @@ def scan_claude_sessions(home: Path | None = None) -> list[dict]:
     for sid, h_info in hist_map.items():
         if sid in seen:
             continue
-        title = h_info.get("title") or sid
+        title = pick_meaningful_title(h_info.get("candidate_titles", []), fallback=sid)
         ts = h_info.get("last_ts") or h_info.get("first_ts")
         sessions.append({
             "id": sid,
@@ -454,14 +520,17 @@ def scan_gemini_sessions(home: Path | None = None) -> list[dict]:
                 d = json.loads(line)
                 cid = d.get("conversationId")
                 if cid:
+                    disp = d.get("display")
                     if cid not in hist_map:
                         hist_map[cid] = {
-                            "title": d.get("display"),
+                            "candidate_titles": [disp] if disp else [],
                             "cwd": d.get("workspace"),
                             "first_ts": d.get("timestamp"),
                             "last_ts": d.get("timestamp"),
                         }
                     else:
+                        if disp:
+                            hist_map[cid].setdefault("candidate_titles", []).append(disp)
                         hist_map[cid]["last_ts"] = d.get("timestamp") or hist_map[cid]["last_ts"]
                         if not hist_map[cid]["cwd"] and d.get("workspace"):
                             hist_map[cid]["cwd"] = d.get("workspace")
@@ -520,8 +589,13 @@ def scan_gemini_sessions(home: Path | None = None) -> list[dict]:
                 except Exception:
                     pass
 
-            title = h_info.get("title") or (prompts[0] if prompts else cid)
-            preview = responses[-1] if responses else (prompts[-1] if prompts else "")
+            h_candidates = h_info.get("candidate_titles", [])
+            title = pick_meaningful_title(h_candidates + prompts, fallback=cid)
+            preview = (
+                responses[-1]
+                if responses
+                else pick_meaningful_title(list(reversed(prompts)), fallback="")
+            )
 
             inp = int(u.get("total_in") or 0)
             out = int(u.get("total_out") or 0)
@@ -560,7 +634,7 @@ def scan_gemini_sessions(home: Path | None = None) -> list[dict]:
     for cid, h_info in hist_map.items():
         if cid in seen:
             continue
-        title = h_info.get("title") or cid
+        title = pick_meaningful_title(h_info.get("candidate_titles", []), fallback=cid)
         u = usages.get(cid, {})
         inp = int(u.get("total_in") or 0)
         out = int(u.get("total_out") or 0)
@@ -668,7 +742,7 @@ def scan_codex_sessions(home: Path | None = None) -> list[dict]:
             except Exception:
                 pass
 
-            display_title = title or first_prompt or sid
+            display_title = pick_meaningful_title([title, first_prompt], fallback=sid)
             preview = last_response or first_prompt or ""
             created_iso = first_ts.isoformat() if first_ts else _iso_from_ts(idx_entry.get("updated_at"))
             fallback_ts = idx_entry.get("updated_at") or p.stat().st_mtime
@@ -945,11 +1019,26 @@ def get_sessions(
     else:
         filtered = sessions_pool
 
+    # Top 20 conversas por maior custo e top 20 com mais tokens
+    top_cost = sorted(
+        [s for s in sessions_pool if s.get("cost", 0) > 0],
+        key=lambda s: s.get("cost", 0.0),
+        reverse=True,
+    )[:20]
+
+    top_tokens = sorted(
+        [s for s in sessions_pool if s.get("tokens", 0) > 0],
+        key=lambda s: s.get("tokens", 0),
+        reverse=True,
+    )[:20]
+
     return {
         "ok": True,
         "tool": t,
         "total": len(filtered),
         "sessions": filtered[:limit],
+        "top_cost": top_cost,
+        "top_tokens": top_tokens,
     }
 
 

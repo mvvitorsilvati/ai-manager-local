@@ -402,13 +402,13 @@ export const api = {
   openTargets: (tool: string) => unwrap<OpenTargets>(client.get("/api/open-targets", { params: { tool } })),
   openWith: (body: { tool: string; target: string; project?: string; session_id?: string; cwd?: string }) =>
     unwrap<{ ok: boolean }>(client.post("/api/open", body)),
-  sessions: (tool: string, q?: string, limit = 50, refresh = false) =>
+  sessions: (tool: string, q?: string, limit?: number, refresh = false) =>
     unwrap<SessionsResponse>(
       client.get("/api/sessions", {
         params: {
           tool,
           ...(q ? { q } : {}),
-          ...(limit ? { limit } : {}),
+          ...(limit != null ? { limit } : {}),
           ...(refresh ? { refresh: "1" } : {}),
         },
       }),

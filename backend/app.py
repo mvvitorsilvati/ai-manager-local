@@ -2988,11 +2988,13 @@ class Handler(BaseHTTPRequestHandler):
         if url.path == "/api/sessions":
             tool_param = params.get("tool", ["claude"])[0]
             query = params.get("q", [""])[0]
-            raw_limit = params.get("limit", ["50"])[0]
-            try:
-                limit = int(raw_limit)
-            except ValueError:
-                limit = 50
+            raw_limit = params.get("limit", [None])[0]
+            limit = None
+            if raw_limit not in (None, ""):
+                try:
+                    limit = int(raw_limit)
+                except ValueError:
+                    limit = None
             force = params.get("refresh", ["0"])[0] == "1"
             self._json(sessions.get_sessions(tool_param, query=query, limit=limit, force_refresh=force))
             return

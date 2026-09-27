@@ -863,7 +863,6 @@ def scan_opencode_sessions(home: Path | None = None) -> list[dict]:
                    tokens_cache_read, time_created, time_updated
             FROM session
             ORDER BY time_updated DESC
-            LIMIT 200
             """
         ).fetchall()
 
@@ -944,7 +943,6 @@ def scan_copilot_sessions(home: Path | None = None) -> list[dict]:
             SELECT id, summary, cwd, created_at, updated_at
             FROM sessions
             ORDER BY updated_at DESC
-            LIMIT 200
             """
         ).fetchall()
 
@@ -1021,16 +1019,16 @@ PRIMARY_TOOLS = ("claude", "gemini", "codex", "opencode", "copilot")
 def get_sessions(
     tool: str,
     query: str | None = None,
-    limit: int = 50,
+    limit: int | None = None,
     home: Path | None = None,
     force_refresh: bool = False,
 ) -> dict:
-    """Retorna lista filtrada de sessões/conversas para a ferramenta solicitada."""
+    """Retorna lista filtrada de sessões/conversas para a ferramenta solicitada (sem limite por padrão)."""
     t = tool.lower().strip()
     if t == "all":
         all_sessions: list[dict] = []
         for pt in PRIMARY_TOOLS:
-            res = get_sessions(pt, query=None, limit=200, home=home, force_refresh=force_refresh)
+            res = get_sessions(pt, query=None, limit=None, home=home, force_refresh=force_refresh)
             all_sessions.extend(res.get("sessions", []))
         all_sessions.sort(key=lambda s: s.get("updated_at", ""), reverse=True)
         sessions_pool = all_sessions
@@ -1085,7 +1083,7 @@ def get_sessions(
         "ok": True,
         "tool": t,
         "total": len(filtered),
-        "sessions": filtered[:limit],
+        "sessions": filtered if limit is None else filtered[:limit],
         "top_cost": top_cost,
         "top_tokens": top_tokens,
     }
@@ -1144,11 +1142,11 @@ def get_session_details(
     sid = session_id.strip()
 
     # Busca metadados da sessão primeiro
-    all_res = get_sessions(t, query=None, limit=300, home=h, force_refresh=False)
+    all_res = get_sessions(t, query=None, limit=None, home=h, force_refresh=False)
     sess_meta = next((s for s in all_res.get("sessions", []) if s.get("id") == sid), None)
     if not sess_meta:
         # Tenta com refresh se não encontrou no cache
-        all_res = get_sessions(t, query=None, limit=300, home=h, force_refresh=True)
+        all_res = get_sessions(t, query=None, limit=None, home=h, force_refresh=True)
         sess_meta = next((s for s in all_res.get("sessions", []) if s.get("id") == sid), None)
 
     messages: list[dict] = []

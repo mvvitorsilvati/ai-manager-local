@@ -54,7 +54,8 @@ test("mensagem do usuário formata Markdown e abre imagem do Claude", async ({ p
   const image = message.getByRole("img", { name: "print.png" })
   await expect(image).toBeVisible()
   await expect.poll(() => image.evaluate((img) => (img as unknown as { naturalWidth: number }).naturalWidth)).toBe(1)
-  await image.click()
+  // O overlay de hover do TumblrPhotoGrid intercepta o clique por design; o clique borbulha para o container.
+  await image.click({ force: true })
   const original = page.getByRole("img", { name: "print.png" }).last()
   await expect(original).toBeVisible()
   await expect.poll(() => original.evaluate((img) => (img as unknown as { naturalWidth: number }).naturalWidth)).toBe(1)

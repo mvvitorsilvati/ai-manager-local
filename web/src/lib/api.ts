@@ -196,6 +196,18 @@ export type SessionsResponse = {
   sessions: SessionItem[]
 }
 
+export type SessionMessage = {
+  role: "user" | "assistant" | "system"
+  content: string
+  timestamp?: string | null
+  tool_calls?: string[]
+}
+
+export type SessionDetailResponse = SessionItem & {
+  ok: boolean
+  messages: SessionMessage[]
+}
+
 export type ToolVersion = {
   installed: string | null
   latest: string | null
@@ -359,15 +371,26 @@ export const api = {
         },
       }),
     ),
+  sessionDetail: (tool: string, id: string) =>
+    unwrap<SessionDetailResponse>(
+      client.get("/api/sessions/detail", {
+        params: { tool, id },
+      }),
+    ),
   statuslineStatus: () => unwrap<StatuslineStatusResponse>(client.get("/api/statusline")),
   installStatusline: (target: StatuslineTarget) =>
     unwrap<StatuslineInstallResult>(client.post("/api/statusline", { target })),
   statuslineBackups: (tool?: string) =>
     unwrap<StatuslineBackup[]>(client.get("/api/statusline/backups", { params: tool ? { tool } : {} })),
   restoreStatuslineBackup: (tool: string, backup: string) =>
-    unwrap<{ ok: boolean; tool: string; restored: string; target: string; status: StatuslineStatusResponse; message: string }>(
-      client.post("/api/statusline/restore", { tool, backup }),
-    ),
+    unwrap<{
+      ok: boolean
+      tool: string
+      restored: string
+      target: string
+      status: StatuslineStatusResponse
+      message: string
+    }>(client.post("/api/statusline/restore", { tool, backup })),
   statuslinePreview: (tool: string) =>
     unwrap<StatuslinePreviewResponse>(client.get("/api/statusline/preview", { params: { tool } })),
 }

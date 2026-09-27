@@ -21,12 +21,12 @@ import { CopyCommandButton } from "@/components/CopyCommandButton"
 import { FileTree, type TreeEntry } from "@/components/FileTree"
 import { McpActions } from "@/components/McpActions"
 import { OpenProjectShell, OpenWith } from "@/components/OpenWith"
+import { SessionList } from "@/components/SessionList"
 import { ToolIcon } from "@/components/ToolIcon"
+import { ToolStatuslineManager } from "@/components/ToolStatuslineManager"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { SessionList } from "@/components/SessionList"
-import { ToolStatuslineManager } from "@/components/ToolStatuslineManager"
 import { UpdateButton } from "@/components/UpdateButton"
 import { UsageCard } from "@/components/UsageCard"
 import { CAT_LABEL, isDoc, useCatalog } from "@/hooks/useCatalog"
@@ -334,8 +334,7 @@ export function ToolsView() {
   const groups = groupBy(files, (f) => f.s)
   const ordered = orderGroups(catalog, groups)
   const selectedLabel = catalog.tools.find((t) => t.id === selected)?.label ?? selected
-  const hasUsageCard =
-    selected === "claude" || selected === "codex" || selected === "copilot" || selected === "gemini"
+  const hasUsageCard = selected === "claude" || selected === "codex" || selected === "copilot" || selected === "gemini"
   const version = versions?.tools[selected]
   return (
     <div>
@@ -362,7 +361,12 @@ export function ToolsView() {
         <div className="border-border bg-card mb-5 flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 text-sm">
           <ToolIcon id={selected} className="size-4" />
           <span className="font-medium">{selectedLabel}</span>
-          <VersionBadges installed={version.installed} latest={version.latest} update={version.update} installMethod={version.install_method} />
+          <VersionBadges
+            installed={version.installed}
+            latest={version.latest}
+            update={version.update}
+            installMethod={version.install_method}
+          />
           <OpenWith tool={selected} />
           {version.account && !hasUsageCard && (
             <span className="text-muted-foreground truncate text-[11px]">{version.account}</span>
@@ -385,10 +389,10 @@ export function ToolsView() {
           <ToolStatuslineManager tool={selected} />
         </div>
       )}
+      {(hasUsageCard || selected === "opencode") && <ToolSection tool={selected} />}
       <div className="mb-5">
         <SessionList tool={selected} />
       </div>
-      {(hasUsageCard || selected === "opencode") && <ToolSection tool={selected} />}
       <EmptyFilter query={q} count={files.length} />
       {ordered.map(([sid, list]) => (
         <SourceSection key={sid} catalog={catalog} id={sid} tool={selected}>

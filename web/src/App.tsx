@@ -11,6 +11,7 @@ import {
   History,
   Layers,
   LayoutGrid,
+  MessagesSquare,
   Moon,
   Package,
   RefreshCw,
@@ -26,6 +27,7 @@ import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom"
 
 import { IncidentIcon } from "@/components/bits"
 import { CollapseAllButton } from "@/components/collapse"
+import { CommandMenu } from "@/components/CommandMenu"
 import { FlagBR, FlagUS } from "@/components/flags"
 import { ToolIcon } from "@/components/ToolIcon"
 import { Badge } from "@/components/ui/badge"
@@ -41,6 +43,7 @@ import type { Key } from "@/lib/locales"
 import { useTheme } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 import Dashboard from "@/views/Dashboard"
+import { SessionsView } from "@/views/Sessions"
 import SpendView from "@/views/Spend"
 import {
   CategoryView,
@@ -62,6 +65,7 @@ export function navItems(t: (key: Key) => string): NavItem[] {
   return [
     { to: "/", label: t("nav.overview"), icon: LayoutGrid, end: true },
     { to: "/ia", label: t("nav.byTool"), icon: Layers },
+    { to: "/sessoes", label: t("nav.sessions"), icon: MessagesSquare },
     { to: "/consumo", label: t("nav.spend"), icon: CircleDollarSign },
     { to: "/contextos", label: t("nav.contexts"), icon: BookOpen },
     { to: "/skills", label: t("nav.skills"), icon: Zap },
@@ -91,19 +95,6 @@ export default function App() {
     queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== "usage" })
     refreshUsage(queryClient)
   }
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault()
-        const input = document.getElementById("search") as HTMLInputElement | null
-        input?.focus()
-        input?.select()
-      }
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [])
   const location = useLocation()
   const isViewer = location.pathname === "/f"
   const [lastLocation, setLastLocation] = useState(location)
@@ -245,6 +236,7 @@ export default function App() {
           <Routes location={isViewer ? lastLocation : location}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/ia" element={<ToolsView />} />
+            <Route path="/sessoes" element={<SessionsView />} />
             <Route path="/consumo" element={<SpendView />} />
             <Route path="/contextos" element={<CategoryView cat="context" />} />
             <Route path="/skills" element={<SkillsView />} />
@@ -275,6 +267,7 @@ export default function App() {
           {isViewer && <Viewer key={location.search} />}
         </section>
       </main>
+      <CommandMenu />
       <Toaster theme={theme} />
     </div>
   )

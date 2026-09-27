@@ -211,9 +211,9 @@ export function SessionList({
           }
         }}
       >
-        {/* Linha 1: Título e Ações */}
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+        {/* Linha 1: Nome da IA, Tokens, Custo, Mensagens, Metadados e Ações */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
             {rank !== undefined && (
               <Badge
                 variant="outline"
@@ -228,7 +228,7 @@ export function SessionList({
                 {t("sessions.rank", { rank: String(rank) })}
               </Badge>
             )}
-            {(showToolBadge || tool === "all") && s.tool && (
+            {(showToolBadge || tool === "all" || s.tool) && s.tool && (
               <Badge
                 variant="outline"
                 className="border-border/80 bg-muted/50 shrink-0 gap-1 text-[11px] font-normal"
@@ -238,12 +238,77 @@ export function SessionList({
                 <span>{TOOL_LABELS[s.tool] ?? s.tool}</span>
               </Badge>
             )}
-            <h4
-              className="text-foreground group-hover:text-primary truncate text-sm font-medium transition-colors"
-              title={s.title}
-            >
-              {s.title}
-            </h4>
+
+            {/* Tokens */}
+            {s.tokens > 0 && (
+              <Badge
+                variant="outline"
+                className="gap-1 border-blue-500/30 bg-blue-500/10 font-mono text-[11px] font-normal text-blue-400"
+                title={t("sessions.tokensConsumed", { count: s.tokens.toLocaleString() })}
+              >
+                <Coins className="size-3 shrink-0 opacity-80" />
+                {formatTokens(s.tokens)}
+              </Badge>
+            )}
+
+            {/* Custo */}
+            {s.cost > 0 && (
+              <Badge
+                variant="outline"
+                className="gap-1 border-emerald-500/30 bg-emerald-500/10 font-mono text-[11px] font-normal text-emerald-400"
+                title={t("sessions.estimatedCost", { cost: formatCost(s.cost, s.currency) })}
+              >
+                {formatCost(s.cost, s.currency)}
+              </Badge>
+            )}
+
+            {/* Quantidade de mensagens */}
+            {s.message_count > 0 && (
+              <Badge
+                variant="outline"
+                className="border-border/50 text-muted-foreground gap-1 font-mono text-[11px] font-normal"
+              >
+                <MessageSquare className="size-3 shrink-0 opacity-60" />
+                {tn("sessions.messages", s.message_count)}
+              </Badge>
+            )}
+
+            {/* Skills utilizadas */}
+            {s.skills && s.skills.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1">
+                {s.skills.map((sk) => (
+                  <Badge
+                    key={sk}
+                    variant="outline"
+                    className="gap-1 border-violet-500/30 bg-violet-500/10 font-mono text-[10px] font-normal text-violet-400"
+                    title={`Skill: ${sk}`}
+                  >
+                    <Sparkles className="size-2.5 opacity-70" />
+                    {sk}
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            {/* Diretório (se não estiver agrupado por diretório) */}
+            {!groupByDirectory && s.cwd && (
+              <Badge
+                variant="outline"
+                className="border-border/70 bg-muted/30 text-muted-foreground hover:bg-muted/60 max-w-[280px] gap-1 font-mono text-[11px] font-normal transition-colors"
+                title={s.cwd}
+              >
+                <Folder className="size-3 shrink-0 opacity-70" />
+                <span className="truncate">{s.project}</span>
+                <button
+                  type="button"
+                  onClick={(e) => copyPath(s.cwd, e)}
+                  className="hover:text-foreground ml-0.5 opacity-60 hover:opacity-100"
+                  title={t("sessions.copyDirectory")}
+                >
+                  <Copy className="size-2.5" />
+                </button>
+              </Badge>
+            )}
           </div>
 
           <div className="flex shrink-0 items-center gap-2" onClick={(e) => e.stopPropagation()}>
@@ -258,78 +323,14 @@ export function SessionList({
           </div>
         </div>
 
-        {/* Linha 2: Badges de metadados */}
-        <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-xs">
-          {/* Diretório (se não estiver agrupado por diretório) */}
-          {!groupByDirectory && s.cwd && (
-            <Badge
-              variant="outline"
-              className="border-border/70 bg-muted/30 text-muted-foreground hover:bg-muted/60 max-w-[280px] gap-1 font-mono text-[11px] font-normal transition-colors"
-              title={s.cwd}
-            >
-              <Folder className="size-3 shrink-0 opacity-70" />
-              <span className="truncate">{s.project}</span>
-              <button
-                type="button"
-                onClick={(e) => copyPath(s.cwd, e)}
-                className="hover:text-foreground ml-0.5 opacity-60 hover:opacity-100"
-                title={t("sessions.copyDirectory")}
-              >
-                <Copy className="size-2.5" />
-              </button>
-            </Badge>
-          )}
-
-          {/* Tokens */}
-          {s.tokens > 0 && (
-            <Badge
-              variant="outline"
-              className="gap-1 border-blue-500/30 bg-blue-500/10 font-mono text-[11px] font-normal text-blue-400"
-              title={t("sessions.tokensConsumed", { count: s.tokens.toLocaleString() })}
-            >
-              <Coins className="size-3 shrink-0 opacity-80" />
-              {formatTokens(s.tokens)}
-            </Badge>
-          )}
-
-          {/* Custo */}
-          {s.cost > 0 && (
-            <Badge
-              variant="outline"
-              className="gap-1 border-emerald-500/30 bg-emerald-500/10 font-mono text-[11px] font-normal text-emerald-400"
-              title={t("sessions.estimatedCost", { cost: formatCost(s.cost, s.currency) })}
-            >
-              {formatCost(s.cost, s.currency)}
-            </Badge>
-          )}
-
-          {/* Quantidade de mensagens */}
-          {s.message_count > 1 && (
-            <Badge
-              variant="outline"
-              className="border-border/50 text-muted-foreground gap-1 font-mono text-[11px] font-normal"
-            >
-              <MessageSquare className="size-3 shrink-0 opacity-60" />
-              {tn("sessions.messages", s.message_count)}
-            </Badge>
-          )}
-
-          {/* Skills utilizadas */}
-          {s.skills && s.skills.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1">
-              {s.skills.map((sk) => (
-                <Badge
-                  key={sk}
-                  variant="outline"
-                  className="gap-1 border-violet-500/30 bg-violet-500/10 font-mono text-[10px] font-normal text-violet-400"
-                  title={`Skill: ${sk}`}
-                >
-                  <Sparkles className="size-2.5 opacity-70" />
-                  {sk}
-                </Badge>
-              ))}
-            </div>
-          )}
+        {/* Linha 2: Título da Sessão */}
+        <div className="mt-2.5">
+          <h4
+            className="text-foreground group-hover:text-primary text-sm font-medium transition-colors"
+            title={s.title}
+          >
+            {s.title}
+          </h4>
         </div>
 
         {/* Linha 3: Prévia da conversa */}

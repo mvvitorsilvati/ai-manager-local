@@ -60,8 +60,7 @@ export function StatuslineCard({ className }: { className?: string }) {
   })
 
   const restoreMutation = useMutation({
-    mutationFn: ({ tool, backup }: { tool: string; backup: string }) =>
-      api.restoreStatuslineBackup(tool, backup),
+    mutationFn: ({ tool, backup }: { tool: string; backup: string }) => api.restoreStatuslineBackup(tool, backup),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["statusline"] })
       queryClient.invalidateQueries({ queryKey: ["statusline-backups"] })
@@ -126,11 +125,7 @@ export function StatuslineCard({ className }: { className?: string }) {
                     status?.claude.installed ? "text-emerald-500" : "text-muted-foreground",
                   )}
                 >
-                  {status?.claude.installed ? (
-                    <CheckCircle2 className="size-3" />
-                  ) : (
-                    <XCircle className="size-3" />
-                  )}
+                  {status?.claude.installed ? <CheckCircle2 className="size-3" /> : <XCircle className="size-3" />}
                   {status?.claude.installed ? t("statusline.installed") : t("statusline.not_installed")}
                 </Badge>
                 <span className="text-muted-foreground text-[10px]">
@@ -158,11 +153,7 @@ export function StatuslineCard({ className }: { className?: string }) {
                     status?.antigravity.installed ? "text-emerald-500" : "text-muted-foreground",
                   )}
                 >
-                  {status?.antigravity.installed ? (
-                    <CheckCircle2 className="size-3" />
-                  ) : (
-                    <XCircle className="size-3" />
-                  )}
+                  {status?.antigravity.installed ? <CheckCircle2 className="size-3" /> : <XCircle className="size-3" />}
                   {status?.antigravity.installed ? t("statusline.installed") : t("statusline.not_installed")}
                 </Badge>
                 <span className="text-muted-foreground text-[10px]">
@@ -203,7 +194,7 @@ export function StatuslineCard({ className }: { className?: string }) {
               <Clock className="size-3.5" />
               {t("statusline.tab_backups")}
               {backups && backups.length > 0 && (
-                <span className="bg-primary/20 text-primary ml-1 rounded-full px-1.5 py-0.2 text-[10px] font-semibold">
+                <span className="bg-primary/20 text-primary py-0.2 ml-1 rounded-full px-1.5 text-[10px] font-semibold">
                   {backups.length}
                 </span>
               )}
@@ -245,7 +236,7 @@ export function StatuslineCard({ className }: { className?: string }) {
                       >
                         {isSelected ? <Check className="size-3" /> : null}
                       </span>
-                      <span className="text-xs font-medium text-foreground">{opt.label}</span>
+                      <span className="text-foreground text-xs font-medium">{opt.label}</span>
                     </div>
                     {opt.desc && <span className="text-muted-foreground text-[10px]">{opt.desc}</span>}
                   </button>
@@ -316,17 +307,17 @@ export function StatuslineCard({ className }: { className?: string }) {
             ) : (
               <div className="border-border overflow-x-auto rounded-md border text-xs">
                 <div className="min-w-[500px]">
-                  <div className="border-border bg-muted/40 text-muted-foreground grid grid-cols-[1fr_80px_130px_90px] border-b px-3 py-1.5 font-medium text-[11px] whitespace-nowrap">
+                  <div className="border-border bg-muted/40 text-muted-foreground grid grid-cols-[1fr_80px_130px_90px] border-b px-3 py-1.5 text-[11px] font-medium whitespace-nowrap">
                     <div>{t("statusline.th_file")}</div>
                     <div>{t("statusline.th_tool")}</div>
                     <div>{t("statusline.th_datetime")}</div>
                     <div className="text-right">{t("statusline.th_action")}</div>
                   </div>
-                  <div className="divide-border divide-y max-h-64 overflow-y-auto">
+                  <div className="divide-border max-h-64 divide-y overflow-y-auto">
                     {backups.map((b: StatuslineBackup) => (
                       <div
                         key={b.backup_name}
-                        className="hover:bg-muted/30 grid grid-cols-[1fr_80px_130px_90px] items-center px-3 py-2 transition-colors whitespace-nowrap"
+                        className="hover:bg-muted/30 grid grid-cols-[1fr_80px_130px_90px] items-center px-3 py-2 whitespace-nowrap transition-colors"
                       >
                         <div className="min-w-0 pr-2">
                           <div className="flex items-center gap-1.5 font-mono font-medium">

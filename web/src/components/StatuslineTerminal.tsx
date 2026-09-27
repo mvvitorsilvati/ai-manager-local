@@ -59,13 +59,7 @@ function ansiToSpans(text: string) {
   return parts
 }
 
-export function StatuslineTerminal({
-  tool,
-  className,
-}: {
-  tool: "claude" | "antigravity"
-  className?: string
-}) {
+export function StatuslineTerminal({ tool, className }: { tool: "claude" | "antigravity"; className?: string }) {
   const { t } = useI18n()
   const [copied, setCopied] = useState(false)
 
@@ -86,10 +80,7 @@ export function StatuslineTerminal({
 
   return (
     <div
-      className={cn(
-        "overflow-hidden rounded-lg border border-slate-800 bg-[#0d1117] font-mono shadow-md",
-        className,
-      )}
+      className={cn("overflow-hidden rounded-lg border border-slate-800 bg-[#0d1117] font-mono shadow-md", className)}
     >
       {/* Barra do Terminal Mac */}
       <div className="flex items-center justify-between border-b border-slate-800 bg-[#161b22] px-3 py-1.5 text-xs text-slate-400">
@@ -115,7 +106,7 @@ export function StatuslineTerminal({
       </div>
 
       {/* Conteúdo do Terminal */}
-      <div className="p-3 text-xs leading-relaxed overflow-x-auto whitespace-pre">
+      <div className="overflow-x-auto p-3 text-xs leading-relaxed whitespace-pre">
         {isLoading ? (
           <div className="space-y-1.5 py-1">
             <Skeleton className="h-4 w-3/4 bg-slate-800" />

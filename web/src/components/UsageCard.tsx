@@ -20,13 +20,7 @@ const TOOL_LABEL: Record<string, string> = {
   gemini: "Gemini / Antigravity",
 }
 
-export function UsageCard({
-  tool,
-  showDetails = false,
-}: {
-  tool: string
-  showDetails?: boolean
-}) {
+export function UsageCard({ tool, showDetails = false }: { tool: string; showDetails?: boolean }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { t } = useI18n()

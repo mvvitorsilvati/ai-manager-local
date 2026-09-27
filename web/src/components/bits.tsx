@@ -115,7 +115,7 @@ export function VersionBadges({
       {installMethod && (
         <Badge
           variant="outline"
-          className="border-border/60 bg-muted/40 font-mono text-[10px] font-normal text-muted-foreground"
+          className="border-border/60 bg-muted/40 text-muted-foreground font-mono text-[10px] font-normal"
           title={`Instalado via ${installMethod}`}
         >
           {installMethod}

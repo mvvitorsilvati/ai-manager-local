@@ -24,13 +24,7 @@ import { fmtDT } from "@/lib/format"
 import { useI18n } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
-export function ToolStatuslineManager({
-  tool,
-  className,
-}: {
-  tool: "claude" | "gemini"
-  className?: string
-}) {
+export function ToolStatuslineManager({ tool, className }: { tool: "claude" | "gemini"; className?: string }) {
   const queryClient = useQueryClient()
   const { t } = useI18n()
   const [activeTab, setActiveTab] = useState<"preview" | "backups">("preview")
@@ -95,9 +89,7 @@ export function ToolStatuslineManager({
             </Badge>
           </div>
         </div>
-        <CardDescription className="text-xs">
-          {t("statusline.single_card_desc")}
-        </CardDescription>
+        <CardDescription className="text-xs">{t("statusline.single_card_desc")}</CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4 text-sm">
@@ -116,11 +108,7 @@ export function ToolStatuslineManager({
                     currentToolStatus?.installed ? "text-emerald-500" : "text-muted-foreground",
                   )}
                 >
-                  {currentToolStatus?.installed ? (
-                    <CheckCircle2 className="size-3" />
-                  ) : (
-                    <XCircle className="size-3" />
-                  )}
+                  {currentToolStatus?.installed ? <CheckCircle2 className="size-3" /> : <XCircle className="size-3" />}
                   {currentToolStatus?.installed ? t("statusline.installed") : t("statusline.not_installed")}
                 </Badge>
               )}
@@ -131,7 +119,10 @@ export function ToolStatuslineManager({
               )}
             </div>
             <div className="text-muted-foreground font-mono text-[11px]">
-              {currentToolStatus?.path ?? (targetTool === "claude" ? "~/.claude/statusline-command.sh" : "~/.gemini/antigravity-cli/statusline.sh")}
+              {currentToolStatus?.path ??
+                (targetTool === "claude"
+                  ? "~/.claude/statusline-command.sh"
+                  : "~/.gemini/antigravity-cli/statusline.sh")}
             </div>
           </div>
 
@@ -172,7 +163,7 @@ export function ToolStatuslineManager({
                 <Clock className="size-3.5" />
                 {t("statusline.tab_backups")}
                 {backups && backups.length > 0 && (
-                  <span className="bg-primary/20 text-primary ml-1 rounded-full px-1.5 py-0.2 text-[10px] font-semibold">
+                  <span className="bg-primary/20 text-primary py-0.2 ml-1 rounded-full px-1.5 text-[10px] font-semibold">
                     {backups.length}
                   </span>
                 )}
@@ -205,7 +196,7 @@ export function ToolStatuslineManager({
               ) : (
                 <div className="border-border overflow-x-auto rounded-md border text-xs">
                   <div className="min-w-[480px]">
-                    <div className="border-border bg-muted/40 text-muted-foreground grid grid-cols-[1fr_130px_100px] border-b px-3 py-1.5 font-medium text-[11px] whitespace-nowrap">
+                    <div className="border-border bg-muted/40 text-muted-foreground grid grid-cols-[1fr_130px_100px] border-b px-3 py-1.5 text-[11px] font-medium whitespace-nowrap">
                       <div>{t("statusline.th_file")}</div>
                       <div>{t("statusline.th_datetime")}</div>
                       <div className="text-right">{t("statusline.th_action")}</div>
@@ -214,7 +205,7 @@ export function ToolStatuslineManager({
                       {backups.map((b: StatuslineBackup) => (
                         <div
                           key={b.backup_name}
-                          className="hover:bg-muted/30 grid grid-cols-[1fr_130px_100px] items-center px-3 py-2 transition-colors whitespace-nowrap"
+                          className="hover:bg-muted/30 grid grid-cols-[1fr_130px_100px] items-center px-3 py-2 whitespace-nowrap transition-colors"
                         >
                           <div className="min-w-0 pr-2">
                             <div className="flex items-center gap-1.5 font-mono font-medium">

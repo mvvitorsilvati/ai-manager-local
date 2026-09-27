@@ -233,9 +233,10 @@ def test_usage_snapshot_com_tool_atualiza_so_a_ia_pedida(monkeypatch):
     provider("claude", {"available": True, "windows": []})
     provider("codex", {"available": True, "plan": "plus", "windows": []})
     provider("copilot", {"available": True, "windows": []})
+    provider("gemini", {"available": True, "windows": []})
     monkeypatch.setattr(app, "_usage_cache", (0.0, {}))
 
-    assert set(app.usage_snapshot()) == {"claude", "codex", "copilot"}
+    assert set(app.usage_snapshot()) == {"claude", "codex", "copilot", "gemini"}
     chamadas.clear()
 
     parcial = app.usage_snapshot(force=True, tool="codex")
@@ -246,4 +247,70 @@ def test_usage_snapshot_com_tool_atualiza_so_a_ia_pedida(monkeypatch):
     chamadas.clear()
     assert set(app.usage_snapshot(tool="claude")) == {"claude"}
     assert chamadas == []
-    assert set(app._usage_cache[1]) == {"claude", "codex", "copilot"}
+    assert set(app._usage_cache[1]) == {"claude", "codex", "copilot", "gemini"}
+
+
+def test_parse_gemini_quota_extrai_janelas_de_5h_e_7d():
+    quota = {
+        "gemini-5h": {
+            "remaining_fraction": 0.95,
+            "reset_time": "2026-09-27T14:00:00Z",
+        },
+        "gemini-weekly": {
+            "remaining_fraction": 0.40,
+            "reset_time": "2026-10-04T09:00:00Z",
+        },
+        "3p-5h": {
+            "remaining_fraction": 1.0,
+        },
+        "3p-weekly": {
+            "remaining_fraction": 0.85,
+            "reset_time": "2026-10-04T09:00:00Z",
+        },
+    }
+    windows = app.parse_gemini_quota(quota)
+    assert len(windows) == 3
+    assert windows[0]["label"] == "Sessão (5h)"
+    assert windows[0]["utilization"] == 5.0
+    assert windows[0]["resets_at"] == "2026-09-27T14:00:00Z"
+
+    assert windows[1]["label"] == "Semanal (7d)"
+    assert windows[1]["utilization"] == 60.0
+
+    # 3p-5h com 0% de uso foi omitido, mas 3p-weekly com 15% aparece
+    assert windows[2]["label"] == "3P · Semanal (7d)"
+    assert windows[2]["utilization"] == 15.0
+
+
+def test_gemini_usage_retorna_dados_do_payload(tmp_path, monkeypatch):
+    payload_file = tmp_path / "latest_status.json"
+    payload_file.write_text(
+        json.dumps({
+            "plan_tier": "Google AI Pro",
+            "email": "dev@example.com",
+            "quota": {
+                "gemini-5h": {"remaining_fraction": 0.90, "reset_time": "2026-09-27T14:00:00Z"},
+            },
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(app, "ANTIGRAVITY_CACHE_STATUS", payload_file)
+    monkeypatch.setattr(app, "ANTIGRAVITY_PAYLOAD", tmp_path / "inexistente.json")
+    monkeypatch.setattr(app, "gemini_account", lambda: "dev@example.com")
+
+    usage = app.gemini_usage()
+    assert usage is not None
+    assert usage["available"] is True
+    assert usage["plan"] == "Google AI Pro"
+    assert usage["account"] == "dev@example.com"
+    assert len(usage["windows"]) == 1
+    assert usage["windows"][0]["utilization"] == 10.0
+
+
+def test_gemini_usage_sem_conta_e_sem_payload_retorna_none(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "ANTIGRAVITY_CACHE_STATUS", tmp_path / "inexistente1.json")
+    monkeypatch.setattr(app, "ANTIGRAVITY_PAYLOAD", tmp_path / "inexistente2.json")
+    monkeypatch.setattr(app, "gemini_account", lambda: None)
+
+    assert app.gemini_usage() is None
+

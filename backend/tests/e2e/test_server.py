@@ -186,6 +186,7 @@ def test_usage_responde_com_dados_do_claude(servidor, monkeypatch):
     monkeypatch.setattr(app, "claude_usage", lambda: {"available": True, "windows": [], "credits": None})
     monkeypatch.setattr(app, "codex_usage", lambda: None)
     monkeypatch.setattr(app, "copilot_usage", lambda: None)
+    monkeypatch.setattr(app, "gemini_usage", lambda: None)
     app._usage_cache = (0.0, {})
     status, body = request(f"{servidor.url}/api/usage")
     assert status == 200
@@ -193,6 +194,7 @@ def test_usage_responde_com_dados_do_claude(servidor, monkeypatch):
     assert payload["claude"]["available"] is True
     assert "codex" in payload
     assert "copilot" in payload
+    assert "gemini" in payload
 
     status, body = request(f"{servidor.url}/api/usage?refresh=1&tool=codex")
     assert status == 200
@@ -245,3 +247,108 @@ def test_rota_do_spa_cai_no_index(servidor, tmp_path, monkeypatch):
     status, body = request(f"{servidor.url}/ia")
     assert status == 200
     assert b"<html>spa</html>" in body
+
+
+def test_statusline_get_retorna_status(servidor, monkeypatch):
+    import statusline_installer as statusline
+
+    monkeypatch.setattr(
+        statusline,
+        "check_status",
+        lambda *args, **kwargs: {
+            "claude": {"installed": True, "configured": True, "path": "/path/claude"},
+            "antigravity": {"installed": False, "configured": False, "path": "/path/agy"},
+        },
+    )
+    status, body = request(f"{servidor.url}/api/statusline")
+    assert status == 200
+    data = json.loads(body)
+    assert data["claude"]["installed"] is True
+    assert data["antigravity"]["installed"] is False
+
+
+def test_statusline_post_instala_alvo(servidor, monkeypatch):
+    import statusline_installer as statusline
+
+    chamadas = []
+    monkeypatch.setattr(
+        statusline,
+        "install",
+        lambda target, **kwargs: chamadas.append(target) or {"ok": True, "target": target, "message": "sucesso"},
+    )
+    status, body = request(f"{servidor.url}/api/statusline", payload={"target": "claude"})
+    assert status == 200
+    data = json.loads(body)
+    assert data["ok"] is True
+    assert chamadas == ["claude"]
+
+
+def test_statusline_get_backups(servidor, monkeypatch):
+    import statusline_installer as statusline
+
+    monkeypatch.setattr(
+        statusline,
+        "list_backups",
+        lambda tool=None: [
+            {"tool": "claude", "backup_name": "statusline-command.sh.bak-1", "size": 100, "mtime": 123456}
+        ],
+    )
+    status, body = request(f"{servidor.url}/api/statusline/backups?tool=claude")
+    assert status == 200
+    data = json.loads(body)
+    assert len(data) == 1
+    assert data[0]["tool"] == "claude"
+
+
+def test_statusline_get_preview(servidor, monkeypatch):
+    import statusline_installer as statusline
+
+    monkeypatch.setattr(
+        statusline,
+        "get_preview",
+        lambda tool: {
+            "ok": True,
+            "tool": tool,
+            "raw_lines": ["line 1"],
+            "plain_lines": ["line 1"],
+        },
+    )
+    status, body = request(f"{servidor.url}/api/statusline/preview?tool=antigravity")
+    assert status == 200
+    data = json.loads(body)
+    assert data["ok"] is True
+    assert data["tool"] == "antigravity"
+    assert data["plain_lines"] == ["line 1"]
+
+
+def test_statusline_post_restore_sucesso(servidor, monkeypatch):
+    import statusline_installer as statusline
+
+    monkeypatch.setattr(
+        statusline,
+        "restore_backup",
+        lambda tool, backup: {
+            "ok": True,
+            "tool": tool,
+            "restored": backup,
+            "message": "restaurado",
+        },
+    )
+    status, body = request(
+        f"{servidor.url}/api/statusline/restore",
+        payload={"tool": "antigravity", "backup": "statusline.sh.bak-123"},
+    )
+    assert status == 200
+    data = json.loads(body)
+    assert data["ok"] is True
+    assert data["restored"] == "statusline.sh.bak-123"
+
+
+def test_statusline_post_restore_erro_validacao(servidor):
+    status, body = request(
+        f"{servidor.url}/api/statusline/restore",
+        payload={"tool": ""},
+    )
+    assert status == 400
+    assert "obrigatórios" in json.loads(body)["error"]
+

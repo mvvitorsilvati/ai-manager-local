@@ -12,15 +12,19 @@ import { ago, fmtDT, until } from "@/lib/format"
 import { useI18n } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
-const TOOL_LABEL: Record<string, string> = { claude: "Claude Code", codex: "Codex", copilot: "GitHub Copilot" }
+const TOOL_LABEL: Record<string, string> = {
+  claude: "Claude Code",
+  codex: "Codex",
+  copilot: "GitHub Copilot",
+  gemini: "Gemini / Antigravity",
+}
 
 export function UsageCard({ tool }: { tool: string }) {
   const queryClient = useQueryClient()
   const { t } = useI18n()
   const { data, isFetching, isPending, dataUpdatedAt } = useUsage()
   const [busy, setBusy] = useState(false)
-  const usage =
-    tool === "claude" ? data?.claude : tool === "codex" ? data?.codex : tool === "copilot" ? data?.copilot : null
+  const usage = data?.[tool as UsageTool] ?? null
 
   // o card só gira quando ele mesmo foi clicado (busy) ou no refresh de tudo (isFetching)
   const loading = busy || isFetching

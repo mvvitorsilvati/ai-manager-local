@@ -25,6 +25,7 @@ import { ToolIcon } from "@/components/ToolIcon"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ToolStatuslineManager } from "@/components/ToolStatuslineManager"
 import { UpdateButton } from "@/components/UpdateButton"
 import { UsageCard } from "@/components/UsageCard"
 import { CAT_LABEL, isDoc, useCatalog } from "@/hooks/useCatalog"
@@ -332,7 +333,8 @@ export function ToolsView() {
   const groups = groupBy(files, (f) => f.s)
   const ordered = orderGroups(catalog, groups)
   const selectedLabel = catalog.tools.find((t) => t.id === selected)?.label ?? selected
-  const hasUsageCard = selected === "claude" || selected === "codex" || selected === "copilot"
+  const hasUsageCard =
+    selected === "claude" || selected === "codex" || selected === "copilot" || selected === "gemini"
   const version = versions?.tools[selected]
   return (
     <div>
@@ -375,6 +377,11 @@ export function ToolsView() {
       {hasUsageCard && (
         <div className="mb-5">
           <UsageCard tool={selected} />
+        </div>
+      )}
+      {(selected === "claude" || selected === "gemini") && (
+        <div className="mb-5">
+          <ToolStatuslineManager tool={selected} />
         </div>
       )}
       {(hasUsageCard || selected === "opencode") && <ToolSection tool={selected} />}

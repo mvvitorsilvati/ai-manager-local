@@ -44,7 +44,7 @@ Detalles en [Qué hace](#qué-hace).
 
 ## Índice
 
-- [Funcionalidades principales](#funcionalidades-principais)
+- [Funcionalidades principales](#funcionalidades-principales)
 - [Qué hace](#qué-hace)
 - [Stack](#stack)
 - [Requisitos](#requisitos)
@@ -95,7 +95,7 @@ Compara la versión instalada de cada CLI con la última publicada en npm. **Act
 
 ### MCPs
 
-La activación y desactivación se realiza en la propia tarjeta: opencode y Codex editan el archivo de configuración (con copia de seguridad) y Copilot y Gemini lo gestionan vía CLI. El inicio de sesión OAuth también se encuentra aquí (Claude, opencode y Codex), y **Ver config** funciona para todos, incluyendo los MCPs de Claude que residen en `~/.claude.json`.
+La activación y desactivación se realiza en la propia tarjeta: opencode y Codex editan el archivo de configuración (con copia de seguridad) y Copilot y Gemini lo gestionan vía CLI. El inicio de sesión OAuth también se encuentra aquí (Claude, opencode y Codex). Las acciones de autenticación solo aparecen en los MCPs que las necesitan: cuando se conoce el estado, la tarjeta muestra **Iniciar sesión** o **Cerrar sesión**, según corresponda. Los botones de activación y autenticación tienen colores distintos. **Ver config** funciona para todos, incluidos los MCPs de Claude que residen en `~/.claude.json`.
 
 ### Apertura de la IA
 
@@ -244,10 +244,35 @@ El contenedor monta tu `$HOME` en `/host-home` (con `HOME` apuntando allí), de 
 
 ### Uso en WSL (IAs instaladas en Windows)
 
-El panel construye sus fuentes a partir del directorio home, por lo que no ve `C:\` de forma automática. Si las IAs se ejecutan en Windows y el panel en WSL, apunta `AIM_HOME` al perfil de Windows:
+El panel construye sus fuentes a partir del directorio home (`AIM_PROJECTS_DIR` solo cambia la carpeta de proyectos), por lo que no ve `C:\` de forma automática. Si las IAs se ejecutan en Windows y el panel en WSL, apunta `AIM_HOME` al perfil de Windows, en `.env` o en la línea de comandos:
 
 ```bash
+# ejecución nativa en WSL
 AIM_HOME=/mnt/c/Users/<usuario> uv run --project backend backend/app.py
+
+# contenedor: descomenta el volumen y AIM_HOME en docker-compose.yml
+#   - /mnt/c/Users/<usuario>:/host-windows
+#   AIM_HOME: /host-windows
+docker compose up --build
+```
+
+Así se leen los archivos de las IAs, los logs de uso, las credenciales de Claude (`~/.claude/.credentials.json`) y la última sesión de Codex (`~/.codex/sessions`). Las copias de seguridad y `audit.log` quedan en el home real (`~/.ai_management_local`). Si las IAs se ejecutan dentro de WSL, no necesitas `AIM_HOME`.
+
+En comparación con macOS:
+
+- La tarjeta de GitHub Copilot necesita un token: `GITHUB_TOKEN` o `GH_TOKEN`, `gh auth token` o `~/.config/gh/hosts.yml`. El `gh` de Windows guarda la sesión en `%APPDATA%\GitHub CLI\`; autentica `gh` dentro de WSL.
+- La apertura en aplicaciones nativas (Claude, OpenCode, Gemini/Antigravity) y sus iconos solo están disponibles en macOS. En WSL se ofrecen los terminales Linux instalados.
+- «Revelar en Finder» responde con `400` y Windows Terminal no aparece en la lista de terminales: `wt` solo corresponde a `win32`.
+- Si `AIM_HOME` apunta a Windows, las copias y `audit.log` se guardan en `C:\Users\<usuario>\.ai_management_local`. Escanear `/mnt/c` es más lento que ext4 y las rutas `C:\...` de los archivos de configuración solo se muestran como texto.
+
+### Flujo de desarrollo
+
+```bash
+# terminal 1 — API
+just run-nobrowser
+
+# terminal 2 — frontend con HMR
+just dev
 ```
 
 ### Atajos de teclado
@@ -298,6 +323,19 @@ ai-manager-local/
 └── justfile                  # tareas del proyecto
 ```
 
+### Cómo se comunican los componentes
+
+```
+Navegador (SPA React en /) ──HTTP/JSON──▶ backend/app.py (127.0.0.1:4747)
+        │                                        │
+        │  /api/catalog, /api/file, ...          ├─ lee archivos (fuentes y proyectos)
+        │  POST /api/save (X-AIM: 1)          ├─ guarda con backup, escritura atómica y auditoría
+        ▼                                        └─ consulta las API de uso (Claude/Codex/Copilot)
+   web/dist (build) ◀── servido por el mismo proceso
+```
+
+El backend escanea las fuentes en cada petición al catálogo, sin base de datos. El frontend usa TanStack Query como caché (catálogo: 10 s; uso: 5 min con `refetchInterval`).
+
 ### Seguridad
 
 - El servidor solo escucha en `127.0.0.1` por defecto; en contenedor, `AIM_HOST=0.0.0.0` con el puerto publicado únicamente en el loopback del host.
@@ -333,6 +371,27 @@ ai-manager-local/
 | GET | `/api/app-icon?app=` | icono PNG de la aplicación nativa |
 | POST | `/api/open` | abre la IA en el terminal o app seleccionada |
 
+## Fuentes escaneadas
+
+| Fuente | Ruta | Contenido |
+|---|---|---|
+| opencode | `~/.config/opencode` | `opencode.jsonc`, `agent/`, `command/`, `skills/`, `shared/`, `instructions/` |
+| Skills compartidas | `~/.agents/skills` | skills utilizadas por varias herramientas |
+| Claude Code | `~/.claude` | `CLAUDE.md`, `agents/`, `commands/`, `skills/`, `rules/`, `settings.json` |
+| Codex | `~/.codex` | `config.toml`, `AGENTS.md`, `prompts/`, `rules/`, `skills/` |
+| GitHub Copilot CLI | `~/.copilot` | `settings.json`, `mcp-config.json`, `hooks/`, `skills/` |
+| Gemini / Antigravity | `~/.gemini` | `GEMINI.md`, `settings.json`, `config/`, `skills/` |
+| Cursor | `~/.cursor` | `mcp.json` global y `.cursor/`, `.cursorrules`/`.windsurfrules` en proyectos, si existen |
+| Proyectos | `AIM_PROJECTS_DIR` (`~/Projetos` por defecto) | detecta repositorios y escanea las rutas de configuración y `docs/` |
+
+### Agregar una IA nueva
+
+El registro `TOOLS` en `backend/app.py` centraliza la configuración: cada entrada define el directorio global (`root`), las rutas del proyecto (`dirs`/`files`), el archivo MCP (`mcp.rel` y `kind`/`container`), la CLI (`cli`), las acciones de autenticación y activación (`mcp_login`/`mcp_logout`, `mcp_enable`/`mcp_disable`) y la página de estado (`status`). La barra lateral y la pantalla «Por IA» muestran únicamente las fuentes configuradas.
+
+El panel también **descubre automáticamente** herramientas no registradas: un `~/.<ia>/mcp.json` (o `.mcp.json`/`mcp_config.json`) con `mcpServers`, o un `~/Library/Application Support/<IA>/**/mcp.json`, se convierte en una fuente con MCPs visibles y conmutables desde el panel. Se usa un icono genérico hasta agregar la marca a `ToolIcon`.
+
+Se excluyen automáticamente los binarios y cachés por extensión (`.pyc`, `.zip`, `.pdf`, fuentes, audio, SQLite y sus archivos `-wal/-shm/-journal`), los historiales `.jsonl`, los directorios de sesiones y cachés (`sessions/`, `projects/`, `cache/`, `worktrees/`, `session-state/`, `run/`) y los archivos de credenciales (`auth.json`).
+
 ## Pruebas
 
 ```bash
@@ -341,13 +400,25 @@ cd backend && uv run pytest    # solo backend (pytest)
 cd web && pnpm test            # solo frontend (Vitest)
 ```
 
+- `tests/unit`: parsers, categorización, skills, MCPs y exploración de directorios.
+- `tests/integration`: escrituras con backup, conflictos por tiempo de modificación, restauración y consulta de autores de Git.
+- `tests/e2e`: inicia un servidor HTTP real y verifica catálogo, lectura, guardado (incluidos `403` sin cabecera y `409` por conflicto), backups, restauración y la ruta `/`.
+
 ### Pruebas E2E (Playwright)
 
-Inician la aplicación real con frontend compilado y backend en uv sobre fixtures aisladas:
+Inician la aplicación real con frontend compilado y backend en uv. `AIM_PROJECTS_DIR` apunta a una fixture copiada en `web/e2e/.tmp` antes de cada ejecución; la prueba de guardado no modifica los archivos versionados:
 
 ```bash
 just e2e                     # build + playwright test
 cd web && pnpm test:e2e      # sin recompilar
+```
+
+La suite cubre la vista general, el proyecto de ejemplo y su visor, la búsqueda con ⌘K, la edición con ⌘S y la cancelación con Esc. Las pruebas de edición pegan el texto en Monaco porque la escritura tecla por tecla puede perder caracteres. En CI, una prueba intermitente también hace fallar el job (`failOnFlakyTests`).
+
+Si tu red bloquea la descarga de Chromium, usa el Chrome instalado en el sistema:
+
+```bash
+cd web && pnpm test:e2e:chrome
 ```
 
 ## Lint y formateo

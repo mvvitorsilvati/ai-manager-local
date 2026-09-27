@@ -48,6 +48,17 @@ test("visão geral carrega com a navegação", async ({ page }) => {
   await expect(page.getByRole("link", { name: /Projetos/ })).toBeVisible()
 })
 
+test("idioma espanhol traduz a navegação e salva a escolha", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: "Idioma" }).click()
+  await page.getByRole("menuitem", { name: "Español (ES)" }).click()
+
+  await expect(page.getByRole("heading", { name: "Visión general" })).toBeVisible()
+  await expect(page.locator("html")).toHaveAttribute("lang", "es")
+  await expect(page.getByRole("link", { name: /Conversaciones/ })).toBeVisible()
+  expect(await page.evaluate(() => localStorage.getItem("aim:lang"))).toBe("es")
+})
+
 test("projetos lista a fixture e abre o arquivo no viewer", async ({ page }) => {
   await abrirProjeto(page)
   await page.getByRole("button", { name: /CLAUDE\.md/ }).click()

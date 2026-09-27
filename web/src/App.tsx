@@ -30,9 +30,24 @@ import { CollapseAllButton } from "@/components/collapse"
 import { CommandMenu } from "@/components/CommandMenu"
 import { FlagBR, FlagUS } from "@/components/flags"
 import { ToolIcon } from "@/components/ToolIcon"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuBadge,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarRail,
+  SidebarTrigger,
+} from "@/components/ui/sidebar"
 import { Toaster } from "@/components/ui/sonner"
 import { Viewer } from "@/components/Viewer"
 import { useCatalog } from "@/hooks/useCatalog"
@@ -130,145 +145,169 @@ export default function App() {
   })
 
   return (
-    <div className="bg-background text-foreground flex h-screen">
-      <aside className="border-border bg-card flex w-64 shrink-0 flex-col border-r">
-        <div className="flex items-center gap-2 px-4 py-4 font-bold tracking-tight">
-          <img src="/favicon.svg" alt="" className="size-5 shrink-0 rounded-md" />
-          AI Manager Local
-        </div>
-        <nav className="flex-1 space-y-0.5 overflow-auto px-2 pb-2">
-          {nav.map(({ to, label, icon: Icon, count, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
-                  isActive && "bg-accent font-medium text-foreground",
-                )
-              }
-            >
-              <span className="flex items-center gap-2.5">
-                <Icon className="size-4" />
-                {label}
-              </span>
-              {count != null && (
-                <Badge
-                  variant="secondary"
-                  className="text-muted-foreground h-5 rounded-full px-2 text-[11px] font-normal"
-                >
-                  {count}
-                </Badge>
-              )}
-            </NavLink>
-          ))}
-        </nav>
-        <div className="border-border text-muted-foreground truncate border-t px-4 py-3 text-[11px]">
-          {catalog?.sources
-            .filter((s) => !s.project)
-            .map((s) => {
-              const status = statusUrlOf(s.id)
-              const incident = incidents?.sources[s.id]
-              const label = s.id === "agents" ? t("sources.agents_label") : s.label
-              return (
-                <div key={s.id} className="flex items-center gap-1.5">
-                  <ToolIcon id={s.id} className="size-3.5" />
-                  {status ? (
-                    <a
-                      href={status}
-                      target="_blank"
-                      rel="noreferrer"
-                      title={t("sources.statusPage", { status })}
-                      className="hover:text-foreground inline-flex min-w-0 items-center gap-1 underline-offset-2 hover:underline"
+    <SidebarProvider defaultOpen={true}>
+      <div className="bg-background text-foreground flex h-screen w-full">
+        <Sidebar collapsible="icon" className="border-border">
+          <SidebarHeader className="border-sidebar-border border-b p-3">
+            <div className="flex items-center justify-between gap-2 overflow-hidden">
+              <div className="flex items-center gap-2.5 font-bold tracking-tight">
+                <img src="/favicon.svg" alt="" className="size-5 shrink-0 rounded-md" />
+                <span className="truncate group-data-[collapsible=icon]:hidden">AI Manager Local</span>
+              </div>
+              <SidebarTrigger className="group-data-[collapsible=icon]:hidden size-7" />
+            </div>
+          </SidebarHeader>
+
+          <SidebarContent className="p-2">
+            <SidebarGroup className="p-0">
+              <SidebarGroupContent>
+                <SidebarMenu className="gap-0.5">
+                  {nav.map(({ to, label, icon: Icon, count, end }) => {
+                    const isActive = location.pathname === to || (!end && to !== "/" && location.pathname.startsWith(to))
+                    return (
+                      <SidebarMenuItem key={to}>
+                        <SidebarMenuButton
+                          render={<NavLink to={to} end={end} />}
+                          isActive={isActive}
+                          tooltip={label}
+                          className={cn(
+                            "flex items-center justify-between",
+                            isActive && "bg-accent font-medium text-foreground"
+                          )}
+                        >
+                          <span className="flex items-center gap-2.5 truncate">
+                            <Icon className="size-4 shrink-0" />
+                            <span className="truncate">{label}</span>
+                          </span>
+                        </SidebarMenuButton>
+                        {count != null && (
+                          <SidebarMenuBadge className="text-muted-foreground group-data-[collapsible=icon]:hidden">
+                            {count}
+                          </SidebarMenuBadge>
+                        )}
+                      </SidebarMenuItem>
+                    )
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </SidebarContent>
+
+          <SidebarFooter className="border-sidebar-border border-t p-2.5 text-[11px] text-muted-foreground">
+            <div className="flex flex-col gap-1.5 overflow-hidden">
+              {catalog?.sources
+                .filter((s) => !s.project)
+                .map((s) => {
+                  const status = statusUrlOf(s.id)
+                  const incident = incidents?.sources[s.id]
+                  const label = s.id === "agents" ? t("sources.agents_label") : s.label
+                  return (
+                    <div
+                      key={s.id}
+                      className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center"
+                      title={label}
                     >
-                      <span className="truncate">{label}</span>
-                      <ExternalLink className="size-3 shrink-0 opacity-60" />
-                      <IncidentIcon incident={incident} />
-                    </a>
-                  ) : (
-                    <span className="truncate">{label}</span>
-                  )}
-                </div>
-              )
-            })}
-        </div>
-      </aside>
-      <main className="flex min-w-0 flex-1 flex-col">
-        <header className="border-border bg-card flex gap-3 border-b p-3.5">
-          <SearchInput />
-          <CollapseAllButton />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={toggleTheme}
-            title={t(theme === "dark" ? "theme.toLight" : "theme.toDark")}
-            aria-label={t(theme === "dark" ? "theme.toLight" : "theme.toDark")}
-          >
-            {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button variant="outline" size="sm" title={t("header.language")} aria-label={t("header.language")}>
-                  {lang === "pt" ? <FlagBR className="size-4" /> : <FlagUS className="size-4" />}
-                  <ChevronDown className="size-3.5 opacity-60" />
-                </Button>
-              }
-            />
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setLang("pt")}>
-                <FlagBR className="size-4 shrink-0" />
-                Português (BR)
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setLang("en")}>
-                <FlagUS className="size-4 shrink-0" />
-                English (US)
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button variant="outline" size="sm" onClick={refreshAll} disabled={isFetching}>
-            <RefreshCw className={cn("size-4", isFetching && "animate-spin")} />
-            {t("header.refresh")}
-          </Button>
-        </header>
-        <section className="flex-1 overflow-auto p-6">
-          <Routes location={isViewer ? lastLocation : location}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/ia" element={<ToolsView />} />
-            <Route path="/sessoes" element={<SessionsView />} />
-            <Route path="/consumo" element={<SpendView />} />
-            <Route path="/contextos" element={<CategoryView cat="context" />} />
-            <Route path="/skills" element={<SkillsView />} />
-            <Route path="/agentes" element={<CategoryView cat="agent" />} />
-            <Route path="/comandos" element={<CategoryView cat="command" />} />
-            <Route path="/regras" element={<CategoryView cat="rule" />} />
-            <Route path="/docs" element={<DocsView />} />
-            <Route path="/mcps" element={<McpsView />} />
-            <Route path="/plugins" element={<PluginsView />} />
-            <Route path="/projetos" element={<ProjectsView />} />
-            <Route path="/arquivos" element={<FilesView />} />
-            <Route path="/auditoria" element={<AuditView />} />
-            <Route path="/busca" element={<SearchView />} />
-            <Route
-              path="*"
-              element={
-                <div className="space-y-1">
-                  <h2 className="text-lg font-semibold">Página não encontrada</h2>
-                  <p className="text-muted-foreground text-sm">
-                    <Link to="/" className="text-primary underline">
-                      Voltar para a visão geral
-                    </Link>
-                  </p>
-                </div>
-              }
-            />
-          </Routes>
-          {isViewer && <Viewer key={location.search} />}
-        </section>
-      </main>
+                      <ToolIcon id={s.id} className="size-3.5 shrink-0" />
+                      {status ? (
+                        <a
+                          href={status}
+                          target="_blank"
+                          rel="noreferrer"
+                          title={t("sources.statusPage", { status })}
+                          className="hover:text-foreground inline-flex min-w-0 items-center gap-1 underline-offset-2 hover:underline group-data-[collapsible=icon]:hidden"
+                        >
+                          <span className="truncate">{label}</span>
+                          <ExternalLink className="size-3 shrink-0 opacity-60" />
+                          <IncidentIcon incident={incident} />
+                        </a>
+                      ) : (
+                        <span className="truncate group-data-[collapsible=icon]:hidden">{label}</span>
+                      )}
+                    </div>
+                  )
+                })}
+            </div>
+          </SidebarFooter>
+          <SidebarRail />
+        </Sidebar>
+
+        <SidebarInset className="flex min-w-0 flex-1 flex-col h-screen overflow-hidden">
+          <header className="border-border bg-card flex items-center gap-3 border-b p-3.5">
+            <SidebarTrigger className="-ml-1" />
+            <SearchInput />
+            <CollapseAllButton />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleTheme}
+              title={t(theme === "dark" ? "theme.toLight" : "theme.toDark")}
+              aria-label={t(theme === "dark" ? "theme.toLight" : "theme.toDark")}
+            >
+              {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button variant="outline" size="sm" title={t("header.language")} aria-label={t("header.language")}>
+                    {lang === "pt" ? <FlagBR className="size-4" /> : <FlagUS className="size-4" />}
+                    <ChevronDown className="size-3.5 opacity-60" />
+                  </Button>
+                }
+              />
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setLang("pt")}>
+                  <FlagBR className="size-4 shrink-0" />
+                  Português (BR)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setLang("en")}>
+                  <FlagUS className="size-4 shrink-0" />
+                  English (US)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button variant="outline" size="sm" onClick={refreshAll} disabled={isFetching}>
+              <RefreshCw className={cn("size-4", isFetching && "animate-spin")} />
+              {t("header.refresh")}
+            </Button>
+          </header>
+          <section className="flex-1 overflow-auto p-6">
+            <Routes location={isViewer ? lastLocation : location}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/ia" element={<ToolsView />} />
+              <Route path="/sessoes" element={<SessionsView />} />
+              <Route path="/consumo" element={<SpendView />} />
+              <Route path="/contextos" element={<CategoryView cat="context" />} />
+              <Route path="/skills" element={<SkillsView />} />
+              <Route path="/agentes" element={<CategoryView cat="agent" />} />
+              <Route path="/comandos" element={<CategoryView cat="command" />} />
+              <Route path="/regras" element={<CategoryView cat="rule" />} />
+              <Route path="/docs" element={<DocsView />} />
+              <Route path="/mcps" element={<McpsView />} />
+              <Route path="/plugins" element={<PluginsView />} />
+              <Route path="/projetos" element={<ProjectsView />} />
+              <Route path="/arquivos" element={<FilesView />} />
+              <Route path="/auditoria" element={<AuditView />} />
+              <Route path="/busca" element={<SearchView />} />
+              <Route
+                path="*"
+                element={
+                  <div className="space-y-1">
+                    <h2 className="text-lg font-semibold">Página não encontrada</h2>
+                    <p className="text-muted-foreground text-sm">
+                      <Link to="/" className="text-primary underline">
+                        Voltar para a visão geral
+                      </Link>
+                    </p>
+                  </div>
+                }
+              />
+            </Routes>
+            {isViewer && <Viewer key={location.search} />}
+          </section>
+        </SidebarInset>
+      </div>
       <CommandMenu />
       <Toaster theme={theme} />
-    </div>
+    </SidebarProvider>
   )
 }

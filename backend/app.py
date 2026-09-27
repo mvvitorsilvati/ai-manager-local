@@ -2462,6 +2462,48 @@ class Handler(BaseHTTPRequestHandler):
             session_id = params.get("id", [""])[0]
             self._json(sessions.get_session_details(tool_param, session_id))
             return
+        if url.path == "/api/sessions/media":
+            tool_param = params.get("tool", [""])[0].lower().strip()
+            session_id = params.get("id", [""])[0].strip()
+            file_name = params.get("name", [""])[0].strip()
+
+            if not session_id or not file_name:
+                self._json({"error": "id e name são obrigatórios"}, 400)
+                return
+
+            if "/" in file_name or "\\" in file_name or ".." in file_name:
+                self._json({"error": "nome de arquivo inválido"}, 400)
+                return
+
+            file_path: Path | None = None
+            if tool_param in ("gemini", "antigravity"):
+                brain_dir = HOME / ".gemini" / "antigravity-cli" / "brain" / session_id
+                cands = [
+                    brain_dir / ".user_uploaded" / file_name,
+                    brain_dir / file_name,
+                ]
+                for c in cands:
+                    if c.is_file():
+                        file_path = c
+                        break
+            elif tool_param in ("claude", "claude-code"):
+                claude_dir = HOME / ".claude"
+                cands = [
+                    claude_dir / "uploads" / file_name,
+                    claude_dir / file_name,
+                ]
+                for c in cands:
+                    if c.is_file():
+                        file_path = c
+                        break
+
+            if not file_path or not file_path.is_file():
+                self._json({"error": "imagem não encontrada"}, 404)
+                return
+
+            ctype = mimetypes.guess_type(file_path.name)[0] or "image/png"
+            self._send(200, file_path.read_bytes(), ctype)
+            return
         if url.path == "/api/incidents":
             self._json(incidents_snapshot(force=params.get("refresh", ["0"])[0] == "1"))
             return

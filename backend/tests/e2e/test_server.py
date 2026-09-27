@@ -352,3 +352,32 @@ def test_statusline_post_restore_erro_validacao(servidor):
     assert status == 400
     assert "obrigatórios" in json.loads(body)["error"]
 
+
+def test_sessions_media_sucesso_gemini(servidor, tmp_path, monkeypatch):
+    sid = "sess-media-123"
+    brain = tmp_path / ".gemini" / "antigravity-cli" / "brain" / sid / ".user_uploaded"
+    brain.mkdir(parents=True)
+    img_file = brain / "screenshot.png"
+    fake_png = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+    img_file.write_bytes(fake_png)
+
+    monkeypatch.setattr(app, "HOME", tmp_path)
+
+    status, body = request(f"{servidor.url}/api/sessions/media?tool=gemini&id={sid}&name=screenshot.png")
+    assert status == 200
+    assert body == fake_png
+
+
+def test_sessions_media_erro_path_traversal(servidor):
+    status, body = request(f"{servidor.url}/api/sessions/media?tool=gemini&id=123&name=../hack.png")
+    assert status == 400
+    assert "inválido" in json.loads(body)["error"]
+
+
+def test_sessions_media_nao_encontrada(servidor, tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "HOME", tmp_path)
+    status, body = request(f"{servidor.url}/api/sessions/media?tool=gemini&id=inexistente&name=naoexiste.png")
+    assert status == 404
+    assert "não encontrada" in json.loads(body)["error"]
+
+

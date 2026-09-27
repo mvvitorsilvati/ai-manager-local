@@ -144,6 +144,8 @@ export const pt = {
   "dash.thFiles": "Arquivos",
   "dash.thSkills": "Skills",
   "dash.byAuthor": "por {author} · ",
+  "sources.agents_label": "Skills compartilhadas",
+  "sources.statusPage": "Página de status · {status}",
 
   "usage.account": "Autenticado como {account}",
   "usage.refresh": "Atualizar",
@@ -452,6 +454,8 @@ export const en: Record<Key, string> = {
   "dash.thFiles": "Files",
   "dash.thSkills": "Skills",
   "dash.byAuthor": "by {author} · ",
+  "sources.agents_label": "Shared skills",
+  "sources.statusPage": "Status page · {status}",
 
   "usage.account": "Signed in as {account}",
   "usage.refresh": "Refresh",

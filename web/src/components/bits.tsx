@@ -42,12 +42,14 @@ export function CatIcon({ cat, className }: { cat: string; className?: string })
 }
 
 export function SourceBadge({ source }: { source?: Source }) {
+  const { t } = useI18n()
   if (!source) return null
   const color = SRC_COLOR[source.id]
+  const label = source.id === "agents" ? t("sources.agents_label") : source.label
   return (
     <Badge variant="outline" className="gap-1.5 font-normal" style={color ? { borderColor: color, color } : undefined}>
       <ToolIcon id={source.id} className="size-3" />
-      {source.label}
+      {label}
     </Badge>
   )
 }

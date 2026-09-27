@@ -34,6 +34,8 @@ export type Mcp = {
   enabled: boolean
   scope?: string
   file?: { s: string; r: string } | null
+  has_auth?: boolean
+  authenticated?: boolean
 }
 export type Plugin = { name: string; source: string; enabled: boolean; detail: string; scope?: string }
 

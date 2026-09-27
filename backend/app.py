@@ -631,6 +631,156 @@ def _flatten(value, limit=160) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
+# ---------------------------------------------------------------- autenticação de MCPs
+
+CODEX_KEYCHAIN_SERVICE = "Codex MCP Credentials"
+CODEX_MCP_CACHE_SECONDS = 300
+_codex_mcp_cache: tuple[float, dict[str, dict[str, bool]]] = (0.0, {})
+_codex_mcp_lock = threading.Lock()
+_codex_mcp_updating = False
+
+
+def codex_authenticated_mcps() -> set[str]:
+    accounts = set()
+    cred_file = HOME / ".codex" / ".credentials.json"
+    if cred_file.is_file():
+        try:
+            data = json.loads(cred_file.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                accounts.update(k.split("|")[0] for k in data.keys())
+        except (OSError, ValueError):
+            pass
+    if sys.platform == "darwin":
+        try:
+            proc = subprocess.run(
+                ["security", "dump-keychain"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if proc.returncode == 0:
+                for b in proc.stdout.split("keychain:"):
+                    if f'"{CODEX_KEYCHAIN_SERVICE}"' in b:
+                        m = re.search(r'"acct"<blob>="([^"]+)"', b)
+                        if m:
+                            accounts.add(m.group(1).split("|")[0])
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return accounts
+
+
+def opencode_authenticated_mcps() -> set[str]:
+    path = Path(os.environ.get("XDG_DATA_HOME", HOME / ".local/share")) / "opencode" / "mcp-auth.json"
+    if path.is_file():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return set(data.keys())
+        except (OSError, ValueError):
+            pass
+    return set()
+
+
+def fetch_codex_mcp_list() -> dict[str, dict[str, bool]]:
+    binary = shutil.which("codex")
+    if not binary:
+        return {}
+    try:
+        proc = subprocess.run([binary, "mcp", "list"], capture_output=True, text=True, timeout=6)
+        if proc.returncode != 0:
+            return {}
+        results = {}
+        for line in proc.stdout.splitlines():
+            line = line.rstrip()
+            parts = line.split()
+            if not parts or parts[0] in ("Name", "┌", "└", "│"):
+                continue
+            name = parts[0]
+            if line.endswith("Not logged in"):
+                results[name] = {"has_auth": True, "authenticated": False}
+            elif line.endswith("OAuth"):
+                results[name] = {"has_auth": True, "authenticated": True}
+            elif line.endswith("Unsupported") or "Bearer token" in line:
+                results[name] = {"has_auth": False, "authenticated": False}
+        return results
+    except (OSError, subprocess.SubprocessError):
+        return {}
+
+
+def update_codex_mcp_cache_bg():
+    global _codex_mcp_updating
+    with _codex_mcp_lock:
+        if _codex_mcp_updating:
+            return
+        _codex_mcp_updating = True
+
+    def _run():
+        global _codex_mcp_cache, _codex_mcp_updating
+        try:
+            res = fetch_codex_mcp_list()
+            with _codex_mcp_lock:
+                _codex_mcp_cache = (time.time(), res)
+        finally:
+            with _codex_mcp_lock:
+                _codex_mcp_updating = False
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+
+
+def get_codex_mcp_auth_map(force: bool = False, sync: bool = False) -> dict[str, dict[str, bool]]:
+    global _codex_mcp_cache
+    now = time.time()
+    with _codex_mcp_lock:
+        stamp, cached = _codex_mcp_cache
+        if not force and cached and now - stamp < CODEX_MCP_CACHE_SECONDS:
+            return cached
+    if sync or not cached:
+        res = fetch_codex_mcp_list()
+        with _codex_mcp_lock:
+            _codex_mcp_cache = (now, res)
+        return res
+    update_codex_mcp_cache_bg()
+    return cached
+
+
+def clear_mcp_auth_cache() -> None:
+    global _codex_mcp_cache
+    with _codex_mcp_lock:
+        _codex_mcp_cache = (0.0, {})
+    update_codex_mcp_cache_bg()
+
+
+def mcp_auth_status(source: str, name: str, mcp_type: str, detail: str) -> tuple[bool, bool]:
+    meta = tool_meta(source)
+    if not meta.get("mcp_login"):
+        return False, False
+
+    is_remote = mcp_type in ("remote", "http", "sse") or detail.startswith("http")
+    if not is_remote:
+        return False, False
+
+    if source == "opencode":
+        return True, name in opencode_authenticated_mcps()
+
+    if source == "codex":
+        cached_map = get_codex_mcp_auth_map()
+        if name in cached_map:
+            info = cached_map[name]
+            return info["has_auth"], info["authenticated"]
+        if name in codex_authenticated_mcps():
+            return True, True
+        return False, False
+
+    if source == "claude":
+        needs_auth_cache = load_json(HOME / ".claude" / "mcp-needs-auth-cache.json") or {}
+        if name in needs_auth_cache or f"claude.ai {name}" in needs_auth_cache:
+            return True, False
+        return True, True
+
+    return False, False
+
+
 def collect_mcps() -> list[dict]:
     out = []
     for tool in all_tools():
@@ -639,27 +789,49 @@ def collect_mcps() -> list[dict]:
             continue
         root = scan_home.scan_path(tool["root"])
         for mcp in mcps_from_config(root / spec["rel"]):
-            out.append({**mcp, "source": tool["id"], "file": {"s": tool["id"], "r": spec["rel"]}})
+            has_auth, auth = mcp_auth_status(tool["id"], mcp["name"], mcp["type"], mcp["detail"])
+            out.append({
+                **mcp,
+                "source": tool["id"],
+                "file": {"s": tool["id"], "r": spec["rel"]},
+                "has_auth": has_auth,
+                "authenticated": auth,
+            })
 
     cl = load_json(HOME / ".claude.json") or {}
     for name, cfg in (cl.get("mcpServers") or {}).items():
         cfg = cfg if isinstance(cfg, dict) else {}
+        mcp_type = cfg.get("type", "remote" if cfg.get("url") else "local")
+        detail = _mcp_detail(cfg)
+        has_auth, auth = mcp_auth_status("claude", name, mcp_type, detail)
         out.append({
-            "name": name, "source": "claude",
-            "type": cfg.get("type", "remote" if cfg.get("url") else "local"),
-            "detail": _mcp_detail(cfg), "enabled": True,
+            "name": name,
+            "source": "claude",
+            "type": mcp_type,
+            "detail": detail,
+            "enabled": True,
             "file": {"s": "claude-global", "r": ".claude.json"},
+            "has_auth": has_auth,
+            "authenticated": auth,
         })
     for project_path, project_cfg in (cl.get("projects") or {}).items():
         if not isinstance(project_cfg, dict):
             continue
         for name, cfg in (project_cfg.get("mcpServers") or {}).items():
             cfg = cfg if isinstance(cfg, dict) else {}
+            mcp_type = cfg.get("type", "remote" if cfg.get("url") else "local")
+            detail = _mcp_detail(cfg)
+            has_auth, auth = mcp_auth_status("claude", name, mcp_type, detail)
             out.append({
-                "name": name, "source": "claude", "scope": Path(project_path).name,
-                "type": cfg.get("type", "remote" if cfg.get("url") else "local"),
-                "detail": _mcp_detail(cfg), "enabled": True,
+                "name": name,
+                "source": "claude",
+                "scope": Path(project_path).name,
+                "type": mcp_type,
+                "detail": detail,
+                "enabled": True,
                 "file": {"s": "claude-global", "r": ".claude.json"},
+                "has_auth": has_auth,
+                "authenticated": auth,
             })
     return out
 
@@ -748,10 +920,16 @@ def collect_project_mcps(projects: list[dict]) -> list[dict]:
         for f in proj["files"]:
             if f["n"] not in ("opencode.json", "opencode.jsonc", "mcp.json", ".mcp.json", "config.toml"):
                 continue
+            src = f.get("s", proj["id"])
             for mcp in mcps_from_config(Path(proj["root"]) / f["r"]):
+                has_auth, auth = mcp_auth_status(src, mcp["name"], mcp["type"], mcp["detail"])
                 out.append({
-                    **mcp, "source": proj["id"], "scope": "projeto",
+                    **mcp,
+                    "source": proj["id"],
+                    "scope": "projeto",
                     "file": {"s": f["s"], "r": f["r"]},
+                    "has_auth": has_auth,
+                    "authenticated": auth,
                 })
     return out
 
@@ -1985,7 +2163,10 @@ def run_mcp_action(source: str, name: str, action: str) -> dict:
     binary = shutil.which(command[0])
     if not binary:
         raise ApiError(f"binário {command[0]} não encontrado no PATH", 400)
-    return _run_command([binary, *command[1:], name])
+    res = _run_command([binary, *command[1:], name])
+    if action in ("login", "logout"):
+        clear_mcp_auth_cache()
+    return res
 
 
 def versions_snapshot(force: bool = False) -> dict:
@@ -3087,6 +3268,7 @@ def main():
         except Exception as exc:
             logger.warning(f"Falha ao executar AIM_STATUSLINE_INSTALL={statusline_target}: {exc}")
 
+    update_codex_mcp_cache_bg()
     logger.info(f"AI Manager Local em {url}  (Ctrl+C para parar)")
     try:
         server = ThreadingHTTPServer((host, port), Handler)

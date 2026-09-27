@@ -497,3 +497,135 @@ def test_detalhes_sessao_fallback_metadados(tmp_path: Path):
     assert isinstance(res["messages"], list)
 
 
+def test_higienizacao_conteudo_markdown_preserva_formatacao():
+    raw_markdown = """
+| Coluna A | Coluna B |
+|---|---|
+| Valor 1 | Valor 2 |
+
+```python
+def ola():
+    print("mundo")
+```
+"""
+    cleaned = sessions.clean_message_content(raw_markdown)
+    assert "| Coluna A | Coluna B |" in cleaned
+    assert "```python\ndef ola():\n    print(\"mundo\")\n```" in cleaned
+    assert "\n" in cleaned
+
+    # Remove metadados internos e tags de envelope
+    envelope = (
+        "<USER_REQUEST>Quero ajustar o drawer</USER_REQUEST>"
+        "<ADDITIONAL_METADATA><debug>info</debug></ADDITIONAL_METADATA>"
+    )
+    assert sessions.clean_message_content(envelope) == "Quero ajustar o drawer"
+
+    # Remove sequencias ANSI
+    ansi = "\x1b[34m# Titulo formatado\x1b[0m\nLinha com texto."
+    assert sessions.clean_message_content(ansi) == "# Titulo formatado\nLinha com texto."
+
+
+def test_agregacao_turnos_assistente_gemini_com_multiplos_passos(tmp_path: Path):
+    gemini_root = tmp_path / ".gemini" / "antigravity-cli"
+    gemini_root.mkdir(parents=True)
+    brain_dir = gemini_root / "brain" / "conv-multi-step" / ".system_generated" / "logs"
+    brain_dir.mkdir(parents=True)
+    transcript_file = brain_dir / "transcript.jsonl"
+
+    markdown_table = "| Ferramenta | Status |\n|---|---|\n| Pytest | 100% |"
+    lines = [
+        json.dumps({
+            "type": "USER_INPUT",
+            "source": "USER_EXPLICIT",
+            "content": "<USER_REQUEST>Executar verificações completas</USER_REQUEST>",
+            "created_at": "2026-09-27T10:00:00Z",
+        }),
+        # Passo 1: apenas tool call
+        json.dumps({
+            "type": "PLANNER_RESPONSE",
+            "content": "",
+            "tool_calls": [{"toolAction": "Analyzing code", "toolSummary": "Code check"}],
+            "created_at": "2026-09-27T10:00:05Z",
+        }),
+        # Passo 2: outra tool call
+        json.dumps({
+            "type": "PLANNER_RESPONSE",
+            "content": "",
+            "tool_calls": [{"toolAction": "Running tests", "toolSummary": "Test execution"}],
+            "created_at": "2026-09-27T10:00:10Z",
+        }),
+        # Passo 3: resposta final com tabela markdown
+        json.dumps({
+            "type": "PLANNER_RESPONSE",
+            "content": f"Verificação concluída:\n\n{markdown_table}",
+            "tool_calls": [],
+            "created_at": "2026-09-27T10:00:15Z",
+        }),
+    ]
+    transcript_file.write_text("\n".join(lines) + "\n")
+
+    res = sessions.get_session_details("gemini", "conv-multi-step", home=tmp_path)
+    assert res["ok"] is True
+    # Em vez de 4 mensagens fragmentadas, deve consolidar em 2 mensagens (1 user, 1 assistant)
+    assert len(res["messages"]) == 2
+    assert res["messages"][0]["role"] == "user"
+    assert res["messages"][0]["content"] == "Executar verificações completas"
+
+    assistant_msg = res["messages"][1]
+    assert assistant_msg["role"] == "assistant"
+    # Conteúdo deve preservar a tabela markdown íntegra com quebras de linha
+    assert "| Ferramenta | Status |" in assistant_msg["content"]
+    assert "\n" in assistant_msg["content"]
+    # As ferramentas de todos os passos intermediários devem estar consolidadas
+    assert "Analyzing code" in assistant_msg["tool_calls"]
+    assert "Running tests" in assistant_msg["tool_calls"]
+
+
+def test_agregacao_turnos_assistente_claude_com_multiplos_blocos(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True)
+    projects_dir = claude_dir / "projects" / "p1"
+    projects_dir.mkdir(parents=True)
+    transcript_file = projects_dir / "ses-claude-multi.jsonl"
+
+    lines = [
+        json.dumps({
+            "type": "user",
+            "timestamp": "2026-09-27T10:00:00Z",
+            "message": {"content": "Como otimizar a consulta?"},
+        }),
+        # Bloco 1 do assistente com chamada de tool
+        json.dumps({
+            "type": "assistant",
+            "timestamp": "2026-09-27T10:00:05Z",
+            "message": {
+                "content": [
+                    {"type": "tool_use", "name": "tgrep", "input": {"pattern": "SELECT"}},
+                ],
+            },
+        }),
+        # Bloco 2 do assistente com resposta em texto
+        json.dumps({
+            "type": "assistant",
+            "timestamp": "2026-09-27T10:00:10Z",
+            "message": {
+                "content": [
+                    {"type": "text", "text": "Recomendo adicionar um índice composto:\n```sql\nCREATE INDEX idx;\n```"},
+                ],
+            },
+        }),
+    ]
+    transcript_file.write_text("\n".join(lines) + "\n")
+
+    res = sessions.get_session_details("claude", "ses-claude-multi", home=tmp_path)
+    assert res["ok"] is True
+    # Consolida em 2 mensagens (1 user, 1 assistant)
+    assert len(res["messages"]) == 2
+    assert res["messages"][0]["role"] == "user"
+    assistant_msg = res["messages"][1]
+    assert assistant_msg["role"] == "assistant"
+    assert "tgrep" in assistant_msg["tool_calls"]
+    assert "CREATE INDEX idx;" in assistant_msg["content"]
+    assert "\n```sql\n" in assistant_msg["content"]
+
+

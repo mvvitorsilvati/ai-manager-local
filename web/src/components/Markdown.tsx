@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
 import { useTheme } from "@/lib/theme"
+import { cn } from "@/lib/utils"
 
 function Mermaid({ code }: { code: string }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -37,10 +38,23 @@ export function splitFrontmatter(text: string): [string, string] {
   return match ? [match[1], text.slice(match[0].length)] : ["", text]
 }
 
-export function Markdown({ content, onLink }: { content: string; onLink?: (href: string) => void }) {
+export function Markdown({
+  content,
+  onLink,
+  className,
+}: {
+  content: string
+  onLink?: (href: string) => void
+  className?: string
+}) {
   const [fm, body] = splitFrontmatter(content)
   return (
-    <div className="prose prose-invert prose-headings:scroll-mt-4 prose-pre:border prose-pre:border-border prose-pre:bg-card prose-code:before:content-none prose-code:after:content-none max-w-none">
+    <div
+      className={cn(
+        "prose dark:prose-invert prose-headings:scroll-mt-4 prose-pre:border prose-pre:border-border prose-pre:bg-card prose-code:before:content-none prose-code:after:content-none max-w-none",
+        className
+      )}
+    >
       {fm && (
         <pre className="border-border bg-secondary text-muted-foreground rounded-lg border border-dashed p-4 font-mono text-xs break-words whitespace-pre-wrap">
           {fm}

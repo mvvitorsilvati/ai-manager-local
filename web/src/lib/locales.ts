@@ -183,6 +183,7 @@ export const pt = {
   "sessions.close": "Fechar",
   "sessions.copyContent": "Copiar mensagem",
   "sessions.contentCopied": "Mensagem copiada!",
+  "sessions.toolsExecuted": "ferramentas executadas",
 
   "command.title": "Comandos e navegação",
   "command.description": "Navegue rapidamente entre os menus e IAs do sistema",
@@ -544,6 +545,7 @@ export const en: Record<Key, string> = {
   "sessions.close": "Close",
   "sessions.copyContent": "Copy message",
   "sessions.contentCopied": "Message copied!",
+  "sessions.toolsExecuted": "executed tools",
 
   "command.title": "Commands & Navigation",
   "command.description": "Quickly navigate across menus and AI assistants",

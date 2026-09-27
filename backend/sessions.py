@@ -57,19 +57,6 @@ def clean_title(title: str | None, max_len: int = 120) -> str:
     return text
 
 
-def clean_preview(text: str | None, max_len: int = 240) -> str:
-    """Limpa e resume prévia do conteúdo da conversa."""
-    if not text:
-        return ""
-    s = str(text).strip()
-    s = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", s)
-    s = re.sub(r"<[^>]+>", "", s)
-    s = re.sub(r"\s+", " ", s).strip()
-    if len(s) > max_len:
-        return s[:max_len].rstrip() + "…"
-    return s
-
-
 def clean_message_content(text: str | None, max_len: int | None = None) -> str:
     """Higieniza o conteúdo da mensagem preservando formatação Markdown (quebras de linha, tabelas e código)."""
     if not text:
@@ -100,8 +87,15 @@ def clean_message_content(text: str | None, max_len: int | None = None) -> str:
     s = re.sub(r"\n{4,}", "\n\n\n", s)
 
     if max_len and len(s) > max_len:
-        return s[:max_len].rstrip() + "\n\n…"
+        return s[:max_len].rstrip() + "…"
     return s
+
+
+def clean_preview(text: str | None, max_len: int = 1000) -> str:
+    """Limpa e formata prévia do conteúdo da conversa preservando quebras de linha e legibilidade."""
+    if not text:
+        return ""
+    return clean_message_content(text, max_len=max_len)
 
 
 def sanitize_skills(skills: set[str] | list[str]) -> list[str]:

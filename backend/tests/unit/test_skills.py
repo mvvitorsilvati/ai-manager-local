@@ -187,3 +187,49 @@ def test_fonte_ausente_nao_quebra(tmp_path):
     tool = skills.build(days=7, tool="claude", roots={"claude": tmp_path / "nao-existe"})["tools"]["claude"]
     assert tool["available"] is False
     assert tool["invocations"] == 0
+
+
+def test_scan_gemini_registra_invocacoes(tmp_path):
+    root = tmp_path / "antigravity"
+    logs = root / "brain" / "sess-123" / ".system_generated" / "logs"
+    logs.mkdir(parents=True)
+    now = datetime.now(UTC).isoformat()
+    lines = [
+        {
+            "type": "USER_INPUT",
+            "source": "USER_EXPLICIT",
+            "created_at": now,
+            "content": "/minha-skill execute",
+        },
+        {
+            "type": "PLANNER_RESPONSE",
+            "source": "MODEL",
+            "created_at": now,
+            "tool_calls": [
+                {
+                    "name": "view_file",
+                    "args": {"AbsolutePath": '"/home/user/.agents/skills/minha-skill/SKILL.md"'},
+                }
+            ],
+        },
+    ]
+    (logs / "transcript.jsonl").write_text("\n".join(json.dumps(line) for line in lines))
+    skill_dir = tmp_path / "skills" / "minha-skill"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("a" * 200)
+
+    payload = skills.build(
+        days=2, tool="gemini", roots={"gemini": root}, skill_dirs=[tmp_path / "skills"]
+    )
+    tool = payload["tools"]["gemini"]
+    assert tool["invocations"] == 2
+    assert tool["rows"] == [
+        {
+            "skill": "minha-skill",
+            "invocations": 2,
+            "sessions": 1,
+            "context_tokens": 100,
+            "by_origin": {"user": 1, "model": 1},
+            "resolved": True,
+        }
+    ]

@@ -28,3 +28,20 @@ export function FlagUS({ className }: { className?: string }) {
     </svg>
   )
 }
+
+export function FlagES({ className }: { className?: string }) {
+  const clipId = useId().replace(/:/g, "")
+  return (
+    <svg viewBox="0 0 20 20" className={className} aria-hidden="true">
+      <clipPath id={clipId}>
+        <circle cx="10" cy="10" r="10" />
+      </clipPath>
+      <g clipPath={`url(#${clipId})`}>
+        <rect width="20" height="5" fill="#AA151B" />
+        <rect y="5" width="20" height="10" fill="#F1BF00" />
+        <rect y="15" width="20" height="5" fill="#AA151B" />
+      </g>
+    </svg>
+  )
+}
+

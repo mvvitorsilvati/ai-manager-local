@@ -19,7 +19,7 @@ Painel web local (somente no seu Mac) para visualizar e editar as configuraçõe
 ![testes](https://img.shields.io/badge/testes-pytest%20%2B%20Vitest%20%2B%20Playwright-0A9EDC)
 ![licença](https://img.shields.io/badge/licen%C3%A7a-MIT-3DA639)
 
-**Leia em:** [English](README.en.md)
+**Leia em:** [English](README.en.md) · [Español](README.es.md)
 
 **Sistemas operacionais:** macOS é o alvo completo (Keychain, Finder, apps nativos e seus ícones). Linux, WSL e container rodam o painel com o que é multiplataforma; as diferenças estão em [Limitações](#limitações). No WSL com as IAs instaladas no Windows, use `AIM_HOME` — veja [Usando no WSL](#usando-no-wsl-ias-instaladas-no-windows).
 
@@ -35,7 +35,7 @@ Roda 100% local (`127.0.0.1`), sem telemetria e sem enviar nada para fora — ex
 - **Viewer e edição segura**: Markdown/Mermaid, JSON, imagens, editor Monaco com backup automático e detecção de conflito
 - **Uso, consumo e skills**: limites das contas, custo/tokens por modelo, projeto e dia (gráficos) e top 20 de skills
 - **Operação**: MCPs, plugins, versões e updates, abertura da IA em terminal ou app nativo, auditoria e logs
-- **Busca, idiomas e tema**: busca global e contextual, interface em PT-BR/EN e modo claro/escuro
+- **Busca, idiomas e tema**: busca global e contextual, interface em PT-BR/EN/ES e modo claro/escuro
 
 Detalhes em [O que faz](#o-que-faz).
 

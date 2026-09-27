@@ -22,7 +22,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react"
-import { useCallback, useEffect, useState } from "react"
+import { Fragment, useCallback, useEffect, useState } from "react"
 import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom"
 
 import { IncidentIcon } from "@/components/bits"
@@ -32,6 +32,7 @@ import { FlagBR, FlagUS } from "@/components/flags"
 import { ToolIcon } from "@/components/ToolIcon"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Separator } from "@/components/ui/separator"
 import {
   Sidebar,
   SidebarContent,
@@ -75,22 +76,28 @@ import {
   ToolsView,
 } from "@/views/views"
 
-type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean }
+type NavItem = {
+  to: string
+  label: string
+  icon: LucideIcon
+  end?: boolean
+  separatorAfter?: boolean
+}
 
 export function navItems(t: (key: Key) => string): NavItem[] {
   return [
-    { to: "/", label: t("nav.overview"), icon: LayoutGrid, end: true },
+    { to: "/", label: t("nav.overview"), icon: LayoutGrid, end: true, separatorAfter: true },
     { to: "/ia", label: t("nav.byTool"), icon: Layers },
     { to: "/sessoes", label: t("nav.sessions"), icon: MessagesSquare },
-    { to: "/consumo", label: t("nav.spend"), icon: CircleDollarSign },
+    { to: "/consumo", label: t("nav.spend"), icon: CircleDollarSign, separatorAfter: true },
     { to: "/contextos", label: t("nav.contexts"), icon: BookOpen },
     { to: "/skills", label: t("nav.skills"), icon: Zap },
     { to: "/agentes", label: t("nav.agents"), icon: Cpu },
     { to: "/comandos", label: t("nav.commands"), icon: Terminal },
     { to: "/regras", label: t("nav.rules"), icon: Shield },
-    { to: "/docs", label: t("nav.docs"), icon: FileText },
     { to: "/mcps", label: t("nav.mcps"), icon: Server },
-    { to: "/plugins", label: t("nav.plugins"), icon: Package },
+    { to: "/plugins", label: t("nav.plugins"), icon: Package, separatorAfter: true },
+    { to: "/docs", label: t("nav.docs"), icon: FileText },
     { to: "/projetos", label: t("nav.projects"), icon: Folder },
     { to: "/auditoria", label: t("nav.audit"), icon: History },
     { to: "/arquivos", label: t("nav.files"), icon: Files },
@@ -219,8 +226,8 @@ export default function App() {
     <SidebarProvider defaultOpen={true}>
       <div className="bg-background text-foreground flex h-screen w-full">
         <Sidebar collapsible="icon" className="border-border">
-          <SidebarHeader className="border-sidebar-border border-b h-14 flex flex-row items-center px-3.5 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center">
-            <div className="flex items-center gap-2.5 font-bold tracking-tight overflow-hidden">
+          <SidebarHeader className="border-sidebar-border flex h-14 flex-row items-center border-b px-3.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+            <div className="flex items-center gap-2.5 overflow-hidden font-bold tracking-tight">
               <img src="/favicon.svg" alt="" className="size-5 shrink-0 rounded-md" />
               <span className="truncate group-data-[collapsible=icon]:hidden">AI Manager Local</span>
             </div>
@@ -230,30 +237,34 @@ export default function App() {
             <SidebarGroup className="p-0">
               <SidebarGroupContent>
                 <SidebarMenu className="gap-0.5">
-                  {nav.map(({ to, label, icon: Icon, count, end }) => {
-                    const isActive = location.pathname === to || (!end && to !== "/" && location.pathname.startsWith(to))
+                  {nav.map(({ to, label, icon: Icon, count, end, separatorAfter }) => {
+                    const isActive =
+                      location.pathname === to || (!end && to !== "/" && location.pathname.startsWith(to))
                     return (
-                      <SidebarMenuItem key={to}>
-                        <SidebarMenuButton
-                          render={<NavLink to={to} end={end} />}
-                          isActive={isActive}
-                          tooltip={label}
-                          className={cn(
-                            "flex items-center justify-between",
-                            isActive && "bg-accent font-medium text-foreground"
+                      <Fragment key={to}>
+                        <SidebarMenuItem>
+                          <SidebarMenuButton
+                            render={<NavLink to={to} end={end} />}
+                            isActive={isActive}
+                            tooltip={label}
+                            className={cn(
+                              "flex items-center justify-between",
+                              isActive && "bg-accent font-medium text-foreground",
+                            )}
+                          >
+                            <span className="flex items-center gap-2.5 truncate">
+                              <Icon className="size-4 shrink-0" />
+                              <span className="truncate">{label}</span>
+                            </span>
+                          </SidebarMenuButton>
+                          {count != null && (
+                            <SidebarMenuBadge className="text-muted-foreground group-data-[collapsible=icon]:hidden">
+                              {count}
+                            </SidebarMenuBadge>
                           )}
-                        >
-                          <span className="flex items-center gap-2.5 truncate">
-                            <Icon className="size-4 shrink-0" />
-                            <span className="truncate">{label}</span>
-                          </span>
-                        </SidebarMenuButton>
-                        {count != null && (
-                          <SidebarMenuBadge className="text-muted-foreground group-data-[collapsible=icon]:hidden">
-                            {count}
-                          </SidebarMenuBadge>
-                        )}
-                      </SidebarMenuItem>
+                        </SidebarMenuItem>
+                        {separatorAfter && <Separator className="my-1.5" />}
+                      </Fragment>
                     )
                   })}
                 </SidebarMenu>
@@ -261,7 +272,7 @@ export default function App() {
             </SidebarGroup>
           </SidebarContent>
 
-          <SidebarFooter className="border-sidebar-border border-t p-2.5 text-[11px] text-muted-foreground">
+          <SidebarFooter className="border-sidebar-border text-muted-foreground border-t p-2.5 text-[11px]">
             <div className="flex flex-col gap-1.5 overflow-hidden">
               {catalog?.sources
                 .filter((s) => !s.project)
@@ -282,7 +293,7 @@ export default function App() {
                           target="_blank"
                           rel="noreferrer"
                           title={t("sources.statusPage", { status })}
-                          className="hover:text-foreground inline-flex min-w-0 items-center gap-1 underline-offset-2 hover:underline group-data-[collapsible=icon]:hidden"
+                          className="hover:text-foreground inline-flex min-w-0 items-center gap-1 underline-offset-2 group-data-[collapsible=icon]:hidden hover:underline"
                         >
                           <span className="truncate">{label}</span>
                           <ExternalLink className="size-3 shrink-0 opacity-60" />
@@ -299,7 +310,7 @@ export default function App() {
           <SidebarRail />
         </Sidebar>
 
-        <SidebarInset className="flex min-w-0 flex-1 flex-col h-screen overflow-hidden">
+        <SidebarInset className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
           <header className="border-border bg-card flex h-14 shrink-0 items-center gap-3 border-b px-3.5">
             <SidebarTrigger className="-ml-1" title={`${t("header.sidebar")} (⌘B)`} />
             <SearchInput />

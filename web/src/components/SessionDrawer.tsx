@@ -316,17 +316,14 @@ export function SessionDrawer({
                             align={isUser ? "end" : "start"}
                             className="w-full"
                           >
-                            <BubbleContent
-                              className={cn(
-                                "text-xs leading-relaxed select-text",
-                                isUser ? "whitespace-pre-wrap font-sans" : "p-3.5",
-                              )}
-                            >
-                              {isUser ? (
-                                msg.content
-                              ) : (
-                                <Markdown content={msg.content} className="prose-sm max-w-none text-xs" />
-                              )}
+                            <BubbleContent className="p-3.5 text-xs leading-relaxed select-text">
+                              <Markdown
+                                content={msg.content}
+                                className={cn(
+                                  "prose-sm max-w-none text-xs",
+                                  isUser && "session-user-markdown whitespace-pre-wrap",
+                                )}
+                              />
                             </BubbleContent>
                           </Bubble>
                         )}

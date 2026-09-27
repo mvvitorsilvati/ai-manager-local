@@ -88,7 +88,7 @@ export function SessionList({
 
   const { data, isPending, isFetching, refetch } = useQuery({
     queryKey: ["sessions", tool, debouncedQuery],
-    queryFn: () => api.sessions(tool, debouncedQuery, 50),
+    queryFn: () => api.sessions(tool, debouncedQuery),
     staleTime: 30_000,
   })
 

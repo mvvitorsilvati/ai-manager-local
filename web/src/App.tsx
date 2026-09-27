@@ -179,6 +179,7 @@ export default function App() {
             .map((s) => {
               const status = statusUrlOf(s.id)
               const incident = incidents?.sources[s.id]
+              const label = s.id === "agents" ? t("sources.agents_label") : s.label
               return (
                 <div key={s.id} className="flex items-center gap-1.5">
                   <ToolIcon id={s.id} className="size-3.5" />
@@ -187,15 +188,15 @@ export default function App() {
                       href={status}
                       target="_blank"
                       rel="noreferrer"
-                      title={`Página de status · ${status}`}
+                      title={t("sources.statusPage", { status })}
                       className="hover:text-foreground inline-flex min-w-0 items-center gap-1 underline-offset-2 hover:underline"
                     >
-                      <span className="truncate">{s.label}</span>
+                      <span className="truncate">{label}</span>
                       <ExternalLink className="size-3 shrink-0 opacity-60" />
                       <IncidentIcon incident={incident} />
                     </a>
                   ) : (
-                    <span className="truncate">{s.label}</span>
+                    <span className="truncate">{label}</span>
                   )}
                 </div>
               )

@@ -1,4 +1,4 @@
-import { useIsFetching, useQueryClient } from "@tanstack/react-query"
+import { useIsFetching, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   BookOpen,
   ChevronDown,
@@ -53,6 +53,7 @@ import { Viewer } from "@/components/Viewer"
 import { useCatalog } from "@/hooks/useCatalog"
 import { useIncidents } from "@/hooks/useIncidents"
 import { refreshUsage } from "@/hooks/useUsage"
+import { api } from "@/lib/api"
 import { useI18n } from "@/lib/i18n"
 import type { Key } from "@/lib/locales"
 import { useTheme } from "@/lib/theme"
@@ -121,9 +122,17 @@ export default function App() {
     queryClient.invalidateQueries()
   }, [queryClient, lastLocation.pathname])
 
+  const { data: sessionsData } = useQuery({
+    queryKey: ["sessions-count"],
+    queryFn: () => api.sessions("all", "", 1),
+    staleTime: 60_000,
+  })
+
   const nav = navItems(t).map((item) => {
     let count: number | null = null
-    if (catalog) {
+    if (item.to === "/sessoes") {
+      count = sessionsData?.total ?? null
+    } else if (catalog) {
       const files = catalog.files
       const byCat = (c: string) => files.filter((f) => f.c === c).length
       const map: Record<string, number> = {
@@ -148,13 +157,10 @@ export default function App() {
     <SidebarProvider defaultOpen={true}>
       <div className="bg-background text-foreground flex h-screen w-full">
         <Sidebar collapsible="icon" className="border-border">
-          <SidebarHeader className="border-sidebar-border border-b p-3">
-            <div className="flex items-center justify-between gap-2 overflow-hidden">
-              <div className="flex items-center gap-2.5 font-bold tracking-tight">
-                <img src="/favicon.svg" alt="" className="size-5 shrink-0 rounded-md" />
-                <span className="truncate group-data-[collapsible=icon]:hidden">AI Manager Local</span>
-              </div>
-              <SidebarTrigger className="group-data-[collapsible=icon]:hidden size-7" />
+          <SidebarHeader className="border-sidebar-border border-b h-14 flex flex-row items-center px-3.5 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center">
+            <div className="flex items-center gap-2.5 font-bold tracking-tight overflow-hidden">
+              <img src="/favicon.svg" alt="" className="size-5 shrink-0 rounded-md" />
+              <span className="truncate group-data-[collapsible=icon]:hidden">AI Manager Local</span>
             </div>
           </SidebarHeader>
 
@@ -232,7 +238,7 @@ export default function App() {
         </Sidebar>
 
         <SidebarInset className="flex min-w-0 flex-1 flex-col h-screen overflow-hidden">
-          <header className="border-border bg-card flex items-center gap-3 border-b p-3.5">
+          <header className="border-border bg-card flex h-14 shrink-0 items-center gap-3 border-b px-3.5">
             <SidebarTrigger className="-ml-1" />
             <SearchInput />
             <CollapseAllButton />

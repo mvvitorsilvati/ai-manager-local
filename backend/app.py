@@ -1386,6 +1386,35 @@ def cli_version(binary: str) -> str | None:
     return match.group(0) if match else None
 
 
+def cli_install_method(binary: str) -> str | None:
+    found = shutil.which(binary)
+    if not found:
+        return None
+    try:
+        resolved = str(Path(found).resolve())
+    except Exception:
+        resolved = found
+
+    path_str = f"{found} {resolved}".lower()
+    if "/caskroom/" in path_str:
+        return "brew (cask)"
+    if "/cellar/" in path_str:
+        return "brew"
+    if "node_modules" in path_str or "/fnm/" in path_str or "/nvm/" in path_str:
+        return "npm"
+    if "bun" in path_str:
+        return "bun"
+    if ".cargo" in path_str:
+        return "cargo"
+    if ".local/share/claude" in path_str or ".gemini" in path_str:
+        return "install.sh"
+    if "/opt/homebrew" in path_str or "/usr/local/homebrew" in path_str:
+        return "brew"
+    if "/.local/bin" in path_str or "/.local/share" in path_str:
+        return "install.sh"
+    return "binary"
+
+
 def npm_latest(package: str) -> str | None:
     try:
         response = httpx.get(f"{NPM_REGISTRY}/{quote(package, safe='')}/latest", timeout=10)
@@ -1958,11 +1987,15 @@ def versions_snapshot(force: bool = False) -> dict:
     for tool, binary, package in CLI_PACKAGES:
         installed, latest = cli_version(binary), npm_latest(package)
         command = update_command(tool)
+        method = cli_install_method(binary)
+        if not method and tool == "gemini":
+            method = cli_install_method("agy")
         tools[tool] = {
             "installed": installed,
             "latest": latest,
             "update": has_update(latest, installed),
             "command": " ".join(command) if command else None,
+            "install_method": method,
         }
     token = github_token()
     accounts = {

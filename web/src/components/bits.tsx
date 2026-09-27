@@ -100,16 +100,27 @@ export function VersionBadges({
   installed,
   latest,
   update,
+  installMethod,
 }: {
   installed?: string | null
   latest?: string | null
   update?: boolean | null
+  installMethod?: string | null
 }) {
   const { t } = useI18n()
-  if (!installed && update == null) return null
+  if (!installed && update == null && !installMethod) return null
   return (
     <span className="flex flex-wrap items-center gap-2">
       {installed && <span className="text-muted-foreground font-mono text-[11px]">v{installed}</span>}
+      {installMethod && (
+        <Badge
+          variant="outline"
+          className="border-border/60 bg-muted/40 font-mono text-[10px] font-normal text-muted-foreground"
+          title={`Instalado via ${installMethod}`}
+        >
+          {installMethod}
+        </Badge>
+      )}
       {update === true && (
         <Badge variant="outline" className="border-amber-400/40 font-normal text-amber-400">
           {latest ? t("versions.newVersion", { version: latest }) : t("versions.updateAvailable")}

@@ -133,7 +133,7 @@ export default function Dashboard() {
                     <ToolIcon id={id} className="size-4 shrink-0" />
                     <span className="w-36 shrink-0 truncate font-medium">{label}</span>
                     <IncidentIcon incident={incidents?.sources[id]} />
-                    <VersionBadges installed={v.installed} latest={v.latest} update={v.update} />
+                    <VersionBadges installed={v.installed} latest={v.latest} update={v.update} installMethod={v.install_method} />
                     <OpenWith tool={id} />
                     {v.update === true && <UpdateButton body={{ tool: id }} label={label} />}
                     {v.update === true && v.command && <CopyCommandButton command={v.command} label={label} />}

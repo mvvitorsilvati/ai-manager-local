@@ -356,3 +356,30 @@ def test_set_plugin_auto_update_grava_no_settings(tmp_path, monkeypatch):
 def test_set_plugin_auto_update_rejeita_plugin_desconhecido():
     with pytest.raises(app.ApiError):
         app.set_plugin_auto_update("nao-existe@x", True)
+
+
+def test_metodo_instalacao_cli(monkeypatch):
+    import shutil
+
+    # Homebrew Cask
+    monkeypatch.setattr(shutil, "which", lambda b: "/opt/homebrew/Caskroom/codex/0.157.1/bin/codex")
+    assert app.cli_install_method("codex") == "brew (cask)"
+
+    # Homebrew Cellar
+    monkeypatch.setattr(shutil, "which", lambda b: "/opt/homebrew/Cellar/opencode/1.18.32/bin/opencode")
+    assert app.cli_install_method("opencode") == "brew"
+
+    # npm via fnm/nvm
+    monkeypatch.setattr(
+        shutil, "which", lambda b: "/Users/dev/.local/share/fnm/node-versions/v24/lib/node_modules/copilot"
+    )
+    assert app.cli_install_method("copilot") == "npm"
+
+    # script install.sh (.local/share/claude)
+    monkeypatch.setattr(shutil, "which", lambda b: "/Users/dev/.local/share/claude/versions/2.1.283")
+    assert app.cli_install_method("claude") == "install.sh"
+
+    # binário ausente
+    monkeypatch.setattr(shutil, "which", lambda b: None)
+    assert app.cli_install_method("inexistente") is None
+

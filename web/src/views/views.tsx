@@ -25,6 +25,7 @@ import { ToolIcon } from "@/components/ToolIcon"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { SessionList } from "@/components/SessionList"
 import { ToolStatuslineManager } from "@/components/ToolStatuslineManager"
 import { UpdateButton } from "@/components/UpdateButton"
 import { UsageCard } from "@/components/UsageCard"
@@ -361,7 +362,7 @@ export function ToolsView() {
         <div className="border-border bg-card mb-5 flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 text-sm">
           <ToolIcon id={selected} className="size-4" />
           <span className="font-medium">{selectedLabel}</span>
-          <VersionBadges installed={version.installed} latest={version.latest} update={version.update} />
+          <VersionBadges installed={version.installed} latest={version.latest} update={version.update} installMethod={version.install_method} />
           <OpenWith tool={selected} />
           {version.account && !hasUsageCard && (
             <span className="text-muted-foreground truncate text-[11px]">{version.account}</span>
@@ -384,6 +385,9 @@ export function ToolsView() {
           <ToolStatuslineManager tool={selected} />
         </div>
       )}
+      <div className="mb-5">
+        <SessionList tool={selected} />
+      </div>
       {(hasUsageCard || selected === "opencode") && <ToolSection tool={selected} />}
       <EmptyFilter query={q} count={files.length} />
       {ordered.map(([sid, list]) => (

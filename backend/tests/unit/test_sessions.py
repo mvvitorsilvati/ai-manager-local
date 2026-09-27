@@ -624,8 +624,32 @@ def test_agregacao_turnos_assistente_claude_com_multiplos_blocos(tmp_path: Path)
     assert res["messages"][0]["role"] == "user"
     assistant_msg = res["messages"][1]
     assert assistant_msg["role"] == "assistant"
-    assert "tgrep" in assistant_msg["tool_calls"]
+    assert "Grep(SELECT)" in assistant_msg["tool_calls"]
     assert "CREATE INDEX idx;" in assistant_msg["content"]
     assert "\n```sql\n" in assistant_msg["content"]
+
+
+def test_formatacao_amigavel_chamadas_ferramentas(tmp_path: Path):
+    home = tmp_path
+    # Bash
+    cmd_tool = sessions.format_tool_call("run_command", {"CommandLine": "git status -s"}, home=home)
+    assert cmd_tool == "Bash(git status -s)"
+
+    # Read
+    file_path = str(home / "backend" / "app.py")
+    read_tool = sessions.format_tool_call("view_file", {"AbsolutePath": file_path}, home=home)
+    assert read_tool == "Read(~/backend/app.py)"
+
+    # Edit
+    edit_tool = sessions.format_tool_call("replace_file_content", {"TargetFile": file_path}, home=home)
+    assert edit_tool == "Edit(~/backend/app.py)"
+
+    # Grep
+    grep_tool = sessions.format_tool_call("tgrep", {"pattern": "format_tool"}, home=home)
+    assert grep_tool == "Grep(format_tool)"
+
+    # MCP
+    mcp_tool = sessions.format_tool_call("mcp__linear__get_issue", {"id": "1234"}, home=home)
+    assert mcp_tool == "MCP:get_issue(1234)"
 
 

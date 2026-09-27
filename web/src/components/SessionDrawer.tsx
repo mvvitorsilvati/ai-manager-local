@@ -45,6 +45,14 @@ function formatCost(cost: number, currency = "USD"): string {
   return `$${cost.toFixed(2)}`
 }
 
+function getToolColor(tc: string): string {
+  if (tc.startsWith("Bash(")) return "text-emerald-500 dark:text-emerald-400"
+  if (tc.startsWith("Read(")) return "text-sky-500 dark:text-sky-400"
+  if (tc.startsWith("Edit(") || tc.startsWith("Write(")) return "text-amber-500 dark:text-amber-400"
+  if (tc.startsWith("Grep(") || tc.startsWith("Search(")) return "text-violet-500 dark:text-violet-400"
+  return "text-muted-foreground"
+}
+
 export function SessionDrawer({
   session,
   open,
@@ -253,39 +261,41 @@ export function SessionDrawer({
 
                       {/* Tool Calls executadas pelo assistente */}
                       {!isUser && msg.tool_calls && msg.tool_calls.length > 0 && (
-                        <div className="mt-1.5 flex flex-wrap gap-1">
-                          {msg.tool_calls.length <= 6 ? (
+                        <div className="mt-2 flex flex-col gap-1 w-full">
+                          {msg.tool_calls.length <= 8 ? (
                             msg.tool_calls.map((tc, tcIdx) => (
                               <Marker
                                 key={tcIdx}
                                 variant="default"
-                                className="border-border/60 bg-muted/40 text-muted-foreground rounded border px-2 py-0.5 font-mono text-[10px]"
+                                title={tc}
+                                className="border-border/70 bg-muted/30 hover:bg-muted/50 text-foreground/90 w-full justify-start rounded-md border px-2.5 py-1 font-mono text-[11px] transition-colors"
                               >
-                                <MarkerIcon>
-                                  <Terminal className="size-2.5 opacity-70" />
+                                <MarkerIcon className={cn("mr-1.5 shrink-0", getToolColor(tc))}>
+                                  <Terminal className="size-3 opacity-90" />
                                 </MarkerIcon>
-                                <MarkerContent>{tc}</MarkerContent>
+                                <MarkerContent className="truncate text-left select-text">{tc}</MarkerContent>
                               </Marker>
                             ))
                           ) : (
                             <details className="group/tools w-full">
-                              <summary className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1.5 rounded px-1.5 py-0.5 font-mono text-[10px] transition-colors select-none">
+                              <summary className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1.5 rounded px-1.5 py-0.5 font-mono text-[11px] transition-colors select-none">
                                 <Terminal className="size-3 opacity-70" />
                                 <span>
                                   {msg.tool_calls.length} {t("sessions.toolsExecuted")}
                                 </span>
                               </summary>
-                              <div className="mt-1 flex flex-wrap gap-1 pl-1">
+                              <div className="mt-1 flex flex-col gap-1 w-full pl-1">
                                 {msg.tool_calls.map((tc, tcIdx) => (
                                   <Marker
                                     key={tcIdx}
                                     variant="default"
-                                    className="border-border/60 bg-muted/40 text-muted-foreground rounded border px-2 py-0.5 font-mono text-[10px]"
+                                    title={tc}
+                                    className="border-border/70 bg-muted/30 hover:bg-muted/50 text-foreground/90 w-full justify-start rounded-md border px-2.5 py-1 font-mono text-[11px] transition-colors"
                                   >
-                                    <MarkerIcon>
-                                      <Terminal className="size-2.5 opacity-70" />
+                                    <MarkerIcon className={cn("mr-1.5 shrink-0", getToolColor(tc))}>
+                                      <Terminal className="size-3 opacity-90" />
                                     </MarkerIcon>
-                                    <MarkerContent>{tc}</MarkerContent>
+                                    <MarkerContent className="truncate text-left select-text">{tc}</MarkerContent>
                                   </Marker>
                                 ))}
                               </div>

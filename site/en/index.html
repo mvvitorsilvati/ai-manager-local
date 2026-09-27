@@ -777,7 +777,111 @@
         height: 16px;
       }
 
+      /* ---------------------------------------------------- AI installers */
+      .grade-instaladores {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.1rem;
+        margin-top: 1.8rem;
+      }
 
+      .card-instalador {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 1.3rem;
+        border: 1px solid var(--borda);
+        border-radius: var(--raio);
+        background: var(--cartao);
+        box-shadow: var(--sombra);
+        transition: transform 0.15s ease, border-color 0.15s ease;
+      }
+
+      .card-instalador:hover {
+        transform: translateY(-2px);
+        border-color: color-mix(in srgb, var(--violeta) 45%, var(--borda));
+      }
+
+      .card-instalador__topo {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .card-instalador__icone {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--suave) 12%, transparent);
+        flex-shrink: 0;
+      }
+
+      .card-instalador__icone img {
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+      }
+
+      .card-instalador__icone svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      .card-instalador__nome {
+        font-weight: 620;
+        font-size: 1.02rem;
+      }
+
+      .card-instalador__desc {
+        color: var(--suave);
+        font-size: 0.88rem;
+        margin: 0 0 1rem;
+        line-height: 1.45;
+        flex-grow: 1;
+      }
+
+      .card-instalador__cmd {
+        background: color-mix(in srgb, var(--fundo) 70%, transparent);
+        border: 1px solid var(--borda);
+        border-radius: 8px;
+        padding: 0.55rem 0.75rem;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+        font-size: 0.76rem;
+        color: var(--verde);
+        overflow-x: auto;
+        white-space: nowrap;
+        margin-bottom: 0.85rem;
+      }
+
+      .card-instalador__links {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.85rem;
+        font-size: 0.82rem;
+      }
+
+      .card-instalador__links a {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        color: color-mix(in srgb, var(--violeta) 80%, var(--texto));
+        text-decoration: none;
+        font-weight: 520;
+      }
+
+      .card-instalador__links a:hover {
+        text-decoration: underline;
+      }
+
+      .card-instalador__links a svg {
+        width: 13px;
+        height: 13px;
+      }
     </style>
   </head>
 
@@ -802,6 +906,19 @@
         </a>
 
         <nav class="nav" aria-label="Page sections">
+          <a href="#conversas">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            Conversations
+          </a>
+          <a href="#statusline-ias">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <polyline points="4 17 10 11 4 5" />
+              <line x1="12" y1="19" x2="20" y2="19" />
+            </svg>
+            Statusline &amp; AIs
+          </a>
           <a href="#funcionalidades">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
               <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" />
@@ -1001,14 +1118,27 @@
             <article class="cartao">
               <div class="icone" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+              </div>
+              <h3>Conversation history</h3>
+              <p>
+                Track complete session history per AI or project, with token usage, estimated dollar costs,
+                message counts, Top 20 filters, and direct terminal resumption.
+              </p>
+            </article>
+
+            <article class="cartao">
+              <div class="icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                   <circle cx="11" cy="11" r="7" />
                   <path d="m20 20-3.5-3.5" />
                 </svg>
               </div>
-              <h3>Search, languages and theme</h3>
+              <h3>Global search, shortcuts &amp; theme</h3>
               <p>
-                Global and content search with line highlighting, PT-BR and EN interface and light/dark mode. Shortcuts
-                <code>⌘K</code>, <code>⌘E</code> and <code>⌘S</code>.
+                Search with <code>⌘F</code> and line highlighting, global keyboard shortcuts to collapse/expand (<code>⌘A</code>),
+                light/dark theme (<code>⌘T</code>), refresh (<code>⌘R</code>), sidebar (<code>⌘B</code>), and language (<code>⌘L</code>).
               </p>
             </article>
 
@@ -1025,6 +1155,275 @@
                 Claude Code and Antigravity. Interactive installer, web preview, and automated backup restoration.
               </p>
             </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="secao secao--alternada" id="conversas">
+        <div class="container">
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            Conversation history and intelligence
+          </h2>
+          <p class="secao__texto">
+            Monitor your AI sessions in real time: tokens consumed, calculated cost per session, Top 20 rankings, project folder grouping, and instant CLI resumption in one click.
+          </p>
+
+          <figure class="janela" style="margin-bottom: 2rem;">
+            <div class="janela__barra" aria-hidden="true">
+              <i></i><i></i><i></i>
+              <span class="janela__url">127.0.0.1:4747/sessoes</span>
+            </div>
+            <img
+              src="../assets/conversas.jpg"
+              width="1800"
+              height="1125"
+              loading="lazy"
+              alt="Conversation history viewer: cost, tokens, and message count badges on the first line, prominent titles on the second line, Top 20 filters, and terminal resume button."
+            />
+            <figcaption>
+              Unified history: essential metrics on line 1 (tokens, cost, and messages), uncluttered titles with room to read on line 2, project grouping, and automatic resume commands.
+            </figcaption>
+          </figure>
+
+          <div class="cartoes">
+            <article class="cartao">
+              <div class="icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <line x1="12" y1="1" x2="12" y2="23" />
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+              </div>
+              <h3>Prominent top-line metrics</h3>
+              <p>
+                Each session displays the AI badge, estimated USD cost, total tokens, and message count right on line 1, keeping titles clean and clear.
+              </p>
+            </article>
+
+            <article class="cartao">
+              <div class="icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+              </div>
+              <h3>Top 20 Spend &amp; Top 20 Tokens</h3>
+              <p>
+                Instantly identify the sessions that consumed the most budget or context tokens, with dedicated filters and rankings.
+              </p>
+            </article>
+
+            <article class="cartao">
+              <div class="icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                </svg>
+              </div>
+              <h3>Folder grouping &amp; smart collapse</h3>
+              <p>
+                Sessions grouped automatically by project directory, with one-key shortcut to collapse or expand all folders at once (<code>⌘A</code>).
+              </p>
+            </article>
+
+            <article class="cartao">
+              <div class="icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <polyline points="4 17 10 11 4 5" />
+                  <line x1="12" y1="19" x2="20" y2="19" />
+                </svg>
+              </div>
+              <h3>Markdown preview &amp; CLI resume</h3>
+              <p>
+                Expand conversation messages in rich Markdown and copy or execute the native resumption command (<code>--resume</code>) in your terminal.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="secao" id="statusline-ias">
+        <div class="container">
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <polyline points="4 17 10 11 4 5" />
+              <line x1="12" y1="19" x2="20" y2="19" />
+            </svg>
+            Terminal Statusline &amp; AI Installers
+          </h2>
+          <p class="secao__texto">
+            Monitor AI consumption directly in your terminal in real time and install missing AI assistants using vendor-recommended installation scripts.
+          </p>
+
+          <div class="cartoes" style="margin-bottom: 2rem;">
+            <article class="cartao">
+              <div class="icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                  <line x1="8" y1="21" x2="16" y2="21" />
+                  <line x1="12" y1="17" x2="12" y2="21" />
+                </svg>
+              </div>
+              <h3>Statusline in your terminal</h3>
+              <p>
+                Add a sleek status bar for <strong>Claude Code</strong> and <strong>Antigravity (AGY)</strong> displaying 5h and 7d quota percentages, context window, spend, and Git status. Install with <code>just statusline</code> with automatic config backup.
+              </p>
+            </article>
+
+            <article class="cartao">
+              <div class="icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+              </div>
+              <h3>Missing AI detection</h3>
+              <p>
+                The app detects which tools are not yet configured on your machine and suggests official installation commands tailored to your operating system.
+              </p>
+            </article>
+          </div>
+
+          <h3>Supported AIs &amp; official install commands</h3>
+          <p class="secao__texto" style="margin-bottom: 1rem;">
+            Run official commands directly in your terminal or read the official documentation:
+          </p>
+
+          <div class="grade-instaladores">
+            <div class="card-instalador">
+              <div class="card-instalador__topo">
+                <div class="card-instalador__icone">
+                  <img src="../assets/ia/claude.png" alt="Claude Code" width="20" height="20" />
+                </div>
+                <div class="card-instalador__nome">Claude Code</div>
+              </div>
+              <p class="card-instalador__desc">Anthropic's autonomous coding agent designed for the terminal.</p>
+              <div class="card-instalador__cmd">curl -fsSL https://claude.ai/install.sh | bash</div>
+              <div class="card-instalador__links">
+                <a href="https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview" target="_blank" rel="noopener noreferrer">
+                  Official docs
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" /></svg>
+                </a>
+              </div>
+            </div>
+
+            <div class="card-instalador">
+              <div class="card-instalador__topo">
+                <div class="card-instalador__icone">
+                  <img src="../assets/ia/gemini.png" alt="Antigravity" width="20" height="20" />
+                </div>
+                <div class="card-instalador__nome">Antigravity / Gemini CLI</div>
+              </div>
+              <p class="card-instalador__desc">Google's agentic platform with subagent support and MCP tools.</p>
+              <div class="card-instalador__cmd">curl -fsSL https://antigravity.google/install.sh | bash</div>
+              <div class="card-instalador__links">
+                <a href="https://antigravity.google" target="_blank" rel="noopener noreferrer">
+                  Official docs
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" /></svg>
+                </a>
+              </div>
+            </div>
+
+            <div class="card-instalador">
+              <div class="card-instalador__topo">
+                <div class="card-instalador__icone">
+                  <img src="../assets/ia/codex.png" alt="Codex CLI" width="20" height="20" />
+                </div>
+                <div class="card-instalador__nome">Codex CLI</div>
+              </div>
+              <p class="card-instalador__desc">OpenAI's software engineering agent in the terminal.</p>
+              <div class="card-instalador__cmd">npm install -g @openai/codex</div>
+              <div class="card-instalador__links">
+                <a href="https://github.com/openai/codex" target="_blank" rel="noopener noreferrer">
+                  Official docs
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" /></svg>
+                </a>
+              </div>
+            </div>
+
+            <div class="card-instalador">
+              <div class="card-instalador__topo">
+                <div class="card-instalador__icone">
+                  <img src="../assets/ia/opencode.png" alt="OpenCode" width="20" height="20" />
+                </div>
+                <div class="card-instalador__nome">OpenCode</div>
+              </div>
+              <p class="card-instalador__desc">Open source coding assistant supporting multiple LLM providers.</p>
+              <div class="card-instalador__cmd">curl -fsSL https://opencode.ai/install.sh | bash</div>
+              <div class="card-instalador__links">
+                <a href="https://opencode.ai" target="_blank" rel="noopener noreferrer">
+                  Official docs
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" /></svg>
+                </a>
+              </div>
+            </div>
+
+            <div class="card-instalador">
+              <div class="card-instalador__topo">
+                <div class="card-instalador__icone">
+                  <img src="../assets/ia/copilot.png" alt="GitHub Copilot CLI" width="20" height="20" />
+                </div>
+                <div class="card-instalador__nome">GitHub Copilot CLI</div>
+              </div>
+              <p class="card-instalador__desc">GitHub CLI extension for AI command explanations and suggestions.</p>
+              <div class="card-instalador__cmd">gh extension install github/gh-copilot</div>
+              <div class="card-instalador__links">
+                <a href="https://docs.github.com/copilot/github-copilot-in-the-cli" target="_blank" rel="noopener noreferrer">
+                  Official docs
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" /></svg>
+                </a>
+              </div>
+            </div>
+
+            <div class="card-instalador">
+              <div class="card-instalador__topo">
+                <div class="card-instalador__icone">
+                  <svg viewBox="0 0 24 24" fill="currentColor" style="color: #a855f7;"><path d="M11.503.131 1.891 5.678a.84.84 0 0 0-.42.726v11.188c0 .3.162.575.42.724l9.609 5.55a1 1 0 0 0 .998 0l9.61-5.55a.84.84 0 0 0 .42-.724V6.404a.84.84 0 0 0-.42-.726L12.497.131a1.01 1.01 0 0 0-.996 0M2.657 6.338h18.55c.263 0 .43.287.297.515L12.23 22.918c-.062.107-.229.064-.229-.06V12.335a.59.59 0 0 0-.295-.51l-9.11-5.257c-.109-.063-.064-.23.061-.23" /></svg>
+                </div>
+                <div class="card-instalador__nome">Cursor</div>
+              </div>
+              <p class="card-instalador__desc">AI-first code editor built for rapid software development.</p>
+              <div class="card-instalador__cmd">brew install --cask cursor</div>
+              <div class="card-instalador__links">
+                <a href="https://docs.cursor.com" target="_blank" rel="noopener noreferrer">
+                  Official docs
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" /></svg>
+                </a>
+              </div>
+            </div>
+
+            <div class="card-instalador">
+              <div class="card-instalador__topo">
+                <div class="card-instalador__icone">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#00D084" stroke-width="2" stroke-linecap="round"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2M9.6 4.6A2 2 0 1 1 11 8H2M12.6 19.4A2 2 0 1 0 14 16H2" /></svg>
+                </div>
+                <div class="card-instalador__nome">Windsurf</div>
+              </div>
+              <p class="card-instalador__desc">Agentic IDE from Codeium designed for real-time collaboration.</p>
+              <div class="card-instalador__cmd">brew install --cask windsurf</div>
+              <div class="card-instalador__links">
+                <a href="https://docs.codeium.com/windsurf" target="_blank" rel="noopener noreferrer">
+                  Official docs
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" /></svg>
+                </a>
+              </div>
+            </div>
+
+            <div class="card-instalador">
+              <div class="card-instalador__topo">
+                <div class="card-instalador__icone">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#FF5722" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
+                </div>
+                <div class="card-instalador__nome">Kiro</div>
+              </div>
+              <p class="card-instalador__desc">AI-powered developer environment with built-in workflow automations.</p>
+              <div class="card-instalador__cmd">curl -fsSL https://kiro.dev/install.sh | bash</div>
+              <div class="card-instalador__links">
+                <a href="https://kiro.dev/docs" target="_blank" rel="noopener noreferrer">
+                  Official docs
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" /></svg>
+                </a>
+              </div>
+            </div>
           </div>
         </div>
       </section>

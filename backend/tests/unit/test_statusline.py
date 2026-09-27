@@ -265,7 +265,11 @@ def test_get_preview_antigravity(tmp_path):
     assert preview["tool"] == "antigravity"
     assert len(preview["raw_lines"]) >= 1
     assert len(preview["plain_lines"]) >= 1
-    assert any("Gemini" in line for line in preview["plain_lines"])
+    full_text = " ".join(preview["plain_lines"])
+    assert "Gemini" in full_text
+    assert "5h:" in full_text or "7d:" in full_text
+    assert "developer" in full_text
+    assert "Google AI Pro" in full_text
 
 
 def test_get_preview_claude(tmp_path):
@@ -274,4 +278,7 @@ def test_get_preview_claude(tmp_path):
     assert preview["tool"] == "claude"
     assert len(preview["raw_lines"]) >= 1
     assert len(preview["plain_lines"]) >= 1
+    full_text = " ".join(preview["plain_lines"])
+    assert "lim 5h:" in full_text or "Sonnet" in full_text
+
 

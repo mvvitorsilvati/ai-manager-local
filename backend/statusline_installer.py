@@ -334,11 +334,11 @@ def get_preview(tool: str, home: Path | None = None) -> dict:
         cmd = [sys.executable, str(script)]
         payload = {
             "product": "antigravity",
-            "model": {"name": "Gemini 3.8 Flash (High)"},
+            "model": {"display_name": "Gemini 3.8 Flash (🔷 High)", "id": "gemini-3.8-flash"},
             "workspace": {"current_dir": str(PROJECT_ROOT)},
             "plan_tier": "Google AI Pro",
             "email": "developer@example.com",
-            "conversation_id": "preview-session-id",
+            "conversation_id": "c1a2b3d4-preview",
             "context_window": {
                 "total_input_tokens": 128450,
                 "total_output_tokens": 42100,
@@ -346,22 +346,34 @@ def get_preview(tool: str, home: Path | None = None) -> dict:
                 "used_percentage": 16.3,
                 "current_usage": {"cache_read_input_tokens": 115200},
             },
+            "quota": {
+                "gemini-5h": {"used_fraction": 0.04, "reset_in_seconds": 10800},
+                "gemini-weekly": {"used_fraction": 0.18, "reset_in_seconds": 259200},
+            },
             "rate_limits": {
-                "gemini-5h": {"used_fraction": 0.04, "reset_time": "2026-09-27T12:00:00Z"},
-                "gemini-weekly": {"used_fraction": 0.18, "reset_time": "2026-10-01T00:00:00Z"},
+                "five_hour": {"used_percentage": 4},
+                "seven_day": {"used_percentage": 18},
+                "5h": {"used_percentage": 4},
+                "7d": {"used_percentage": 18},
             },
         }
         fallback_lines = [
             (
-                "\033[1;36mGemini 3.8 Flash (High)\033[0m \033[1;36m|\033[0m ai-manager-local "
+                "\033[1;36mGemini 3.8 Flash (🔷 High)\033[0m \033[1;36m|\033[0m ai-manager-local "
                 "\033[0;37m📦 v1.0.0\033[0m \033[0;37m🐍 v3.14\033[0m \033[0;90m⎇ main\033[0m"
             ),
             (
                 "\033[1;32mctx:16.3% of 1.0M ▰▱▱▱▱\033[0m \033[1;36m|\033[0m tok ↑128.4k ↓42.1k "
-                "\033[1;36m|\033[0m ⚡115.2k cache \033[1;36m|\033[0m lim 5h:4% 7d:18% "
-                "\033[1;36m|\033[0m \033[1;32m+24\033[0m/\033[1;31m-8\033[0m"
+                "\033[1;36m|\033[0m ⚡115.2k cache \033[1;36m|\033[0m \033[1;32m+24\033[0m/\033[1;31m-8\033[0m"
             ),
-            "\033[1;35mGoogle AI Pro\033[0m \033[0;37mdeveloper\033[0m \033[1;36m|\033[0m \033[0;90mid:preview\033[0m",
+            (
+                "\033[1;36mlim\033[0m \033[0;90m5h:\033[0m\033[1;32m4.0%\033[0m "
+                "\033[1;36m⏱\033[0m \033[0;90m5h:3h\033[0m \033[1;36m|\033[0m "
+                "\033[0;90m7d:\033[0m\033[1;32m18%\033[0m "
+                "\033[1;36m⏱\033[0m \033[0;90m7d:3d\033[0m \033[1;36m|\033[0m "
+                "\033[1;35mGoogle AI Pro\033[0m \033[0;37mdeveloper\033[0m \033[1;36m|\033[0m "
+                "\033[0;90mid:c1a2b3d4\033[0m"
+            ),
         ]
 
     try:
@@ -373,11 +385,16 @@ def get_preview(tool: str, home: Path | None = None) -> dict:
             timeout=3,
         )
         if proc.returncode == 0 and proc.stdout.strip():
-            raw_lines = [line for line in proc.stdout.splitlines() if line.strip()]
-            if t in ("claude", "claude-code") and len(raw_lines) == 2:
-                raw_lines.append(
-                    "\033[1;33m▶▶ auto mode on\033[0m \033[0;90m(shift+tab to cycle) · ← for agents\033[0m"
-                )
+            candidate_lines = [line for line in proc.stdout.splitlines() if line.strip()]
+            plain_candidates = [re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", line).strip() for line in candidate_lines]
+            if not any(plain_candidates):
+                raw_lines = fallback_lines
+            else:
+                raw_lines = candidate_lines
+                if t in ("claude", "claude-code") and len(raw_lines) == 2:
+                    raw_lines.append(
+                        "\033[1;33m▶▶ auto mode on\033[0m \033[0;90m(shift+tab to cycle) · ← for agents\033[0m"
+                    )
         else:
             raw_lines = fallback_lines
     except (OSError, subprocess.SubprocessError):

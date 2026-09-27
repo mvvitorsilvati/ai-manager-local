@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { AlertCircle, Check, Coins, Copy, Folder, MessageSquare, Sparkles, Terminal, X } from "lucide-react"
+import { AlertCircle, Check, Coins, Copy, Folder, MessageSquare, Sparkles, Terminal, WrapText, X } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 
@@ -66,10 +66,41 @@ function getToolColor(tc: string): string {
 function formatRawCommand(raw: string): string {
   if (!raw) return ""
   let text = raw.trim()
-  if (text.includes("\\n") && !text.includes("\n")) {
-    text = text.replace(/\\n/g, "\n").replace(/\\t/g, "\t")
+
+  // Se estiver entre aspas extras de string JSON/shell
+  if (
+    (text.startsWith('"') && text.endsWith('"') && text.length >= 2) ||
+    (text.startsWith("'") && text.endsWith("'") && text.length >= 2)
+  ) {
+    try {
+      const parsed = JSON.parse(text)
+      if (typeof parsed === "string") {
+        text = parsed.trim()
+      } else if (typeof parsed === "object" && parsed !== null) {
+        return JSON.stringify(parsed, null, 2)
+      }
+    } catch {
+      // Ignora erro de JSON parse
+    }
   }
-  return text
+
+  // Se for um JSON stringificado
+  if ((text.startsWith("{") && text.endsWith("}")) || (text.startsWith("[") && text.endsWith("]"))) {
+    try {
+      const parsed = JSON.parse(text)
+      return JSON.stringify(parsed, null, 2)
+    } catch {
+      // continua
+    }
+  }
+
+  // Converte sequências de quebras de linha e tabulações escapadas
+  text = text
+    .replace(/\\r\\n/g, "\n")
+    .replace(/\\n/g, "\n")
+    .replace(/\\t/g, "  ")
+
+  return text.trim()
 }
 
 export function SessionDrawer({
@@ -84,6 +115,7 @@ export function SessionDrawer({
   const { t } = useI18n()
   const [selectedTool, setSelectedTool] = useState<{ title: string; raw: string; name?: string } | null>(null)
   const [toolCopied, setToolCopied] = useState(false)
+  const [wrapLines, setWrapLines] = useState(false)
 
   const { data: detail, isPending } = useQuery({
     queryKey: ["session-detail", session?.tool, session?.id],
@@ -119,7 +151,8 @@ export function SessionDrawer({
   }
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange} showSwipeHandle>
+    <>
+      <Drawer open={open} onOpenChange={onOpenChange} showSwipeHandle>
       <DrawerContent className="bg-background border-border mx-auto flex h-[88vh] max-h-[88vh] w-full max-w-4xl flex-col">
         {/* Cabeçalho */}
         <DrawerHeader className="border-border/60 border-b pb-3 text-left">
@@ -366,52 +399,76 @@ export function SessionDrawer({
           <OpenSessionWith tool={session.tool} sessionId={session.id} cwd={session.cwd} title={title} />
         </DrawerFooter>
       </DrawerContent>
+    </Drawer>
 
-      {/* Modal para exibir o comando completo e formatado ao clicar */}
-      {selectedTool && (
-        <Dialog open={Boolean(selectedTool)} onOpenChange={(open) => !open && setSelectedTool(null)}>
-          <DialogContent className="z-[70] max-w-2xl sm:max-w-3xl">
-            <DialogHeader>
+    {/* Modal para exibir o comando completo e formatado ao clicar */}
+    {selectedTool && (
+      <Dialog open={Boolean(selectedTool)} onOpenChange={(open) => !open && setSelectedTool(null)}>
+        <DialogContent
+          overlayClassName="z-[90] bg-black/60 backdrop-blur-xs"
+          className="z-[100] w-auto sm:w-fit min-w-[min(94vw,520px)] max-w-[94vw] lg:max-w-5xl max-h-[85vh] flex flex-col p-6 shadow-2xl"
+        >
+          <DialogHeader>
+            <div className="flex items-center justify-between gap-3 pr-8">
               <DialogTitle className="flex items-center gap-2 font-mono text-sm">
                 <Terminal className="size-4 text-emerald-500 shrink-0" />
                 <span className="truncate">{selectedTool.title}</span>
               </DialogTitle>
-              <DialogDescription className="text-xs">
-                {t("sessions.commandDetails")}
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="relative mt-2 max-h-[60vh] overflow-auto rounded-lg border border-border bg-muted/50 p-3 font-mono text-xs leading-relaxed select-text">
-              <pre className="whitespace-pre-wrap break-all">{formatRawCommand(selectedTool.raw)}</pre>
-            </div>
-
-            <DialogFooter className="mt-4 flex sm:justify-between items-center gap-2">
               <Button
-                variant="outline"
-                size="sm"
-                onClick={() => copyRawCommand(selectedTool.raw)}
-                className="gap-1.5"
+                variant="ghost"
+                size="xs"
+                onClick={() => setWrapLines((prev) => !prev)}
+                className="text-muted-foreground hover:text-foreground text-xs gap-1 h-7 px-2 font-normal"
+                title={wrapLines ? "Visualizar em linhas contínuas com scroll" : "Quebrar linhas para evitar scroll horizontal"}
               >
-                {toolCopied ? (
-                  <>
-                    <Check className="size-3.5 text-emerald-500" />
-                    <span>{t("sessions.commandCopied")}</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="size-3.5" />
-                    <span>{t("sessions.copyCommand")}</span>
-                  </>
-                )}
+                <WrapText className="size-3" />
+                <span>{wrapLines ? "Linhas contínuas" : "Quebrar linhas"}</span>
               </Button>
-              <Button variant="default" size="sm" onClick={() => setSelectedTool(null)}>
-                {t("sessions.close")}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-    </Drawer>
+            </div>
+            <DialogDescription className="text-xs">
+              {selectedTool.name ? `${selectedTool.name} • ` : ""}{t("sessions.commandDetails")}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="relative mt-3 flex-1 min-h-0 overflow-auto rounded-lg border border-border/80 bg-zinc-950 p-4 font-mono text-xs leading-relaxed select-text shadow-inner">
+            <pre
+              className={cn(
+                "font-mono text-xs text-zinc-100 min-w-full",
+                wrapLines ? "whitespace-pre-wrap break-words" : "whitespace-pre overflow-x-auto"
+              )}
+            >
+              {formatRawCommand(selectedTool.raw)}
+            </pre>
+          </div>
+
+          <DialogFooter className="mt-4 flex sm:justify-between items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => copyRawCommand(selectedTool.raw)}
+              className="gap-1.5"
+            >
+              {toolCopied ? (
+                <>
+                  <Check className="size-3.5 text-emerald-500" />
+                  <span>{t("sessions.commandCopied")}</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="size-3.5" />
+                  <span>{t("sessions.copyCommand")}</span>
+                </>
+              )}
+            </Button>
+            <Button variant="default" size="sm" onClick={() => setSelectedTool(null)}>
+              {t("sessions.close")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )}
+  </>
   )
 }
+
 

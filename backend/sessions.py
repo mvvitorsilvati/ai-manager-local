@@ -198,6 +198,61 @@ def format_tool_call(name: str, args: dict | None, home: Path | None = None) -> 
     return n
 
 
+def extract_raw_tool_command(name: str, args: dict | None, formatted: str) -> str:
+    """Extrai o comando ou conteúdo detalhado da chamada de ferramenta de forma legível."""
+    if not args:
+        return formatted
+    # 1. Comandos de terminal
+    cmd = args.get("CommandLine") or args.get("command") or args.get("cmd")
+    if cmd is not None:
+        raw = str(cmd).strip()
+        is_quoted = (raw.startswith('"') and raw.endswith('"')) or (raw.startswith("'") and raw.endswith("'"))
+        if len(raw) >= 2 and is_quoted:
+            try:
+                unwrapped = json.loads(raw)
+                if isinstance(unwrapped, str):
+                    raw = unwrapped.strip()
+            except Exception:
+                pass
+        return raw
+
+    # 2. Edição de arquivo: replace_file_content
+    if "TargetFile" in args and ("ReplacementContent" in args or "TargetContent" in args or "Instruction" in args):
+        parts = [f"Arquivo: {args.get('TargetFile')}"]
+        if args.get("Instruction"):
+            parts.append(f"Instrução: {args.get('Instruction')}")
+        if args.get("TargetContent"):
+            parts.append(f"--- Original ---\n{args.get('TargetContent')}")
+        if args.get("ReplacementContent"):
+            parts.append(f"--- Substituição ---\n{args.get('ReplacementContent')}")
+        return "\n\n".join(parts)
+
+    # 3. Escrita de arquivo: write_to_file
+    if "TargetFile" in args and "CodeContent" in args:
+        desc = f" ({args.get('Description')})" if args.get("Description") else ""
+        return f"Arquivo: {args.get('TargetFile')}{desc}\n\n{args.get('CodeContent')}"
+
+    # 4. Leitura / Caminhos simples / Padrões de busca
+    simple_val = (
+        args.get("AbsolutePath")
+        or args.get("TargetFile")
+        or args.get("file_path")
+        or args.get("path")
+        or args.get("pattern")
+        or args.get("query")
+        or args.get("Url")
+        or args.get("url")
+    )
+    if simple_val and len(args) <= 2:
+        return str(simple_val).strip()
+
+    # 5. Para demais ferramentas com múltiplos argumentos, serializa JSON formatado
+    try:
+        return json.dumps(args, indent=2, ensure_ascii=False)
+    except Exception:
+        return formatted
+
+
 def sanitize_skills(skills: set[str] | list[str]) -> list[str]:
     """Filtra e ordena skills válidas encontradas na conversa."""
     valid = []
@@ -1023,13 +1078,7 @@ def get_session_details(
                                             tinput: dict = raw_input if isinstance(raw_input, dict) else {}
                                             formatted = format_tool_call(str(tname or ""), tinput, home=h)
                                             tool_calls.append(formatted)
-                                            cmd_val = (
-                                                tinput.get("command")
-                                                or tinput.get("cmd")
-                                                or tinput.get("file_path")
-                                                or tinput.get("path")
-                                            )
-                                            raw_str = str(cmd_val) if cmd_val else formatted
+                                            raw_str = extract_raw_tool_command(str(tname or ""), tinput, formatted)
                                             tool_details.append({
                                                 "display": formatted,
                                                 "name": str(tname or ""),
@@ -1097,14 +1146,7 @@ def get_session_details(
                         targs = tc.get("args") if isinstance(tc.get("args"), dict) else {}
                         formatted = format_tool_call(str(tname), targs, home=h)
                         tool_calls.append(formatted)
-                        cmd_val = (
-                            targs.get("CommandLine")
-                            or targs.get("command")
-                            or targs.get("AbsolutePath")
-                            or targs.get("TargetFile")
-                            or targs.get("pattern")
-                        )
-                        raw_str = str(cmd_val) if cmd_val else formatted
+                        raw_str = extract_raw_tool_command(str(tname), targs, formatted)
                         tool_details.append({
                             "display": formatted,
                             "name": str(tname),

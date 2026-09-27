@@ -22,7 +22,7 @@ import scan_home
 IDLE_GAP = 300
 CACHE_SECONDS = 60
 TOP = 15
-TOOLS = ("claude", "codex", "opencode", "copilot")
+TOOLS = ("claude", "codex", "opencode", "copilot", "gemini")
 
 # USD por 1M tokens. Cache Anthropic: read 0.1x, write 5m 1.25x, write 1h 2x.
 # OpenAI (faixa curta, página de pricing): read 0.1x, write 1.25x.
@@ -83,12 +83,29 @@ OPENAI = {
     "gpt-5-codex-mini": (0.25, 2.0),
     "gpt-5-mini": (0.25, 2.0),
 }
+GEMINI = {
+    "gemini-3.8-flash": (0.075, 0.30),
+    "gemini-3.7-flash": (0.075, 0.30),
+    "gemini-3.6-flash": (0.075, 0.30),
+    "gemini-3.5-flash": (0.075, 0.30),
+    "gemini-3.1-pro": (1.25, 5.0),
+    "gemini-3.0-pro": (1.25, 5.0),
+    "gemini-2.5-pro": (1.25, 5.0),
+    "gemini-2.5-flash": (0.075, 0.30),
+    "gemini-1.5-pro": (1.25, 5.0),
+    "gemini-1.5-flash": (0.075, 0.30),
+    "3.7-flash": (0.075, 0.30),
+    "3.6-flash": (0.075, 0.30),
+    "3.1-pro": (1.25, 5.0),
+    "gemini": (0.075, 0.30),
+}
 
 LABEL = {
     "claude": "Claude Code",
     "codex": "Codex",
     "opencode": "opencode",
     "copilot": "GitHub Copilot",
+    "gemini": "Gemini / Antigravity",
 }
 NOTE = {
     "claude": "Preço de tabela da API, não a fatura. O Claude Code apaga transcripts antigos.",
@@ -98,8 +115,9 @@ NOTE = {
     ),
     "opencode": "Custo já calculado pelo opencode. Provedor que não reporta preço aparece zerado.",
     "copilot": "Unidade AIU (não USD). O histórico local do Copilot CLI é curto.",
+    "gemini": "Sessões e tokens do Google Antigravity / Gemini CLI.",
 }
-CURRENCY = {"copilot": "AIU", "claude": "USD", "codex": "USD", "opencode": "USD"}
+CURRENCY = {"copilot": "AIU", "claude": "USD", "codex": "USD", "opencode": "USD", "gemini": "USD"}
 
 _lock = threading.Lock()
 _cache: dict[tuple, tuple[float, dict]] = {}
@@ -117,6 +135,7 @@ def default_roots() -> dict[str, Path]:
         "codex": scan_home.scan_home() / ".codex" / "sessions",
         "opencode": scan_home.scan_home() / ".local" / "share" / "opencode" / "opencode.db",
         "copilot": scan_home.scan_home() / ".copilot" / "session-store.db",
+        "gemini": scan_home.scan_home() / ".gemini" / "antigravity-cli",
     }
 
 
@@ -231,6 +250,17 @@ def openai_cost(model: str, inp: int, out: int, read: int, write: int):
         return None
     inn, outn = rates
     return (inp * inn + out * outn + read * inn * 0.1 + write * inn * 1.25) / 1_000_000
+
+
+def gemini_cost(model: str, inp: int, out: int, read: int) -> float:
+    m = model.lower().strip().replace(" ", "-")
+    rates = GEMINI.get(m)
+    if rates is None and not m.startswith("gemini-"):
+        rates = GEMINI.get(f"gemini-{m}")
+    if rates is None:
+        rates = (1.25, 5.0) if "pro" in m else (0.075, 0.30)
+    inn, outn = rates
+    return (inp * inn + out * outn + read * inn * 0.25) / 1_000_000
 
 
 def _in_window(ts: datetime | None, start: datetime | None) -> bool:
@@ -540,11 +570,85 @@ def scan_copilot(path: Path, start: datetime | None) -> tuple[list[dict], dict]:
     return events, {"files": 1, "dupes": 0, "unknown": []}
 
 
+def scan_gemini(path: Path, start: datetime | None) -> tuple[list[dict], dict]:
+    if not path.is_dir():
+        return [], {"missing": True}
+
+    history_file = path / "history.jsonl"
+    session_file = path / "cache" / "session_usage.json"
+    brain_dir = path / "brain"
+
+    conv_meta: dict[str, dict] = {}
+    if history_file.is_file():
+        for line in history_file.read_text(encoding="utf-8", errors="replace").splitlines():
+            if not line.strip():
+                continue
+            try:
+                d = json.loads(line)
+                cid = d.get("conversationId")
+                if cid:
+                    conv_meta[cid] = {"workspace": d.get("workspace"), "ts": d.get("timestamp")}
+            except Exception:
+                pass
+
+    sessions: dict[str, dict] = {}
+    if session_file.is_file():
+        try:
+            sessions = json.loads(session_file.read_text(encoding="utf-8", errors="replace"))
+        except Exception:
+            sessions = {}
+
+    events = []
+    scanned_files = (1 if history_file.is_file() else 0) + (1 if session_file.is_file() else 0)
+
+    for cid, u in sessions.items():
+        meta = conv_meta.get(cid, {})
+        ts_ms = meta.get("ts")
+        if ts_ms:
+            ts = datetime.fromtimestamp(ts_ms / 1000.0, tz=UTC)
+        else:
+            cbrain = brain_dir / cid
+            if cbrain.is_dir():
+                ts = datetime.fromtimestamp(cbrain.stat().st_mtime, tz=UTC)
+            else:
+                ts = datetime.now(UTC)
+
+        if not _in_window(ts, start):
+            continue
+
+        ws = meta.get("workspace") or ""
+        inp = int(u.get("total_in") or 0)
+        out = int(u.get("total_out") or 0)
+        cache_read = int(u.get("cache_read") or 0)
+        model = "gemini-3.8-flash"
+        raw_cost = float(u.get("cost_usd") or 0.0)
+        cost = raw_cost if raw_cost > 0.0 else gemini_cost(model, inp, out, cache_read)
+        total = inp + out + cache_read
+
+        events.append({
+            "ts": ts,
+            "session": cid,
+            "project": project_label(ws) if ws else "global",
+            "model": model,
+            "origin": "main",
+            "input": inp,
+            "output": out,
+            "cache_read": cache_read,
+            "cache_write": 0,
+            "reasoning": 0,
+            "total": total,
+            "cost": cost,
+        })
+
+    return events, {"files": scanned_files, "dupes": 0, "unknown": []}
+
+
 SCANNERS = {
     "claude": scan_claude,
     "codex": scan_codex,
     "opencode": scan_opencode,
     "copilot": scan_copilot,
+    "gemini": scan_gemini,
 }
 
 

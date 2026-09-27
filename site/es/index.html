@@ -6,7 +6,7 @@
     <title>AI Manager Local — la configuración de tus IAs en un solo panel</title>
     <meta
       name="description"
-      content="Panel web local para ver y editar las configuraciones de las IAs en tu Mac: opencode, Claude Code, Codex, GitHub Copilot CLI y Gemini. Uso, costos, skills, MCPs, plugins y versiones — 100% local, sin telemetría."
+      content="Panel web local para ver y editar las configuraciones de las IAs en tu Mac: opencode, Claude Code, Codex, GitHub Copilot CLI, Gemini/Antigravity y Cursor. Uso, costos, skills, MCPs, plugins y versiones — 100% local, sin telemetría."
     />
     <meta name="theme-color" content="#0a0a0c" />
     <meta property="og:type" content="website" />
@@ -837,6 +837,144 @@
         width: 13px;
         height: 13px;
       }
+
+      /* Keep the header readable when navigation and language links share a row. */
+      .topo__linha {
+        width: min(1720px, calc(100% - 3rem));
+        max-width: none;
+        min-height: 72px;
+        height: auto;
+        padding-inline: 0;
+        gap: 1rem;
+        justify-content: initial;
+      }
+
+      .marca,
+      .nav a,
+      .topo__github {
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      .marca svg,
+      .nav svg {
+        flex-shrink: 0;
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        flex-wrap: nowrap;
+        gap: clamp(0.55rem, 1vw, 1rem);
+        margin-left: auto;
+      }
+
+      .idiomas {
+        display: flex;
+        gap: 0.35rem;
+        flex-shrink: 0;
+      }
+
+      .idiomas .botao {
+        padding-inline: 0.7rem;
+      }
+
+      @media (max-width: 1600px) {
+        .topo__linha {
+          flex-wrap: wrap;
+          padding-block: 0.6rem;
+        }
+
+        .nav {
+          order: 4;
+          flex: 0 0 100%;
+          margin-left: 0;
+          overflow-x: auto;
+          padding-bottom: 0.25rem;
+          scrollbar-width: thin;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .topo__linha {
+          width: calc(100% - 2rem);
+        }
+
+        .marca {
+          font-size: 0.88rem;
+        }
+
+        .idiomas {
+          margin-left: auto;
+        }
+
+        .topo__github {
+          display: none;
+        }
+      }
+
+      .faixa__ver-mais {
+        color: var(--texto);
+        text-decoration: underline;
+        text-underline-offset: 0.2em;
+        white-space: nowrap;
+      }
+
+      .faixa__ver-mais:hover {
+        color: var(--verde);
+      }
+
+      .compativeis {
+        padding: clamp(2.5rem, 5vw, 4rem) 0;
+        border-bottom: 1px solid var(--borda);
+        scroll-margin-top: 9rem;
+      }
+
+      .compativeis h2 {
+        margin: 0 0 0.5rem;
+      }
+
+      .compativeis p {
+        margin: 0 0 1.5rem;
+        color: var(--suave);
+      }
+
+      .compativeis__lista {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 0.75rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .compativeis__lista li {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        min-width: 0;
+        padding: 0.8rem 1rem;
+        border: 1px solid var(--borda);
+        border-radius: 12px;
+        background: var(--cartao);
+        color: var(--texto);
+        font-weight: 520;
+      }
+
+      .compativeis__lista img,
+      .compativeis__monograma {
+        width: 24px;
+        height: 24px;
+        flex: none;
+        border-radius: 6px;
+      }
+
+      .compativeis__monograma {
+        display: grid;
+        place-items: center;
+        background: color-mix(in srgb, var(--violeta) 26%, var(--cartao));
+        font-weight: 700;
+      }
     </style>
   </head>
 
@@ -901,7 +1039,7 @@
           </a>
         </nav>
 
-        <div class="idiomas" style="display: flex; gap: 0.35rem;">
+        <div class="idiomas">
           <a class="botao botao--fantasma" href="../" hreflang="pt-BR" title="Versão em português">
             PT
           </a>
@@ -910,7 +1048,7 @@
           </a>
         </div>
 
-        <a class="botao botao--fantasma" href="https://github.com/mvvitorsilvati/ai-manager-local">
+        <a class="botao botao--fantasma topo__github" href="https://github.com/mvvitorsilvati/ai-manager-local">
           <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
             <path
               d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"
@@ -929,8 +1067,8 @@
             <h1>Toda la configuración de tus IAs, <span class="gradiente">en un solo panel</span></h1>
             <p class="heroi__texto">
               Panel web local para ver y editar todo sobre las IAs instaladas en tu Mac — <strong>opencode</strong>,
-              <strong>Claude Code</strong>, <strong>Codex</strong>, <strong>GitHub Copilot CLI</strong> y
-              <strong>Gemini/Antigravity</strong> — globalmente y dentro de tus proyectos.
+              <strong>Claude Code</strong>, <strong>Codex</strong>, <strong>GitHub Copilot CLI</strong>,
+              <strong>Gemini/Antigravity</strong> y <strong>Cursor</strong> — globalmente y dentro de tus proyectos.
             </p>
             <div class="acoes">
               <a class="botao botao--principal" href="https://github.com/mvvitorsilvati/ai-manager-local">
@@ -961,14 +1099,13 @@
 
       <section class="faixa" aria-label="IAs compatibles">
         <div class="container faixa__linha">
-          <span class="faixa__titulo">Compatible con</span>
+          <span class="faixa__titulo">Compatible con 6 IAs</span>
           <ul class="faixa__itens">
             <li><img src="../assets/ia/opencode.png" alt="" width="20" height="20" />opencode</li>
             <li><img src="../assets/ia/claude.png" alt="" width="20" height="20" />Claude Code</li>
             <li><img src="../assets/ia/codex.png" alt="" width="20" height="20" />Codex</li>
-            <li><img src="../assets/ia/copilot.png" alt="" width="20" height="20" />GitHub Copilot CLI</li>
-            <li><img src="../assets/ia/gemini.png" alt="" width="20" height="20" />Gemini / Antigravity</li>
           </ul>
+          <a class="faixa__ver-mais" href="#ias-compativeis">Ver todas →</a>
         </div>
       </section>
 
@@ -990,6 +1127,21 @@
               Visión general: qué existe en cada IA, uso de cuenta y consumo diario — todo leído de lo que ya está en tu máquina.
             </figcaption>
           </figure>
+        </div>
+      </section>
+
+      <section class="compativeis" id="ias-compativeis" aria-labelledby="ias-compativeis-titulo">
+        <div class="container">
+          <h2 id="ias-compativeis-titulo">IAs compatibles</h2>
+          <p>El panel integra estas seis IAs y también detecta otras herramientas con un manifiesto MCP compatible. Las métricas y acciones varían según la herramienta.</p>
+          <ul class="compativeis__lista">
+            <li><img src="../assets/ia/opencode.png" alt="" width="24" height="24" />opencode</li>
+            <li><img src="../assets/ia/claude.png" alt="" width="24" height="24" />Claude Code</li>
+            <li><img src="../assets/ia/codex.png" alt="" width="24" height="24" />Codex</li>
+            <li><img src="../assets/ia/copilot.png" alt="" width="24" height="24" />GitHub Copilot CLI</li>
+            <li><img src="../assets/ia/gemini.png" alt="" width="24" height="24" />Gemini / Antigravity</li>
+            <li><span class="compativeis__monograma" aria-hidden="true">C</span>Cursor</li>
+          </ul>
         </div>
       </section>
 
@@ -1545,7 +1697,7 @@ just statusline <span class="c"># instalar statusline (Claude/Antigravity)</span
 
     <footer class="rodape">
       <div class="container rodape__linha">
-        <span>MIT © 2026 · diseñado para ejecutarse en tu máquina · las marcas e iconos pertenecen a sus respectivos dueños</span>
+        <span>© 2026 Vitor Silva · diseñado para ejecutarse en tu máquina · las marcas e iconos pertenecen a sus respectivos dueños</span>
         <div class="rodape__links">
           <a href="https://github.com/mvvitorsilvati/ai-manager-local">
             <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
@@ -1592,7 +1744,8 @@ just statusline <span class="c"># instalar statusline (Claude/Antigravity)</span
       (() => {
         const links = [...document.querySelectorAll(".nav a[href^='#']")];
         const inicio = document.querySelector("#inicio");
-        const alvos = [...(inicio ? [inicio] : []), ...links.map((a) => document.querySelector(a.hash))].filter(Boolean);
+        const compativeis = document.querySelector("#ias-compativeis");
+        const alvos = [...(inicio ? [inicio] : []), ...(compativeis ? [compativeis] : []), ...links.map((a) => document.querySelector(a.hash))].filter(Boolean);
         if (!alvos.length) return;
 
         const marcar = (id) => {
@@ -1607,7 +1760,7 @@ just statusline <span class="c"># instalar statusline (Claude/Antigravity)</span
               .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
             if (visivel) marcar(visivel.target.id);
           },
-          { rootMargin: "-45% 0px -45% 0px" },
+          { rootMargin: "-25% 0px -65% 0px" },
         );
 
         alvos.forEach((alvo) => observador.observe(alvo));

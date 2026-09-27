@@ -1,0 +1,106 @@
+name: Release
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.run_id }}
+  cancel-in-progress: false
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versão (ex.: v2.1.0)"
+        required: true
+      prerelease:
+        description: "Marcar como pré-release"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Release (tag + GitHub Release)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Valida versão e sincronia dos arquivos
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          VER="${INPUT_VERSION#v}"
+          if ! [[ "$VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Versão inválida: '$INPUT_VERSION' (use ex.: v2.1.0)" >&2
+            exit 1
+          fi
+          TAG="v$VER"
+          {
+            echo "TAG=$TAG"
+            echo "VER=$VER"
+            # Tag anterior calculada ANTES de criar a nova (describe pegaria a própria tag depois)
+            echo "PREV=$(git describe --tags --abbrev=0 HEAD 2>/dev/null || true)"
+          } >> "$GITHUB_ENV"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG já existe" >&2
+            exit 1
+          fi
+          PYVER="$(sed -n 's/^version = "\(.*\)"/\1/p' backend/pyproject.toml | head -n 1)"
+          JSVER="$(node -p "require('./web/package.json').version")"
+          if [ "$PYVER" != "$VER" ] || [ "$JSVER" != "$VER" ]; then
+            echo "Versões fora de sincronia: pyproject=$PYVER package.json=$JSVER tag=$VER" >&2
+            echo "Faça o bump via PR antes de lançar a release" >&2
+            exit 1
+          fi
+
+      - name: Cria e publica a tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "$TAG"
+          git push origin "$TAG"
+
+      - name: Gera notas e cria a release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IS_PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          if [ -n "$PREV" ]; then
+            RANGE="$PREV..HEAD"
+          else
+            RANGE="HEAD"
+          fi
+          LOG="$(git log "$RANGE" --pretty=format:'%s')"
+          {
+            echo "## O que mudou"
+            echo
+            section() {
+              local title="$1"
+              local pattern="$2"
+              local lines
+              lines="$(printf '%s\n' "$LOG" | grep -E "$pattern" || true)"
+              if [ -n "$lines" ]; then
+                echo "### $title"
+                echo
+                printf '%s\n' "$lines" | sed 's/^/- /'
+                echo
+              fi
+            }
+            section "Novidades" '^(feat|feature)(\(|:)'
+            section "Correções" '^fix(\(|:)'
+            section "Outros" '^chore(\(|:)|^docs(\(|:)|^refactor(\(|:)|^style(\(|:)|^test(\(|:)|^ci(\(|:)'
+            if [ -n "$PREV" ]; then
+              echo "Comparar: ${{ github.server_url }}/${{ github.repository }}/compare/$PREV...$TAG"
+              echo
+            fi
+            echo "Imagem: \`localhost/ai-manager-local-py-3.14:$VER\`"
+          } > notas.md
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            gh release create "$TAG" --title "$TAG" --notes-file notas.md --prerelease
+          else
+            gh release create "$TAG" --title "$TAG" --notes-file notas.md --latest
+          fi

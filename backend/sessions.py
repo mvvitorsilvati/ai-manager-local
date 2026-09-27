@@ -158,6 +158,30 @@ def clean_preview(text: str | None, max_len: int = 1000) -> str:
     return clean_message_content(text, max_len=max_len)
 
 
+def clean_claude_user_text(text: str) -> str:
+    """Mostra invocações de skills como o comando digitado, sem o envelope interno do Claude."""
+    command = re.fullmatch(
+        r"\s*<command-message>[\s\S]*?</command-message>\s*"
+        r"<command-name>([\s\S]*?)</command-name>\s*"
+        r"(?:<command-args>([\s\S]*?)</command-args>)?\s*",
+        text,
+    )
+    if command:
+        return clean_message_content(" ".join(part.strip() for part in command.groups() if part and part.strip()))
+    return clean_message_content(text)
+
+
+def is_claude_user_prompt(record: dict) -> bool:
+    """Descarta contexto injetado, resumo de compactação e resultados de ferramentas."""
+    if record.get("isMeta") or record.get("isCompactSummary") or record.get("isVisibleInTranscriptOnly"):
+        return False
+    content = (record.get("message") or {}).get("content")
+    return isinstance(content, str) or (
+        isinstance(content, list)
+        and any(isinstance(block, dict) and block.get("type") in ("text", "image") for block in content)
+    )
+
+
 def format_tool_call(name: str, args: dict | None, home: Path | None = None) -> str:
     """Formata a chamada de ferramenta para exibição amigável dos comandos e arquivos reais."""
     if not name:
@@ -411,15 +435,18 @@ def scan_claude_sessions(home: Path | None = None) -> list[dict]:
                     first_ts = first_ts or ts
                     last_ts = ts
                 t = rec.get("type")
-                if t == "user":
-                    msg_count += 1
+                if t == "user" and is_claude_user_prompt(rec):
                     content = (rec.get("message") or {}).get("content")
                     if isinstance(content, str):
-                        user_prompts.append(content)
+                        prompt = clean_claude_user_text(content)
+                        if prompt:
+                            user_prompts.append(prompt)
+                        msg_count += 1
                     elif isinstance(content, list):
+                        msg_count += 1
                         for b in content:
-                            if isinstance(b, dict) and b.get("text"):
-                                user_prompts.append(b["text"])
+                            if isinstance(b, dict) and b.get("type") == "text" and b.get("text"):
+                                user_prompts.append(clean_claude_user_text(str(b["text"])))
                 elif t == "assistant":
                     msg_count += 1
                     msg = rec.get("message") or {}
@@ -1117,7 +1144,7 @@ def get_session_details(
                         ts = rec.get("timestamp")
                         msg = rec.get("message") or {}
                         raw_content = msg.get("content")
-                        if rec_type == "user":
+                        if rec_type == "user" and is_claude_user_prompt(rec):
                             text = ""
                             images: list[dict] = []
                             if isinstance(raw_content, str):
@@ -1142,7 +1169,7 @@ def get_session_details(
                                                     "mime": mtype,
                                                 })
                                 text = "\n".join(text_parts)
-                            clean_t = clean_message_content(text)
+                            clean_t = clean_claude_user_text(text)
                             if clean_t or images:
                                 user_entry: dict = {
                                     "role": "user",
@@ -1462,4 +1489,3 @@ def get_session_details(
         "user_name": get_user_display_name(),
         "messages": messages,
     }
-

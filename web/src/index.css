@@ -152,3 +152,24 @@
     cursor: pointer;
   }
 }
+
+.session-user-markdown {
+  --tw-prose-body: var(--primary-foreground);
+  --tw-prose-headings: var(--primary-foreground);
+  --tw-prose-lead: var(--primary-foreground);
+  --tw-prose-links: var(--primary-foreground);
+  --tw-prose-bold: var(--primary-foreground);
+  --tw-prose-counters: var(--primary-foreground);
+  --tw-prose-bullets: var(--primary-foreground);
+  --tw-prose-quotes: var(--primary-foreground);
+  --tw-prose-code: var(--primary-foreground);
+}
+
+.session-user-markdown pre {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+.session-user-markdown pre code {
+  color: inherit;
+}

@@ -724,6 +724,50 @@ def test_extracao_imagens_mensagens_usuario_claude(tmp_path: Path):
     assert img["name"] == "screenshot.png"
 
 
+def test_claude_exibe_apenas_prompts_e_formata_comando_com_imagem(tmp_path: Path):
+    sid = "ses-claude-command"
+    proj_dir = tmp_path / ".claude" / "projects" / "p1"
+    proj_dir.mkdir(parents=True)
+    command = (
+        "<command-message>revisar-pr</command-message>\n"
+        "<command-name>/revisar-pr</command-name>\n"
+        "<command-args>https://example.test/123</command-args>"
+    )
+    pixel = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    records = [
+        {"type": "user", "message": {"content": command}},
+        {
+            "type": "user",
+            "isMeta": True,
+            "message": {"content": [{"type": "text", "text": "Base directory for this skill: /internal"}]},
+        },
+        {"type": "user", "message": {"content": [{"type": "tool_result", "content": "resultado interno"}]}},
+        {"type": "user", "isCompactSummary": True, "message": {"content": "Resumo interno da conversa"}},
+        {"type": "user", "message": {"content": [
+            {"type": "text", "text": "# Pedido\n\n**Confira** a imagem"},
+            {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": pixel}},
+        ]}},
+        {"type": "assistant", "message": {"content": [{"type": "text", "text": "Imagem recebida."}]}},
+    ]
+    (proj_dir / f"{sid}.jsonl").write_text("\n".join(json.dumps(record) for record in records) + "\n")
+
+    overview = sessions.scan_claude_sessions(home=tmp_path)[0]
+    assert overview["title"] == "/revisar-pr https://example.test/123"
+    assert overview["message_count"] == 3
+
+    messages = sessions.get_session_details("claude", sid, home=tmp_path)["messages"]
+    assert [(msg["role"], msg["content"]) for msg in messages] == [
+        ("user", "/revisar-pr https://example.test/123"),
+        ("user", "# Pedido\n\n**Confira** a imagem"),
+        ("assistant", "Imagem recebida."),
+    ]
+    assert messages[1]["images"] == [{
+        "url": f"data:image/png;base64,{pixel}",
+        "name": "screenshot.png",
+        "mime": "image/png",
+    }]
+
+
 def test_obter_nome_exibicao_usuario(monkeypatch):
     import subprocess
     import sys
@@ -903,7 +947,6 @@ def test_get_sessions_retorna_top_cost_e_top_tokens(tmp_path: Path):
     assert len(res["top_tokens"]) > 0
     assert res["top_cost"][0]["id"] == "s-alta"
     assert res["top_tokens"][0]["id"] == "s-alta"
-
 
 
 

@@ -361,7 +361,7 @@ export function SpendTrend({
               <button
                 key={s.key}
                 onClick={() => setFocus((f) => (f === s.key ? null : s.key))}
-                title={focus === s.key ? "Mostrar todas" : `Filtrar por ${s.label}`}
+                title={focus === s.key ? t("spend.showAll") : t("spend.filterBy", { label: s.label })}
                 className="text-muted-foreground flex items-center gap-1.5 text-xs transition-opacity hover:opacity-100"
                 style={{ opacity: dimmed ? 0.4 : 1 }}
               >

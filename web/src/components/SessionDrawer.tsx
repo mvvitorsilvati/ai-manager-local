@@ -424,10 +424,10 @@ export function SessionDrawer({
                 size="xs"
                 onClick={() => setWrapLines((prev) => !prev)}
                 className="text-muted-foreground hover:text-foreground text-xs gap-1 h-7 px-2 font-normal"
-                title={wrapLines ? "Visualizar em linhas contínuas com scroll" : "Quebrar linhas para evitar scroll horizontal"}
+                title={wrapLines ? t("sessions.nowrapTitle") : t("sessions.wrapTitle")}
               >
                 <WrapText className="size-3" />
-                <span>{wrapLines ? "Linhas contínuas" : "Quebrar linhas"}</span>
+                <span>{wrapLines ? t("sessions.nowrap") : t("sessions.wrap")}</span>
               </Button>
             </div>
             <DialogDescription className="text-xs">

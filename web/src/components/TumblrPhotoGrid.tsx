@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import type { SessionImage } from "@/lib/api"
+import { useI18n } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
 interface TumblrPhotoGridProps {
@@ -17,6 +18,7 @@ interface TumblrPhotoGridProps {
 }
 
 export function TumblrPhotoGrid({ images, isUser = false }: TumblrPhotoGridProps) {
+  const { t } = useI18n()
   const [selectedImage, setSelectedImage] = useState<SessionImage | null>(null)
   const [realSize, setRealSize] = useState(false)
 
@@ -106,10 +108,10 @@ export function TumblrPhotoGrid({ images, isUser = false }: TumblrPhotoGridProps
                     size="xs"
                     onClick={() => setRealSize((prev) => !prev)}
                     className="gap-1 text-xs"
-                    title={realSize ? "Ajustar à tela" : "Visualizar em tamanho real (100%)"}
+                    title={realSize ? t("sessions.fitToScreen") : t("sessions.viewRealSize")}
                   >
                     {realSize ? <ZoomOut className="size-3" /> : <ZoomIn className="size-3" />}
-                    <span>{realSize ? "Ajustar à tela" : "Tamanho real"}</span>
+                    <span>{realSize ? t("sessions.fitToScreen") : t("sessions.realSize")}</span>
                   </Button>
                   <Button
                     variant="outline"
@@ -124,7 +126,7 @@ export function TumblrPhotoGrid({ images, isUser = false }: TumblrPhotoGridProps
                     className="gap-1 text-xs"
                   >
                     <ExternalLink className="size-3" />
-                    <span>Abrir original</span>
+                    <span>{t("sessions.openOriginal")}</span>
                   </Button>
                 </div>
               </DialogHeader>
@@ -146,7 +148,7 @@ export function TumblrPhotoGrid({ images, isUser = false }: TumblrPhotoGridProps
                       ? "max-h-none max-w-none cursor-zoom-out"
                       : "max-h-[78vh] w-auto max-w-full object-contain cursor-zoom-in"
                   )}
-                  title={realSize ? "Clique para ajustar à tela" : "Clique para ampliar em tamanho real"}
+                  title={realSize ? t("sessions.clickToFit") : t("sessions.clickToZoom")}
                 />
               </div>
             </div>

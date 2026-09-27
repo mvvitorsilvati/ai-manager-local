@@ -20,7 +20,15 @@ const TOOL_LABEL: Record<string, string> = {
   gemini: "Gemini / Antigravity",
 }
 
-export function UsageCard({ tool, showDetails = false }: { tool: string; showDetails?: boolean }) {
+export function UsageCard({
+  tool,
+  showDetails = false,
+  className,
+}: {
+  tool: string
+  showDetails?: boolean
+  className?: string
+}) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { t } = useI18n()
@@ -60,7 +68,7 @@ export function UsageCard({ tool, showDetails = false }: { tool: string; showDet
   }
 
   return (
-    <div className="bg-card border-border rounded-lg border p-4">
+    <div className={cn("bg-card border-border rounded-lg border p-4", className)}>
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h3 className="flex items-center gap-1.5 text-sm font-semibold">

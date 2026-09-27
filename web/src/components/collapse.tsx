@@ -15,6 +15,10 @@ export function CollapseAllProvider({ children }: { children: React.ReactNode })
   )
 }
 
+export function useCollapseContext() {
+  return useContext(CollapseContext)
+}
+
 /** Estado de abre/fecha que segue o "Recolher tudo"; cada item pode ser alternado depois. */
 export function useCollapsible(initial: boolean) {
   const { collapsed } = useContext(CollapseContext)
@@ -31,10 +35,11 @@ export function useCollapsible(initial: boolean) {
 export function CollapseAllButton() {
   const { collapsed, toggle } = useContext(CollapseContext)
   const { t } = useI18n()
+  const label = collapsed ? t("header.expand") : t("header.collapse")
   return (
-    <Button variant="outline" size="sm" onClick={toggle}>
+    <Button variant="outline" size="sm" onClick={toggle} title={`${label} (⌘A)`}>
       {collapsed ? <ChevronsUpDown className="size-4" /> : <ChevronsDownUp className="size-4" />}
-      {collapsed ? t("header.expand") : t("header.collapse")}
+      {label}
     </Button>
   )
 }

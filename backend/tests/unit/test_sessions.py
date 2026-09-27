@@ -834,5 +834,76 @@ def test_sincronizacao_estrita_tool_calls_e_details_com_comandos_repetidos(tmp_p
     assert "git push origin main" in tds[2]["raw"]
 
 
+def test_is_slash_command_detecta_meta_comandos():
+    assert sessions.is_slash_command("/model") is True
+    assert sessions.is_slash_command("/mcp") is True
+    assert sessions.is_slash_command("/effort high") is True
+    assert sessions.is_slash_command("/cost") is True
+    assert sessions.is_slash_command("/status") is True
+    assert sessions.is_slash_command("/help") is True
+    # Não deve considerar caminhos absolutos ou prompts normais
+    assert sessions.is_slash_command("/Users/vitor.silva/projeto/arquivo.py") is False
+    assert sessions.is_slash_command("/home/ubuntu/app") is False
+    assert sessions.is_slash_command("Como fazer o deploy no kubernetes?") is False
+    assert sessions.is_slash_command("") is False
+    assert sessions.is_slash_command(None) is False
+
+
+def test_pick_meaningful_title_ignora_slash_commands_iniciais():
+    candidates = ["/model", "/effort high", "Refatorar autenticação OAuth", "Ajustar testes"]
+    title = sessions.pick_meaningful_title(candidates, fallback="sessao-123")
+    assert title == "Refatorar autenticação OAuth"
+
+    # Se todos forem slash commands, faz fallback para o primeiro
+    only_slash = ["/model", "/mcp"]
+    assert sessions.pick_meaningful_title(only_slash, fallback="sessao-123") == "/model"
+
+    # Se lista vazia, usa fallback
+    assert sessions.pick_meaningful_title([], fallback="sessao-padrao") == "sessao-padrao"
+
+
+def test_get_sessions_retorna_top_cost_e_top_tokens(tmp_path: Path):
+    # Cria estrutura de mock com sessões de diferentes custos e tokens
+    claude_root = tmp_path / ".claude"
+    claude_root.mkdir()
+    history_file = claude_root / "history.jsonl"
+    history_file.write_text(
+        json.dumps({"sessionId": "s-baixa", "display": "tarefa barata", "timestamp": 1000}) + "\n"
+        + json.dumps({"sessionId": "s-alta", "display": "tarefa cara", "timestamp": 2000}) + "\n"
+    )
+
+    proj_dir = claude_root / "projects" / "test"
+    proj_dir.mkdir(parents=True)
+    (proj_dir / "s-baixa.jsonl").write_text(
+        json.dumps({
+            "type": "assistant",
+            "message": {
+                "model": "claude-sonnet-4-5",
+                "content": [{"type": "text", "text": "ok"}],
+                "usage": {"input_tokens": 100, "output_tokens": 50},
+            },
+        }) + "\n"
+    )
+    (proj_dir / "s-alta.jsonl").write_text(
+        json.dumps({
+            "type": "assistant",
+            "message": {
+                "model": "claude-sonnet-4-5",
+                "content": [{"type": "text", "text": "ok"}],
+                "usage": {"input_tokens": 100000, "output_tokens": 50000},
+            },
+        }) + "\n"
+    )
+
+    res = sessions.get_sessions("claude", home=tmp_path, force_refresh=True)
+    assert res["ok"] is True
+    assert "top_cost" in res
+    assert "top_tokens" in res
+    assert len(res["top_cost"]) > 0
+    assert len(res["top_tokens"]) > 0
+    assert res["top_cost"][0]["id"] == "s-alta"
+    assert res["top_tokens"][0]["id"] == "s-alta"
+
+
 
 

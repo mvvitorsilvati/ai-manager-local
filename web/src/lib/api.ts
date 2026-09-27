@@ -194,6 +194,8 @@ export type SessionsResponse = {
   tool: string
   total: number
   sessions: SessionItem[]
+  top_cost?: SessionItem[]
+  top_tokens?: SessionItem[]
 }
 
 export type SessionImage = {

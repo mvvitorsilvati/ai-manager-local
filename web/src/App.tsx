@@ -22,11 +22,11 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom"
 
 import { IncidentIcon } from "@/components/bits"
-import { CollapseAllButton } from "@/components/collapse"
+import { CollapseAllButton, useCollapseContext } from "@/components/collapse"
 import { CommandMenu } from "@/components/CommandMenu"
 import { FlagBR, FlagUS } from "@/components/flags"
 import { ToolIcon } from "@/components/ToolIcon"
@@ -101,16 +101,78 @@ export default function App() {
   const queryClient = useQueryClient()
   const { lang, setLang, t } = useI18n()
   const { theme, toggle: toggleTheme } = useTheme()
+  const { toggle: toggleCollapseAll } = useCollapseContext()
   const { data: catalog } = useCatalog()
   const isFetching = useIsFetching() > 0
   const { data: incidents } = useIncidents()
   const statusUrlOf = (id: string) => catalog?.sources.find((s) => s.id === id)?.status_url ?? undefined
 
   // Atualizar global: invalida tudo e força o uso das IAs (o backend tem cache próprio de 60s)
-  const refreshAll = () => {
+  const refreshAll = useCallback(() => {
     queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== "usage" })
     refreshUsage(queryClient)
-  }
+  }, [queryClient])
+
+  // Atalhos de teclado globais (Cmd ou Ctrl + F / A / L / T / R)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isCmdOrCtrl = e.metaKey || e.ctrlKey
+      if (!isCmdOrCtrl) return
+
+      const key = e.key.toLowerCase()
+
+      // Cmd/Ctrl + F -> Focar barra de busca
+      if (key === "f") {
+        e.preventDefault()
+        const el = document.getElementById("search") as HTMLInputElement | null
+        if (el) {
+          el.focus()
+          el.select()
+        }
+        return
+      }
+
+      // Cmd/Ctrl + A -> Alternar Expandir/Recolher tudo (apenas quando não estiver editando texto)
+      if (key === "a") {
+        const target = e.target as HTMLElement | null
+        const isEditing =
+          target &&
+          (target.tagName === "INPUT" ||
+            target.tagName === "TEXTAREA" ||
+            target.isContentEditable ||
+            Boolean(target.closest(".monaco-editor")))
+        if (!isEditing) {
+          e.preventDefault()
+          toggleCollapseAll()
+        }
+        return
+      }
+
+      // Cmd/Ctrl + L -> Alternar idioma entre pt e en
+      if (key === "l") {
+        e.preventDefault()
+        setLang(lang === "pt" ? "en" : "pt")
+        return
+      }
+
+      // Cmd/Ctrl + T -> Alternar tema claro/escuro
+      if (key === "t") {
+        e.preventDefault()
+        toggleTheme()
+        return
+      }
+
+      // Cmd/Ctrl + R -> Atualizar dados sem recarregar o navegador
+      if (key === "r") {
+        e.preventDefault()
+        refreshAll()
+        return
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [lang, setLang, toggleTheme, toggleCollapseAll, refreshAll])
   const location = useLocation()
   const isViewer = location.pathname === "/f"
   const [lastLocation, setLastLocation] = useState(location)
@@ -239,14 +301,14 @@ export default function App() {
 
         <SidebarInset className="flex min-w-0 flex-1 flex-col h-screen overflow-hidden">
           <header className="border-border bg-card flex h-14 shrink-0 items-center gap-3 border-b px-3.5">
-            <SidebarTrigger className="-ml-1" />
+            <SidebarTrigger className="-ml-1" title={`${t("header.sidebar")} (⌘B)`} />
             <SearchInput />
             <CollapseAllButton />
             <Button
               variant="outline"
               size="sm"
               onClick={toggleTheme}
-              title={t(theme === "dark" ? "theme.toLight" : "theme.toDark")}
+              title={`${t(theme === "dark" ? "theme.toLight" : "theme.toDark")} (⌘T)`}
               aria-label={t(theme === "dark" ? "theme.toLight" : "theme.toDark")}
             >
               {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
@@ -254,7 +316,12 @@ export default function App() {
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
-                  <Button variant="outline" size="sm" title={t("header.language")} aria-label={t("header.language")}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    title={`${t("header.language")} (⌘L)`}
+                    aria-label={t("header.language")}
+                  >
                     {lang === "pt" ? <FlagBR className="size-4" /> : <FlagUS className="size-4" />}
                     <ChevronDown className="size-3.5 opacity-60" />
                   </Button>
@@ -271,7 +338,13 @@ export default function App() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="outline" size="sm" onClick={refreshAll} disabled={isFetching}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refreshAll}
+              disabled={isFetching}
+              title={`${t("header.refresh")} (⌘R)`}
+            >
               <RefreshCw className={cn("size-4", isFetching && "animate-spin")} />
               {t("header.refresh")}
             </Button>

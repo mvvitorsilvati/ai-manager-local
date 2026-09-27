@@ -1011,6 +1011,20 @@
                 <code>⌘K</code>, <code>⌘E</code> and <code>⌘S</code>.
               </p>
             </article>
+
+            <article class="cartao">
+              <div class="icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <polyline points="4 17 10 11 4 5" />
+                  <line x1="12" y1="19" x2="20" y2="19" />
+                </svg>
+              </div>
+              <h3>Real-time statusline</h3>
+              <p>
+                Terminal statusline with token quotas (5h, 7d), context window, accumulated spend, and Git diff for
+                Claude Code and Antigravity. Interactive installer, web preview, and automated backup restoration.
+              </p>
+            </article>
           </div>
         </div>
       </section>
@@ -1043,8 +1057,9 @@
             <pre><code>gh repo clone mvvitorsilvati/ai-manager-local
 cd ai-manager-local
 
-just setup   <span class="c"># deps: uv sync + pnpm install</span>
-just start   <span class="c"># frontend build + up at 4747</span></code></pre>
+just setup      <span class="c"># deps: uv sync + pnpm install</span>
+just start      <span class="c"># frontend build + up at 4747</span>
+just statusline <span class="c"># install statusline (Claude/Antigravity)</span></code></pre>
           </div>
 
           <p class="rodape-nota">
@@ -1092,8 +1107,8 @@ just start   <span class="c"># frontend build + up at 4747</span></code></pre>
               </div>
               <h3>Skills by invocation</h3>
               <p>
-                Only Claude Code and opencode keep that history. On the other AIs the screen lists the skills that exist
-                on disk, without usage counts.
+                Claude Code, opencode, and Antigravity keep that history in local logs. On Codex and Copilot the screen lists the
+                skills that exist on disk, without usage counts.
               </p>
             </article>
 

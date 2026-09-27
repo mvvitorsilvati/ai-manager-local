@@ -91,12 +91,12 @@ export function ToolStatuslineManager({
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-muted-foreground gap-1 text-[11px] font-normal">
               <Sparkles className="size-3 text-amber-500" />
-              Tempo Real &amp; Cotas
+              {t("statusline.realtime_quotas")}
             </Badge>
           </div>
         </div>
         <CardDescription className="text-xs">
-          Barra de status no terminal com cotas de tokens (5h, 7d), janela de contexto, custos acumulados e Git diff.
+          {t("statusline.single_card_desc")}
         </CardDescription>
       </CardHeader>
 
@@ -206,9 +206,9 @@ export function ToolStatuslineManager({
                 <div className="border-border overflow-x-auto rounded-md border text-xs">
                   <div className="min-w-[480px]">
                     <div className="border-border bg-muted/40 text-muted-foreground grid grid-cols-[1fr_130px_100px] border-b px-3 py-1.5 font-medium text-[11px] whitespace-nowrap">
-                      <div>Arquivo original &amp; backup</div>
-                      <div>Data/Hora</div>
-                      <div className="text-right">Ação</div>
+                      <div>{t("statusline.th_file")}</div>
+                      <div>{t("statusline.th_datetime")}</div>
+                      <div className="text-right">{t("statusline.th_action")}</div>
                     </div>
                     <div className="divide-border divide-y">
                       {backups.map((b: StatuslineBackup) => (

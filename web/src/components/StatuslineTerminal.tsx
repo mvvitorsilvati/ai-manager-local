@@ -5,6 +5,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
+import { useI18n } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
 function ansiToSpans(text: string) {
@@ -65,6 +66,7 @@ export function StatuslineTerminal({
   tool: "claude" | "antigravity"
   className?: string
 }) {
+  const { t } = useI18n()
   const [copied, setCopied] = useState(false)
 
   const { data: preview, isLoading } = useQuery({
@@ -108,7 +110,7 @@ export function StatuslineTerminal({
           disabled={!fullText}
         >
           {copied ? <Check className="mr-1 size-3 text-emerald-400" /> : <Copy className="mr-1 size-3" />}
-          {copied ? "Copiado" : "Copiar saída"}
+          {copied ? t("statusline.copied") : t("statusline.copy_output")}
         </Button>
       </div>
 
@@ -130,7 +132,7 @@ export function StatuslineTerminal({
             </div>
           ))
         ) : (
-          <div className="text-slate-500 italic">Prévia indisponível</div>
+          <div className="text-slate-500 italic">{t("statusline.preview_unavailable")}</div>
         )}
       </div>
     </div>

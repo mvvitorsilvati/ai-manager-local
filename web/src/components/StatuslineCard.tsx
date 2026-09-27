@@ -79,7 +79,7 @@ export function StatuslineCard({ className }: { className?: string }) {
     { id: "both", label: t("statusline.option_both"), desc: "Claude Code + Antigravity" },
     { id: "claude", label: t("statusline.option_claude"), desc: "~/.claude/" },
     { id: "antigravity", label: t("statusline.option_antigravity"), desc: "~/.gemini/antigravity-cli/" },
-    { id: "none", label: t("statusline.option_none"), desc: "(padrão / sem alterações)" },
+    { id: "none", label: t("statusline.option_none"), desc: t("statusline.option_none_desc") },
   ]
 
   return (
@@ -256,7 +256,7 @@ export function StatuslineCard({ className }: { className?: string }) {
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
               <div className="text-muted-foreground flex items-center gap-1.5 text-[11px]">
                 <Info className="size-3 shrink-0" />
-                <span>Opção padrão é &quot;Não fazer nada&quot;</span>
+                <span>{t("statusline.default_notice")}</span>
               </div>
               <Button
                 size="sm"
@@ -317,10 +317,10 @@ export function StatuslineCard({ className }: { className?: string }) {
               <div className="border-border overflow-x-auto rounded-md border text-xs">
                 <div className="min-w-[500px]">
                   <div className="border-border bg-muted/40 text-muted-foreground grid grid-cols-[1fr_80px_130px_90px] border-b px-3 py-1.5 font-medium text-[11px] whitespace-nowrap">
-                    <div>Arquivo original &amp; backup</div>
-                    <div>IA</div>
-                    <div>Data/Hora</div>
-                    <div className="text-right">Ação</div>
+                    <div>{t("statusline.th_file")}</div>
+                    <div>{t("statusline.th_tool")}</div>
+                    <div>{t("statusline.th_datetime")}</div>
+                    <div className="text-right">{t("statusline.th_action")}</div>
                   </div>
                   <div className="divide-border divide-y max-h-64 overflow-y-auto">
                     {backups.map((b: StatuslineBackup) => (

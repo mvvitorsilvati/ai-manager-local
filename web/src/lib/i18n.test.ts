@@ -24,4 +24,3 @@ describe("i18n", () => {
     expect(translate("es", "SPEND.TITLE" as Key)).toBe("SPEND.TITLE")
   })
 })
-

@@ -188,9 +188,7 @@ test("tela de mcps exibe botões de autenticação condicionalmente e com cores"
   await page.route("**/api/catalog*", async (route) => {
     const response = await route.fetch()
     const json = await response.json()
-    json.tools_meta = [
-      { id: "codex", label: "Codex", mcp_enable: true, mcp_auth: true },
-    ]
+    json.tools_meta = [{ id: "codex", label: "Codex", mcp_enable: true, mcp_auth: true }]
     json.mcps = [
       {
         name: "local-mcp",
@@ -230,7 +228,9 @@ test("tela de mcps exibe botões de autenticação condicionalmente e com cores"
   await expect(cardLocal.getByRole("button", { name: /Autenticar|Sign in/ })).toHaveCount(0)
   await expect(cardLocal.getByRole("button", { name: /Sair|Sign out/ })).toHaveCount(0)
 
-  const cardAuthNeeded = page.locator("div.border.p-3").filter({ has: page.getByText("auth-needed-mcp", { exact: true }) })
+  const cardAuthNeeded = page
+    .locator("div.border.p-3")
+    .filter({ has: page.getByText("auth-needed-mcp", { exact: true }) })
   await expect(cardAuthNeeded.getByRole("button", { name: /Autenticar|Sign in/ })).toBeVisible()
   await expect(cardAuthNeeded.getByRole("button", { name: /Sair|Sign out/ })).toHaveCount(0)
 

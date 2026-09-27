@@ -56,4 +56,3 @@ export function ToolIcon({ id, className }: { id: string; className?: string }) 
 
   return <Bot className={className} style={color ? { color } : undefined} />
 }
-

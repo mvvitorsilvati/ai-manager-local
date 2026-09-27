@@ -69,7 +69,8 @@ export const pt = {
   "tools.installAi": "Instalar IA",
   "tools.installAiTitle": "Instalar uma nova IA compatível em seu computador",
   "tools.installDialogTitle": "Instalar Nova IA",
-  "tools.installDialogSubtitle": "IAs compatíveis disponíveis para instalação no seu sistema ({platform}). Sugeridas com base na documentação oficial.",
+  "tools.installDialogSubtitle":
+    "IAs compatíveis disponíveis para instalação no seu sistema ({platform}). Sugeridas com base na documentação oficial.",
   "tools.searchAiPlaceholder": "Buscar IA por nome, comando ou recurso…",
   "tools.monitoredFeatures": "Recursos monitorados:",
   "tools.copyInstallCommand": "Copiar comando",
@@ -478,7 +479,8 @@ export const en: Record<Key, string> = {
   "tools.installAi": "Install AI",
   "tools.installAiTitle": "Install a new compatible AI on your computer",
   "tools.installDialogTitle": "Install New AI",
-  "tools.installDialogSubtitle": "Compatible AIs available for installation on your system ({platform}). Suggested from official documentation.",
+  "tools.installDialogSubtitle":
+    "Compatible AIs available for installation on your system ({platform}). Suggested from official documentation.",
   "tools.searchAiPlaceholder": "Search AI by name, command or feature…",
   "tools.monitoredFeatures": "Monitored features:",
   "tools.copyInstallCommand": "Copy command",
@@ -884,7 +886,8 @@ export const es: Record<Key, string> = {
   "tools.installAi": "Instalar IA",
   "tools.installAiTitle": "Instalar una nueva IA compatible en tu ordenador",
   "tools.installDialogTitle": "Instalar Nueva IA",
-  "tools.installDialogSubtitle": "IAs compatibles disponibles para instalación en tu sistema ({platform}). Sugeridas según la documentación oficial.",
+  "tools.installDialogSubtitle":
+    "IAs compatibles disponibles para instalación en tu sistema ({platform}). Sugeridas según la documentación oficial.",
   "tools.searchAiPlaceholder": "Buscar IA por nombre, comando o recurso…",
   "tools.monitoredFeatures": "Recursos monitorizados:",
   "tools.copyInstallCommand": "Copiar comando",
@@ -1075,7 +1078,8 @@ export const es: Record<Key, string> = {
   "usage.details": "Detalles",
 
   "spend.title": "Consumo",
-  "spend.subtitle": "Tokens y coste leídos de los registros locales. La primera lectura del período puede tardar unos segundos.",
+  "spend.subtitle":
+    "Tokens y coste leídos de los registros locales. La primera lectura del período puede tardar unos segundos.",
   "spend.p7": "7 días",
   "spend.p30": "30 días",
   "spend.pAll": "Todo",
@@ -1219,4 +1223,3 @@ export const es: Record<Key, string> = {
   "theme.toLight": "Cambiar a tema claro",
   "theme.toDark": "Cambiar a tema oscuro",
 }
-

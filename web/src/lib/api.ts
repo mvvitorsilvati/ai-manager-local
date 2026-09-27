@@ -196,11 +196,18 @@ export type SessionsResponse = {
   sessions: SessionItem[]
 }
 
+export type SessionImage = {
+  url: string
+  name: string
+  mime?: string
+}
+
 export type SessionMessage = {
   role: "user" | "assistant" | "system"
   content: string
   timestamp?: string | null
   tool_calls?: string[]
+  images?: SessionImage[]
 }
 
 export type SessionDetailResponse = SessionItem & {

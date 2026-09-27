@@ -950,21 +950,39 @@ def get_session_details(
                         raw_content = msg.get("content")
                         if rec_type == "user":
                             text = ""
+                            images: list[dict] = []
                             if isinstance(raw_content, str):
                                 text = raw_content
                             elif isinstance(raw_content, list):
                                 text_parts = []
                                 for b in raw_content:
-                                    if isinstance(b, dict) and b.get("type") == "text" and b.get("text"):
-                                        text_parts.append(b["text"])
+                                    if isinstance(b, dict):
+                                        if b.get("type") == "text" and b.get("text"):
+                                            text_parts.append(str(b["text"]))
+                                        elif b.get("type") == "image":
+                                            src = b.get("source") or {}
+                                            if (
+                                                isinstance(src, dict)
+                                                and src.get("type") == "base64"
+                                                and src.get("data")
+                                            ):
+                                                mtype = str(src.get("media_type") or "image/png")
+                                                images.append({
+                                                    "url": f"data:{mtype};base64,{src.get('data')}",
+                                                    "name": "screenshot.png",
+                                                    "mime": mtype,
+                                                })
                                 text = "\n".join(text_parts)
                             clean_t = clean_message_content(text)
-                            if clean_t:
-                                messages.append({
+                            if clean_t or images:
+                                user_entry: dict = {
                                     "role": "user",
                                     "content": clean_t,
                                     "timestamp": _iso_from_ts(ts),
-                                })
+                                }
+                                if images:
+                                    user_entry["images"] = images
+                                messages.append(user_entry)
                         elif rec_type == "assistant":
                             text_parts = []
                             tool_calls = []
@@ -1040,12 +1058,28 @@ def get_session_details(
 
                     if stype == "USER_INPUT" or source == "USER_EXPLICIT":
                         clean_c = clean_message_content(content)
-                        if clean_c:
-                            messages.append({
+                        images: list[dict] = []
+                        for m in rec.get("media") or []:
+                            if isinstance(m, dict):
+                                uri = str(m.get("uri") or "").strip()
+                                if uri.startswith("file://"):
+                                    uri = uri[7:]
+                                if uri:
+                                    p = Path(uri)
+                                    images.append({
+                                        "url": f"/api/sessions/media?tool={t}&id={sid}&name={p.name}",
+                                        "name": p.name,
+                                        "mime": str(m.get("mime_type") or "image/png"),
+                                    })
+                        if clean_c or images:
+                            user_entry: dict = {
                                 "role": "user",
                                 "content": clean_c,
                                 "timestamp": _iso_from_ts(ts),
-                            })
+                            }
+                            if images:
+                                user_entry["images"] = images
+                            messages.append(user_entry)
                     elif stype == "PLANNER_RESPONSE":
                         clean_c = clean_message_content(content)
                         if messages and messages[-1].get("role") == "assistant":

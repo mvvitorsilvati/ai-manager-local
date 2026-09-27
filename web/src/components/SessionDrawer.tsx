@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { Markdown } from "@/components/Markdown"
 import { OpenSessionWith } from "@/components/OpenWith"
 import { ToolIcon } from "@/components/ToolIcon"
+import { TumblrPhotoGrid } from "@/components/TumblrPhotoGrid"
 import { Badge } from "@/components/ui/badge"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
 import { Button } from "@/components/ui/button"
@@ -257,6 +258,13 @@ export function SessionDrawer({
                             )}
                           </BubbleContent>
                         </Bubble>
+                      )}
+
+                      {/* Prints e imagens enviadas em formato tumblr */}
+                      {msg.images && msg.images.length > 0 && (
+                        <div className={cn("mt-2 w-full flex", isUser ? "justify-end" : "justify-start")}>
+                          <TumblrPhotoGrid images={msg.images} isUser={isUser} />
+                        </div>
                       )}
 
                       {/* Tool Calls executadas pelo assistente */}

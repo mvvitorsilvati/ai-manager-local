@@ -653,3 +653,75 @@ def test_formatacao_amigavel_chamadas_ferramentas(tmp_path: Path):
     assert mcp_tool == "MCP:get_issue(1234)"
 
 
+def test_extracao_imagens_mensagens_usuario_gemini(tmp_path: Path):
+    sid = "conv-gemini-img"
+    brain = tmp_path / ".gemini" / "antigravity-cli" / "brain" / sid
+    logs = brain / ".system_generated" / "logs"
+    logs.mkdir(parents=True)
+    tpath = logs / "transcript.jsonl"
+    line = json.dumps({
+        "type": "USER_INPUT",
+        "source": "USER_EXPLICIT",
+        "created_at": "2026-09-27T10:00:00Z",
+        "content": "veja este print",
+        "media": [
+            {"mime_type": "image/png", "uri": "/tmp/uploaded_print.png"}
+        ],
+    })
+    tpath.write_text(line + "\n")
+
+    res = sessions.get_session_details("gemini", sid, home=tmp_path)
+    assert res["ok"] is True
+    assert len(res["messages"]) == 1
+    msg = res["messages"][0]
+    assert msg["role"] == "user"
+    assert msg["content"] == "veja este print"
+    assert "images" in msg
+    assert len(msg["images"]) == 1
+    img = msg["images"][0]
+    assert img["name"] == "uploaded_print.png"
+    assert img["url"] == f"/api/sessions/media?tool=gemini&id={sid}&name=uploaded_print.png"
+    assert img["mime"] == "image/png"
+
+
+def test_extracao_imagens_mensagens_usuario_claude(tmp_path: Path):
+    sid = "ses-claude-img"
+    proj_dir = tmp_path / ".claude" / "projects"
+    proj_dir.mkdir(parents=True)
+    tfile = proj_dir / f"{sid}.jsonl"
+    b64_pixel = (
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    )
+    line = json.dumps({
+        "type": "user",
+        "timestamp": "2026-09-27T10:00:00Z",
+        "message": {
+            "content": [
+                {"type": "text", "text": "veja o screenshot"},
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": b64_pixel,
+                    },
+                },
+            ]
+        },
+    })
+    tfile.write_text(line + "\n")
+
+    res = sessions.get_session_details("claude", sid, home=tmp_path)
+    assert res["ok"] is True
+    assert len(res["messages"]) == 1
+    msg = res["messages"][0]
+    assert msg["role"] == "user"
+    assert msg["content"] == "veja o screenshot"
+    assert "images" in msg
+    assert len(msg["images"]) == 1
+    img = msg["images"][0]
+    assert img["url"].startswith("data:image/png;base64,")
+    assert img["name"] == "screenshot.png"
+
+
+

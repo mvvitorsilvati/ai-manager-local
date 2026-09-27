@@ -1102,16 +1102,16 @@ def get_session_details(
                                         if existing_content
                                         else clean_resp
                                     )
-                                if tool_calls:
-                                    existing_tools = last_msg.setdefault("tool_calls", [])
-                                    for tc in tool_calls:
-                                        if tc not in existing_tools:
-                                            existing_tools.append(tc)
                                 if tool_details:
+                                    existing_tools = last_msg.setdefault("tool_calls", [])
                                     existing_details = last_msg.setdefault("tool_details", [])
                                     for td in tool_details:
-                                        if td not in existing_details:
-                                            existing_details.append(td)
+                                        existing_tools.append(td["display"])
+                                        existing_details.append(td)
+                                elif tool_calls:
+                                    existing_tools = last_msg.setdefault("tool_calls", [])
+                                    for tc in tool_calls:
+                                        existing_tools.append(tc)
                                 if ts:
                                     last_msg["timestamp"] = _iso_from_ts(ts)
                             else:
@@ -1191,16 +1191,16 @@ def get_session_details(
                                     if existing_content
                                     else clean_c
                                 )
-                            if tool_calls:
-                                existing_tools = last_msg.setdefault("tool_calls", [])
-                                for tc in tool_calls:
-                                    if tc not in existing_tools:
-                                        existing_tools.append(tc)
                             if tool_details:
+                                existing_tools = last_msg.setdefault("tool_calls", [])
                                 existing_details = last_msg.setdefault("tool_details", [])
                                 for td in tool_details:
-                                    if td not in existing_details:
-                                        existing_details.append(td)
+                                    existing_tools.append(td["display"])
+                                    existing_details.append(td)
+                            elif tool_calls:
+                                existing_tools = last_msg.setdefault("tool_calls", [])
+                                for tc in tool_calls:
+                                    existing_tools.append(tc)
                             if ts:
                                 last_msg["timestamp"] = _iso_from_ts(ts)
                         else:

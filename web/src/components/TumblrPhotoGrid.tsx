@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ExternalLink, ZoomIn } from "lucide-react"
+import { ExternalLink, ZoomIn, ZoomOut } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -18,6 +18,7 @@ interface TumblrPhotoGridProps {
 
 export function TumblrPhotoGrid({ images, isUser = false }: TumblrPhotoGridProps) {
   const [selectedImage, setSelectedImage] = useState<SessionImage | null>(null)
+  const [realSize, setRealSize] = useState(false)
 
   if (!images || images.length === 0) return null
 
@@ -80,36 +81,72 @@ export function TumblrPhotoGrid({ images, isUser = false }: TumblrPhotoGridProps
       </div>
 
       {/* Lightbox Modal em Alta Resolução */}
-      <Dialog open={Boolean(selectedImage)} onOpenChange={(open) => !open && setSelectedImage(null)}>
-        <DialogContent className="max-w-4xl border-border/80 bg-background/95 p-4 backdrop-blur-md">
+      <Dialog
+        open={Boolean(selectedImage)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedImage(null)
+            setRealSize(false)
+          }
+        }}
+      >
+        <DialogContent
+          overlayClassName="z-[90] bg-black/80 backdrop-blur-xs cursor-pointer"
+          className="z-[100] max-w-[96vw] w-fit max-h-[92vh] flex flex-col border-border/80 bg-background/95 p-4 backdrop-blur-md shadow-2xl"
+        >
           {selectedImage && (
             <div className="flex flex-col gap-3">
-              <DialogHeader className="flex flex-row items-center justify-between pr-8">
+              <DialogHeader className="flex flex-row items-center justify-between gap-4 pr-8">
                 <DialogTitle className="truncate font-mono text-xs text-muted-foreground">
                   {selectedImage.name}
                 </DialogTitle>
-                <Button
-                  variant="outline"
-                  size="xs"
-                  render={
-                    <a
-                      href={selectedImage.url}
-                      target="_blank"
-                      rel="noreferrer"
-                    />
-                  }
-                  className="gap-1 text-xs"
-                >
-                  <ExternalLink className="size-3" />
-                  <span>Abrir original</span>
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={() => setRealSize((prev) => !prev)}
+                    className="gap-1 text-xs"
+                    title={realSize ? "Ajustar à tela" : "Visualizar em tamanho real (100%)"}
+                  >
+                    {realSize ? <ZoomOut className="size-3" /> : <ZoomIn className="size-3" />}
+                    <span>{realSize ? "Ajustar à tela" : "Tamanho real"}</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    render={
+                      <a
+                        href={selectedImage.url}
+                        target="_blank"
+                        rel="noreferrer"
+                      />
+                    }
+                    className="gap-1 text-xs"
+                  >
+                    <ExternalLink className="size-3" />
+                    <span>Abrir original</span>
+                  </Button>
+                </div>
               </DialogHeader>
 
-              <div className="relative flex max-h-[75vh] w-full items-center justify-center overflow-auto rounded-lg bg-black/10 dark:bg-black/50 p-2">
+              <div
+                className="relative flex max-h-[82vh] max-w-[92vw] items-center justify-center overflow-auto rounded-lg bg-black/10 dark:bg-black/50 p-2 cursor-pointer select-none"
+                onClick={() => setSelectedImage(null)}
+              >
                 <img
                   src={selectedImage.url}
                   alt={selectedImage.name}
-                  className="max-h-[70vh] w-auto max-w-full object-contain rounded shadow-lg"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setRealSize((prev) => !prev)
+                  }}
+                  className={cn(
+                    "rounded shadow-lg transition-all select-none",
+                    realSize
+                      ? "max-h-none max-w-none cursor-zoom-out"
+                      : "max-h-[78vh] w-auto max-w-full object-contain cursor-zoom-in"
+                  )}
+                  title={realSize ? "Clique para ajustar à tela" : "Clique para ampliar em tamanho real"}
                 />
               </div>
             </div>

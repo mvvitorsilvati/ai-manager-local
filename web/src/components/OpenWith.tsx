@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { SquareTerminal } from "lucide-react"
+import { Play, SquareTerminal } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 
@@ -37,12 +37,29 @@ function AppIcon({ app, className }: { app: string; className?: string }) {
   )
 }
 
-async function openTarget(tool: string, target: string, project: string | undefined, setBusy: (v: boolean) => void) {
+async function openTarget(
+  tool: string,
+  target: string,
+  project: string | undefined,
+  setBusy: (v: boolean) => void,
+  sessionId?: string,
+  cwd?: string,
+) {
   setBusy(true)
   try {
-    await api.openWith({ tool, target, ...(project ? { project } : {}) })
+    await api.openWith({
+      tool,
+      target,
+      ...(project ? { project } : {}),
+      ...(sessionId ? { session_id: sessionId } : {}),
+      ...(cwd ? { cwd } : {}),
+    })
+    if (sessionId) {
+      toast.success(translate(getLang(), "sessions.reopenSuccess"))
+    }
   } catch (error) {
-    toast.error(translate(getLang(), "open.failed"), { description: (error as Error).message })
+    const fallbackMsg = sessionId ? "sessions.reopenFailed" : "open.failed"
+    toast.error(translate(getLang(), fallbackMsg), { description: (error as Error).message })
   } finally {
     setBusy(false)
   }
@@ -202,6 +219,83 @@ export function OpenProjectShell({ project }: { project: string }) {
             </DropdownMenuSubContent>
           </DropdownMenuSub>
         ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/** Botão para reabrir uma conversa/sessão específica no terminal. */
+export function OpenSessionWith({
+  tool,
+  sessionId,
+  cwd,
+  title,
+  size = "xs",
+  className,
+}: {
+  tool: string
+  sessionId: string
+  cwd?: string
+  title?: string
+  size?: "xs" | "sm"
+  className?: string
+}) {
+  const { data } = useQuery({
+    queryKey: ["open-targets", tool],
+    queryFn: () => api.openTargets(tool),
+    staleTime: 60_000,
+  })
+  const [busy, setBusy] = useState(false)
+  const { t } = useI18n()
+  if (!data || !data.terminals.length) return null
+
+  const terminals = data.terminals.map((term) => ({ target: `terminal:${term.id}`, label: term.label }))
+  if (terminals.length === 1) {
+    const only = terminals[0]
+    return (
+      <Button
+        size={size}
+        variant="outline"
+        className={className}
+        title={t("sessions.resumeIn", { target: only.label })}
+        disabled={busy}
+        onClick={() => openTarget(tool, only.target, undefined, setBusy, sessionId, cwd)}
+      >
+        <Play className="size-3 fill-emerald-500/20 text-emerald-500" />
+        {t("sessions.resume")}
+      </Button>
+    )
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            size={size}
+            variant="outline"
+            className={className}
+            disabled={busy}
+            title={title ?? t("sessions.resumeShort")}
+          >
+            <Play className="size-3 fill-emerald-500/20 text-emerald-500" />
+            {t("sessions.resume")}
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>{t("open.terminals")}</DropdownMenuLabel>
+          {terminals.map((term) => (
+            <DropdownMenuItem
+              key={term.target}
+              onClick={() => openTarget(tool, term.target, undefined, setBusy, sessionId, cwd)}
+            >
+              <SquareTerminal className="size-3.5 opacity-60" />
+              {term.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

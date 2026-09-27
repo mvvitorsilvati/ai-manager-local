@@ -1,4 +1,4 @@
-import { Bot } from "lucide-react"
+import { Bot, Code, Cpu, Terminal, Wind, Zap } from "lucide-react"
 
 // Logos de marca via simple-icons (CC0 1.0 — https://simpleicons.org)
 const BRAND_PATH: Record<string, string> = {
@@ -22,21 +22,38 @@ export const TOOL_COLOR: Record<string, string> = {
   shared: "#A855F7",
   gemini: "#4285F4",
   copilot: "#22C55E",
+  cursor: "#A855F7",
+  windsurf: "#00D084",
+  kiro: "#FF5722",
+  commandcode: "#3B82F6",
+  aider: "#E11D48",
+  ollama: "#EAB308",
 }
 
 export function ToolIcon({ id, className }: { id: string; className?: string }) {
   const d = BRAND_PATH[id]
   const color = TOOL_COLOR[id]
-  if (!d) return <Bot className={className} style={color ? { color } : undefined} />
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden="true"
-      className={className}
-      style={color ? { color } : undefined}
-    >
-      <path d={d} />
-    </svg>
-  )
+  if (d) {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden="true"
+        className={className}
+        style={color ? { color } : undefined}
+      >
+        <path d={d} />
+      </svg>
+    )
+  }
+
+  // Fallbacks com ícones de domínio
+  if (id === "windsurf") return <Wind className={className} style={color ? { color } : undefined} />
+  if (id === "commandcode") return <Terminal className={className} style={color ? { color } : undefined} />
+  if (id === "kiro") return <Zap className={className} style={color ? { color } : undefined} />
+  if (id === "aider") return <Code className={className} style={color ? { color } : undefined} />
+  if (id === "ollama") return <Cpu className={className} style={color ? { color } : undefined} />
+
+  return <Bot className={className} style={color ? { color } : undefined} />
 }
+

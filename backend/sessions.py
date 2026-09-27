@@ -98,6 +98,104 @@ def clean_preview(text: str | None, max_len: int = 1000) -> str:
     return clean_message_content(text, max_len=max_len)
 
 
+def format_tool_call(name: str, args: dict | None, home: Path | None = None) -> str:
+    """Formata a chamada de ferramenta para exibição amigável dos comandos e arquivos reais."""
+    if not name:
+        return "tool"
+    h_str = str(home or get_home())
+
+    def _clean_arg(val: object) -> str:
+        if val is None:
+            return ""
+        s = str(val).strip()
+        if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
+            s = s[1:-1].strip()
+        return " ".join(s.split())
+
+    def _clean_path(p_obj: object) -> str:
+        p = _clean_arg(p_obj)
+        if p.startswith(h_str):
+            return "~" + p[len(h_str):]
+        return p
+
+    args = args or {}
+    n = name.strip()
+    n_lower = n.lower()
+
+    # 1. Comandos Shell / Bash
+    if n_lower in ("run_command", "bash", "execute_command"):
+        cmd = _clean_arg(args.get("CommandLine") or args.get("command") or args.get("cmd"))
+        if cmd:
+            if len(cmd) > 100:
+                cmd = cmd[:100].rstrip() + "…"
+            return f"Bash({cmd})"
+        return "Bash"
+
+    # 2. Leitura de Arquivo
+    if n_lower in ("view_file", "read", "read_file", "view"):
+        p = _clean_path(args.get("AbsolutePath") or args.get("file_path") or args.get("path"))
+        return f"Read({p})" if p else "Read"
+
+    # 3. Edição de Arquivo
+    if n_lower in ("replace_file_content", "edit", "edit_file"):
+        p = _clean_path(args.get("TargetFile") or args.get("file_path") or args.get("path"))
+        return f"Edit({p})" if p else "Edit"
+
+    # 4. Criação / Escrita de Arquivo
+    if n_lower in ("write_to_file", "write", "create_file"):
+        p = _clean_path(args.get("TargetFile") or args.get("file_path") or args.get("path"))
+        return f"Write({p})" if p else "Write"
+
+    # 5. Busca de Código / Grep / Glob
+    if "tgrep" in n_lower or "grep" in n_lower or n_lower == "search_code":
+        pat = _clean_arg(args.get("pattern") or args.get("query"))
+        return f"Grep({pat})" if pat else "Grep"
+    if n_lower == "glob":
+        pat = _clean_arg(args.get("pattern"))
+        return f"Glob({pat})" if pat else "Glob"
+
+    # 6. Web / Busca externa
+    if n_lower in ("search_web", "web_search"):
+        q = _clean_arg(args.get("query"))
+        return f"Search({q})" if q else "Search"
+    if n_lower in ("read_url_content", "web_fetch"):
+        u = _clean_arg(args.get("Url") or args.get("url"))
+        return f"Web({u})" if u else "Web"
+
+    # 7. Subagentes e Tarefas
+    if n_lower in ("invoke_subagent", "subagent"):
+        subs = args.get("Subagents") or []
+        sub_desc = ""
+        if isinstance(subs, list) and subs and isinstance(subs[0], dict):
+            sub_desc = str(subs[0].get("Role") or subs[0].get("TypeName") or "")
+        return f"Agent({sub_desc})" if sub_desc else "Agent"
+    if n_lower == "manage_task":
+        act = _clean_arg(args.get("Action"))
+        return f"Task({act})" if act else "Task"
+
+    # 8. Skills
+    if n_lower == "skill":
+        sk = _clean_arg(args.get("skill"))
+        return f"Skill({sk})" if sk else "Skill"
+
+    # 9. MCP tools (ex: mcp__plugin_linear_linear__get_issue)
+    if n.startswith("mcp__"):
+        parts = n.split("__")
+        action = parts[-1]
+        arg_val = ""
+        if args:
+            first_val = next(iter(args.values()), None)
+            if first_val:
+                arg_val = _clean_arg(first_val)
+        return f"MCP:{action}({arg_val})" if arg_val else f"MCP:{action}"
+
+    # Fallback: action ou summary se existir
+    act = _clean_arg(args.get("toolAction") or args.get("toolSummary"))
+    if act:
+        return f"{n}({act})"
+    return n
+
+
 def sanitize_skills(skills: set[str] | list[str]) -> list[str]:
     """Filtra e ordena skills válidas encontradas na conversa."""
     valid = []
@@ -877,10 +975,12 @@ def get_session_details(
                                             text_parts.append(b["text"])
                                         elif b.get("type") == "tool_use":
                                             tname = b.get("name")
-                                            if tname:
-                                                tool_calls.append(str(tname))
+                                            raw_input = b.get("input")
+                                            tinput: dict = raw_input if isinstance(raw_input, dict) else {}
+                                            formatted = format_tool_call(str(tname or ""), tinput, home=h)
+                                            tool_calls.append(formatted)
                                             if tname == "Skill":
-                                                sk = (b.get("input") or {}).get("skill")
+                                                sk = tinput.get("skill")
                                                 if sk:
                                                     skills_all.add(str(sk))
                             elif isinstance(raw_content, str):
@@ -930,11 +1030,11 @@ def get_session_details(
                     content = str(rec.get("content") or "").strip()
                     tool_calls = []
                     for tc in rec.get("tool_calls") or []:
-                        tname = tc.get("toolAction") or tc.get("toolSummary") or tc.get("name")
-                        if tname:
-                            tool_calls.append(str(tname))
-                        args = tc.get("args") or {}
-                        raw = str(args.get("AbsolutePath") or "")
+                        tname = tc.get("name") or tc.get("toolAction") or ""
+                        targs = tc.get("args") if isinstance(tc.get("args"), dict) else {}
+                        formatted = format_tool_call(str(tname), targs, home=h)
+                        tool_calls.append(formatted)
+                        raw = str(targs.get("AbsolutePath") or "")
                         if "/skills/" in raw and raw.endswith("SKILL.md"):
                             skills_all.add(raw.split("/skills/")[1].split("/")[0])
 

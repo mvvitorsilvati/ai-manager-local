@@ -52,7 +52,7 @@ export function Markdown({
     <div
       className={cn(
         "prose dark:prose-invert prose-headings:scroll-mt-4 prose-pre:border prose-pre:border-border prose-pre:bg-card prose-code:before:content-none prose-code:after:content-none max-w-none",
-        className
+        className,
       )}
     >
       {fm && (

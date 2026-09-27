@@ -5,7 +5,6 @@ import { toast } from "sonner"
 
 import { ToolIcon } from "@/components/ToolIcon"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +20,7 @@ import {
 import { useCatalog } from "@/hooks/useCatalog"
 import { api, type OpenTargets } from "@/lib/api"
 import { getLang, translate, useI18n } from "@/lib/i18n"
+import { cn } from "@/lib/utils"
 
 type Entry = { target: string; label: string; app: boolean }
 
@@ -281,24 +281,14 @@ export function OpenSessionWith({
   }
 
   const renderCopyButton = () => (
-    <Button
-      size={size}
-      variant="outline"
-      className="px-2"
-      title={t("sessions.copyResumeCmd")}
-      onClick={handleCopyCmd}
-    >
+    <Button size={size} variant="outline" className="px-2" title={t("sessions.copyResumeCmd")} onClick={handleCopyCmd}>
       {copied ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3 opacity-70" />}
       <span className="sr-only">{t("sessions.copyResumeCmd")}</span>
     </Button>
   )
 
   if (!data || !data.terminals.length) {
-    return (
-      <div className={cn("inline-flex items-center gap-1", className)}>
-        {renderCopyButton()}
-      </div>
-    )
+    return <div className={cn("inline-flex items-center gap-1", className)}>{renderCopyButton()}</div>
   }
 
   const terminals = data.terminals.map((term) => ({ target: `terminal:${term.id}`, label: term.label }))
@@ -326,12 +316,7 @@ export function OpenSessionWith({
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
-            <Button
-              size={size}
-              variant="outline"
-              disabled={busy}
-              title={title ?? t("sessions.resumeShort")}
-            >
+            <Button size={size} variant="outline" disabled={busy} title={title ?? t("sessions.resumeShort")}>
               <Play className="size-3 fill-emerald-500/20 text-emerald-500" />
               {t("sessions.resume")}
             </Button>
@@ -356,4 +341,3 @@ export function OpenSessionWith({
     </div>
   )
 }
-

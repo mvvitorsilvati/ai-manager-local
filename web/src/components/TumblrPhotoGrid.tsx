@@ -1,13 +1,8 @@
-import { useState } from "react"
 import { ExternalLink, ZoomIn, ZoomOut } from "lucide-react"
+import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { SessionImage } from "@/lib/api"
 import { useI18n } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
@@ -35,7 +30,7 @@ export function TumblrPhotoGrid({ images, isUser = false }: TumblrPhotoGridProps
           count === 1 && "flex flex-col",
           count === 2 && "grid grid-cols-2 gap-2",
           count === 3 && "grid grid-cols-2 gap-2",
-          count >= 4 && "grid grid-cols-2 gap-2"
+          count >= 4 && "grid grid-cols-2 gap-2",
         )}
       >
         {images.map((img, idx) => {
@@ -51,7 +46,7 @@ export function TumblrPhotoGrid({ images, isUser = false }: TumblrPhotoGridProps
                 count === 1 && "max-h-80 w-full",
                 count === 2 && "aspect-video w-full",
                 count === 3 && (isFeatured ? "col-span-2 aspect-[16/9] w-full" : "aspect-video w-full"),
-                count >= 4 && "aspect-video w-full"
+                count >= 4 && "aspect-video w-full",
               )}
             >
               <img
@@ -60,12 +55,12 @@ export function TumblrPhotoGrid({ images, isUser = false }: TumblrPhotoGridProps
                 loading="lazy"
                 className={cn(
                   "size-full object-cover transition-transform duration-300 group-hover/photo:scale-[1.02]",
-                  count === 1 && "max-h-80 object-contain bg-black/5 dark:bg-black/30"
+                  count === 1 && "max-h-80 object-contain bg-black/5 dark:bg-black/30",
                 )}
               />
 
               {/* Overlay estilo Tumblr Photoset no hover */}
-              <div className="absolute inset-0 flex flex-col items-center justify-between p-2.5 opacity-0 backdrop-blur-[2px] transition-opacity duration-200 group-hover/photo:opacity-100 bg-black/40">
+              <div className="absolute inset-0 flex flex-col items-center justify-between bg-black/40 p-2.5 opacity-0 backdrop-blur-[2px] transition-opacity duration-200 group-hover/photo:opacity-100">
                 <div className="flex w-full justify-end">
                   <span className="flex size-7 items-center justify-center rounded-full bg-black/60 text-white shadow-xs">
                     <ZoomIn className="size-3.5" />
@@ -94,12 +89,12 @@ export function TumblrPhotoGrid({ images, isUser = false }: TumblrPhotoGridProps
       >
         <DialogContent
           overlayClassName="z-[90] bg-black/80 backdrop-blur-xs cursor-pointer"
-          className="z-[100] max-w-[96vw] w-fit max-h-[92vh] flex flex-col border-border/80 bg-background/95 p-4 backdrop-blur-md shadow-2xl"
+          className="border-border/80 bg-background/95 z-[100] flex max-h-[92vh] w-fit max-w-[96vw] flex-col p-4 shadow-2xl backdrop-blur-md"
         >
           {selectedImage && (
             <div className="flex flex-col gap-3">
               <DialogHeader className="flex flex-row items-center justify-between gap-4 pr-8">
-                <DialogTitle className="truncate font-mono text-xs text-muted-foreground">
+                <DialogTitle className="text-muted-foreground truncate font-mono text-xs">
                   {selectedImage.name}
                 </DialogTitle>
                 <div className="flex items-center gap-2">
@@ -116,13 +111,7 @@ export function TumblrPhotoGrid({ images, isUser = false }: TumblrPhotoGridProps
                   <Button
                     variant="outline"
                     size="xs"
-                    render={
-                      <a
-                        href={selectedImage.url}
-                        target="_blank"
-                        rel="noreferrer"
-                      />
-                    }
+                    render={<a href={selectedImage.url} target="_blank" rel="noreferrer" />}
                     className="gap-1 text-xs"
                   >
                     <ExternalLink className="size-3" />
@@ -132,7 +121,7 @@ export function TumblrPhotoGrid({ images, isUser = false }: TumblrPhotoGridProps
               </DialogHeader>
 
               <div
-                className="relative flex max-h-[82vh] max-w-[92vw] items-center justify-center overflow-auto rounded-lg bg-black/10 dark:bg-black/50 p-2 cursor-pointer select-none"
+                className="relative flex max-h-[82vh] max-w-[92vw] cursor-pointer items-center justify-center overflow-auto rounded-lg bg-black/10 p-2 select-none dark:bg-black/50"
                 onClick={() => setSelectedImage(null)}
               >
                 <img
@@ -146,7 +135,7 @@ export function TumblrPhotoGrid({ images, isUser = false }: TumblrPhotoGridProps
                     "rounded shadow-lg transition-all select-none",
                     realSize
                       ? "max-h-none max-w-none cursor-zoom-out"
-                      : "max-h-[78vh] w-auto max-w-full object-contain cursor-zoom-in"
+                      : "max-h-[78vh] w-auto max-w-full object-contain cursor-zoom-in",
                   )}
                   title={realSize ? t("sessions.clickToFit") : t("sessions.clickToZoom")}
                 />

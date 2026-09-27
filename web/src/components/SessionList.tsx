@@ -152,9 +152,7 @@ export function SessionList({
   }
 
   const allDirsCollapsed =
-    directoryGroups !== null &&
-    directoryGroups.length > 0 &&
-    directoryGroups.every((g) => collapsedDirs.has(g.cwd))
+    directoryGroups !== null && directoryGroups.length > 0 && directoryGroups.every((g) => collapsedDirs.has(g.cwd))
 
   const toggleAllDirs = () => {
     if (!directoryGroups) return
@@ -180,7 +178,8 @@ export function SessionList({
     if (!debouncedQuery) return list
     const terms = debouncedQuery.toLowerCase().split(/\s+/)
     return list.filter((s) => {
-      const searchable = `${s.title} ${s.preview} ${s.cwd} ${s.project} ${s.id} ${s.tool} ${(s.skills || []).join(" ")}`.toLowerCase()
+      const searchable =
+        `${s.title} ${s.preview} ${s.cwd} ${s.project} ${s.id} ${s.tool} ${(s.skills || []).join(" ")}`.toLowerCase()
       return terms.every((t) => searchable.includes(t))
     })
   }, [data?.top_cost, debouncedQuery])
@@ -190,7 +189,8 @@ export function SessionList({
     if (!debouncedQuery) return list
     const terms = debouncedQuery.toLowerCase().split(/\s+/)
     return list.filter((s) => {
-      const searchable = `${s.title} ${s.preview} ${s.cwd} ${s.project} ${s.id} ${s.tool} ${(s.skills || []).join(" ")}`.toLowerCase()
+      const searchable =
+        `${s.title} ${s.preview} ${s.cwd} ${s.project} ${s.id} ${s.tool} ${(s.skills || []).join(" ")}`.toLowerCase()
       return terms.every((t) => searchable.includes(t))
     })
   }, [data?.top_tokens, debouncedQuery])
@@ -376,11 +376,7 @@ export function SessionList({
                   : "line-clamp-2 max-h-12 overflow-hidden font-mono text-[11px] whitespace-pre-wrap",
               )}
             >
-              {isExpanded ? (
-                <Markdown content={s.preview} className="text-xs prose-sm max-w-none" />
-              ) : (
-                s.preview
-              )}
+              {isExpanded ? <Markdown content={s.preview} className="prose-sm max-w-none text-xs" /> : s.preview}
             </div>
           </div>
         )}
@@ -519,7 +515,8 @@ export function SessionList({
               size="sm"
               className={cn(
                 "h-8 text-xs gap-1.5",
-                viewMode === "top_cost" && "bg-emerald-500/10 text-emerald-400 font-medium border border-emerald-500/20",
+                viewMode === "top_cost" &&
+                  "bg-emerald-500/10 text-emerald-400 font-medium border border-emerald-500/20",
               )}
               onClick={() => setViewMode("top_cost")}
             >
@@ -625,7 +622,7 @@ export function SessionList({
 
                     {/* Itens do Diretório */}
                     {!isDirCollapsed && (
-                      <div className="border-primary/20 space-y-2.5 border-l-2 pl-2 sm:pl-3 animate-in fade-in-50 duration-150">
+                      <div className="border-primary/20 animate-in fade-in-50 space-y-2.5 border-l-2 pl-2 duration-150 sm:pl-3">
                         {group.sessions.map((s) => renderSessionCard(s))}
                       </div>
                     )}
@@ -644,9 +641,7 @@ export function SessionList({
               <p>{t("sessions.emptyTopCost")}</p>
             </div>
           ) : (
-            <div className="space-y-2.5">
-              {topCostSessions.map((s, idx) => renderSessionCard(s, idx + 1))}
-            </div>
+            <div className="space-y-2.5">{topCostSessions.map((s, idx) => renderSessionCard(s, idx + 1))}</div>
           )
         ) : topTokensSessions.length === 0 ? (
           <div className="text-muted-foreground border-border/60 flex flex-col items-center justify-center rounded-lg border border-dashed py-8 text-center text-sm">
@@ -654,9 +649,7 @@ export function SessionList({
             <p>{t("sessions.emptyTopTokens")}</p>
           </div>
         ) : (
-          <div className="space-y-2.5">
-            {topTokensSessions.map((s, idx) => renderSessionCard(s, idx + 1))}
-          </div>
+          <div className="space-y-2.5">{topTokensSessions.map((s, idx) => renderSessionCard(s, idx + 1))}</div>
         )}
       </Card>
 

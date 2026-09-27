@@ -11,13 +11,7 @@ import { api, type InstallableTool } from "@/lib/api"
 import { useI18n } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
-export function InstallAiDialog({
-  open,
-  onOpenChange,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}) {
+export function InstallAiDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { t } = useI18n()
   const [search, setSearch] = useState("")
   const [onlyUninstalled, setOnlyUninstalled] = useState(true)
@@ -69,35 +63,35 @@ export function InstallAiDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         overlayClassName="z-[90] bg-black/60 backdrop-blur-xs"
-        className="z-[100] w-full max-w-3xl max-h-[85vh] flex flex-col p-6 shadow-2xl"
+        className="z-[100] flex max-h-[85vh] w-full max-w-3xl flex-col p-6 shadow-2xl"
       >
         <DialogHeader className="pr-10">
           <DialogTitle className="flex items-center gap-2 text-base font-semibold">
-            <Sparkles className="size-4.5 text-primary" />
+            <Sparkles className="text-primary size-4.5" />
             <span>{t("tools.installDialogTitle")}</span>
-            <Badge variant="outline" className="text-xs font-normal ml-1 border-primary/40 text-primary">
+            <Badge variant="outline" className="border-primary/40 text-primary ml-1 text-xs font-normal">
               {platformLabel}
             </Badge>
           </DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground">
+          <DialogDescription className="text-muted-foreground text-xs">
             {t("tools.installDialogSubtitle", { platform: platformLabel })}
           </DialogDescription>
         </DialogHeader>
 
         {/* Barra de Filtros e Busca */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1 pb-2">
+        <div className="flex flex-col items-stretch justify-between gap-2.5 pt-1 pb-2 sm:flex-row sm:items-center">
           <div className="relative flex-1">
-            <Search className="size-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t("tools.searchAiPlaceholder")}
-              className="bg-muted/40 border-border text-foreground placeholder:text-muted-foreground focus:ring-primary/40 h-8 w-full rounded-md border pl-8 pr-3 text-xs outline-none focus:ring-1"
+              className="bg-muted/40 border-border text-foreground placeholder:text-muted-foreground focus:ring-primary/40 h-8 w-full rounded-md border pr-3 pl-8 text-xs outline-none focus:ring-1"
             />
           </div>
 
-          <div className="flex items-center gap-1.5 self-end sm:self-auto text-xs">
+          <div className="flex items-center gap-1.5 self-end text-xs sm:self-auto">
             <Button
               variant={onlyUninstalled ? "secondary" : "ghost"}
               size="xs"
@@ -120,21 +114,19 @@ export function InstallAiDialog({
         </div>
 
         {/* Lista de IAs para Instalação */}
-        <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1 py-1">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto py-1 pr-1">
           {isLoading ? (
-            <div className="py-12 text-center text-xs text-muted-foreground">
-              <span className="inline-block animate-spin mr-2">⏳</span>
+            <div className="text-muted-foreground py-12 text-center text-xs">
+              <span className="mr-2 inline-block animate-spin">⏳</span>
               {t("tools.loadingCatalog")}
             </div>
           ) : filteredTools.length === 0 ? (
             <div className="border-border/60 bg-muted/20 flex flex-col items-center justify-center rounded-xl border p-8 text-center">
               {onlyUninstalled && uninstalledCount === 0 ? (
                 <>
-                  <CheckCircle2 className="size-9 text-emerald-500 mb-2" />
+                  <CheckCircle2 className="mb-2 size-9 text-emerald-500" />
                   <h3 className="text-sm font-medium">{t("tools.allInstalledTitle")}</h3>
-                  <p className="text-muted-foreground text-xs mt-1 max-w-md">
-                    {t("tools.allInstalledSubtitle")}
-                  </p>
+                  <p className="text-muted-foreground mt-1 max-w-md text-xs">{t("tools.allInstalledSubtitle")}</p>
                   <Button
                     variant="outline"
                     size="sm"
@@ -146,8 +138,8 @@ export function InstallAiDialog({
                 </>
               ) : (
                 <>
-                  <Info className="size-8 text-muted-foreground/60 mb-2" />
-                  <p className="text-xs text-muted-foreground">Nenhuma IA corresponde aos filtros aplicados.</p>
+                  <Info className="text-muted-foreground/60 mb-2 size-8" />
+                  <p className="text-muted-foreground text-xs">Nenhuma IA corresponde aos filtros aplicados.</p>
                 </>
               )}
             </div>
@@ -159,22 +151,25 @@ export function InstallAiDialog({
                   key={tool.id}
                   className={cn(
                     "border-border/80 bg-card/60 hover:bg-card/90 transition-colors flex flex-col gap-2.5 rounded-xl border p-4 text-xs shadow-xs",
-                    tool.installed && "opacity-80"
+                    tool.installed && "opacity-80",
                   )}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="size-8 rounded-lg bg-muted/60 border border-border/60 flex items-center justify-center shrink-0">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <div className="bg-muted/60 border-border/60 flex size-8 shrink-0 items-center justify-center rounded-lg border">
                         <ToolIcon id={tool.id} className="size-4.5" />
                       </div>
                       <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-sm text-foreground">{tool.label}</span>
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-foreground text-sm font-semibold">{tool.label}</span>
+                          <Badge variant="secondary" className="px-1.5 py-0 text-[10px] font-normal">
                             {tool.category}
                           </Badge>
                           {tool.installed && (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-emerald-600 dark:text-emerald-400 border-emerald-500/40">
+                            <Badge
+                              variant="outline"
+                              className="border-emerald-500/40 px-1.5 py-0 text-[10px] text-emerald-600 dark:text-emerald-400"
+                            >
                               ✓ {t("tools.installedBadge")}
                             </Badge>
                           )}
@@ -186,7 +181,7 @@ export function InstallAiDialog({
                       href={tool.docs_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-[11px] underline-offset-2 hover:underline shrink-0"
+                      className="text-muted-foreground hover:text-foreground inline-flex shrink-0 items-center gap-1 text-[11px] underline-offset-2 hover:underline"
                       title={tool.docs_url}
                     >
                       <span>{t("tools.docsLink")}</span>
@@ -199,14 +194,14 @@ export function InstallAiDialog({
                   {/* Badges de monitoramento suportado */}
                   {tool.monitoring.length > 0 && (
                     <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                      <span className="text-[11px] text-muted-foreground/80 font-medium">
+                      <span className="text-muted-foreground/80 text-[11px] font-medium">
                         {t("tools.monitoredFeatures")}
                       </span>
                       {tool.monitoring.map((feat) => (
                         <Badge
                           key={feat}
                           variant="outline"
-                          className="bg-muted/40 text-[10px] py-0 px-1.5 font-normal text-foreground/80 border-border/60"
+                          className="bg-muted/40 text-foreground/80 border-border/60 px-1.5 py-0 text-[10px] font-normal"
                         >
                           {feat}
                         </Badge>
@@ -216,15 +211,15 @@ export function InstallAiDialog({
 
                   {/* Caixa de comando de instalação */}
                   <div className="mt-1 flex flex-col gap-1.5">
-                    <div className="bg-zinc-950 text-zinc-100 rounded-lg p-2.5 font-mono text-[11px] flex items-center justify-between gap-3 border border-border/70 shadow-inner">
-                      <div className="flex items-center gap-2 min-w-0 flex-1 overflow-x-auto select-all">
-                        <Terminal className="size-3.5 text-emerald-500 shrink-0 select-none" />
+                    <div className="border-border/70 flex items-center justify-between gap-3 rounded-lg border bg-zinc-950 p-2.5 font-mono text-[11px] text-zinc-100 shadow-inner">
+                      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto select-all">
+                        <Terminal className="size-3.5 shrink-0 text-emerald-500 select-none" />
                         <span className="truncate">{tool.install_command}</span>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0 select-none">
+                      <div className="flex shrink-0 items-center gap-2 select-none">
                         {tool.method && (
-                          <span className="text-[10px] text-zinc-400 border border-zinc-800 rounded px-1.5 py-0.5 hidden sm:inline-block">
+                          <span className="hidden rounded border border-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-400 sm:inline-block">
                             {tool.method}
                           </span>
                         )}
@@ -232,7 +227,7 @@ export function InstallAiDialog({
                           variant="secondary"
                           size="xs"
                           onClick={() => copyCommand(tool)}
-                          className="h-6 gap-1 px-2 text-[11px] font-normal bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700"
+                          className="h-6 gap-1 border-zinc-700 bg-zinc-800 px-2 text-[11px] font-normal text-zinc-200 hover:bg-zinc-700"
                         >
                           {isCopied ? (
                             <>
@@ -249,11 +244,7 @@ export function InstallAiDialog({
                       </div>
                     </div>
 
-                    {tool.notes && (
-                      <span className="text-[10px] text-muted-foreground/75 px-1">
-                        ℹ {tool.notes}
-                      </span>
-                    )}
+                    {tool.notes && <span className="text-muted-foreground/75 px-1 text-[10px]">ℹ {tool.notes}</span>}
                   </div>
                 </div>
               )

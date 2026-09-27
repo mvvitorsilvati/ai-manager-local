@@ -363,7 +363,7 @@ export function ToolsView() {
         <Button
           size="sm"
           variant="outline"
-          className="rounded-full gap-1.5 border-dashed border-primary/60 text-primary hover:bg-primary/10 ml-auto sm:ml-0"
+          className="border-primary/60 text-primary hover:bg-primary/10 ml-auto gap-1.5 rounded-full border-dashed sm:ml-0"
           onClick={() => setInstallOpen(true)}
           title={t("tools.installAiTitle")}
         >

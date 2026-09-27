@@ -44,4 +44,3 @@ export function FlagES({ className }: { className?: string }) {
     </svg>
   )
 }
-

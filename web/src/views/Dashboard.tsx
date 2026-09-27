@@ -100,12 +100,7 @@ export default function Dashboard() {
               {availableTools.map((tool, idx) => {
                 const isLastOdd = availableTools.length % 2 !== 0 && idx === availableTools.length - 1
                 return (
-                  <UsageCard
-                    key={tool}
-                    tool={tool}
-                    showDetails
-                    className={isLastOdd ? "lg:col-span-2" : undefined}
-                  />
+                  <UsageCard key={tool} tool={tool} showDetails className={isLastOdd ? "lg:col-span-2" : undefined} />
                 )
               })}
               {usagePending && (

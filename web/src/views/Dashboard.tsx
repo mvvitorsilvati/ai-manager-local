@@ -7,6 +7,7 @@ import { OpenWith } from "@/components/OpenWith"
 import { ToolIcon } from "@/components/ToolIcon"
 import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { StatuslineCard } from "@/components/StatuslineCard"
 import { UpdateButton } from "@/components/UpdateButton"
 import { UsageCard } from "@/components/UsageCard"
 import { useCatalog } from "@/hooks/useCatalog"
@@ -81,13 +82,14 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {(usagePending || usage?.claude || usage?.codex || usage?.copilot) && (
+      {(usagePending || usage?.claude || usage?.codex || usage?.copilot || usage?.gemini) && (
         <div>
           <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">{t("dash.usage")}</h3>
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {usage?.claude && <UsageCard tool="claude" />}
             {usage?.codex && <UsageCard tool="codex" />}
             {usage?.copilot && <UsageCard tool="copilot" />}
+            {usage?.gemini && <UsageCard tool="gemini" />}
             {usagePending && (
               <>
                 <Skeleton className="h-32" />
@@ -144,6 +146,13 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      <div>
+        <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">
+          {t("dash.statusline")}
+        </h3>
+        <StatuslineCard />
+      </div>
 
       <div>
         <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">{t("dash.recent")}</h3>

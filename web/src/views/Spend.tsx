@@ -20,13 +20,14 @@ const PERIODS: { days: number; labelKey: "spend.p7" | "spend.p30" | "spend.pAll"
   { days: 0, labelKey: "spend.pAll" },
 ]
 
-const TOOLS = ["claude", "codex", "opencode", "copilot"]
+const TOOLS = ["claude", "codex", "opencode", "copilot", "gemini"]
 
 const TOOL_COLOR: Record<string, string> = {
   claude: "#D97757",
   codex: "#8ce99a",
   opencode: "#A855F7",
   copilot: "#22C55E",
+  gemini: "#38BDF8",
 }
 
 const MODEL_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#4a3aa7", "#e87ba4", "#008300"]

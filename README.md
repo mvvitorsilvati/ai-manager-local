@@ -90,7 +90,7 @@ Um ícone ao lado de cada IA abre a CLI no terminal detectado (Terminal, iTerm2 
 
 ### Status e interface
 
-Um alerta na sidebar aparece quando a IA está com incidente ativo, consultando as páginas de status da Anthropic, OpenAI, GitHub, Google Cloud e Cursor. A interface tem PT-BR e EN, tema claro/escuro seguindo o sistema, atalhos (`⌘K`, `⌘E`, `⌘S`, `Esc`) e o botão voltar do navegador navegando entre telas, com guarda para alteração não salva.
+Um alerta na sidebar aparece quando a IA está com incidente ativo, consultando as páginas de status da Anthropic, OpenAI, GitHub, Google Cloud e Cursor. A interface tem PT-BR, EN e ES, tema claro/escuro seguindo o sistema, atalhos (`⌘K`, `⌘F`, `⌘A`, `⌘L`, `⌘T`, `⌘R`, `⌘B`, `⌘E`, `⌘S`, `Esc`) e o botão voltar do navegador navegando entre telas, com guarda para alteração não salva.
 
 ## Logs e debug
 

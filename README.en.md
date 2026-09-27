@@ -90,7 +90,7 @@ An icon next to each AI opens the CLI in the detected terminal (Terminal, iTerm2
 
 ### Status and interface
 
-An alert in the sidebar appears when the AI has an active incident, checking the status pages of Anthropic, OpenAI, GitHub, Google Cloud and Cursor. The interface has PT-BR and EN, a light/dark theme following the system, shortcuts (`⌘K`, `⌘E`, `⌘S`, `Esc`) and the browser back button navigating between screens, with a guard for unsaved changes.
+An alert in the sidebar appears when the AI has an active incident, checking the status pages of Anthropic, OpenAI, GitHub, Google Cloud and Cursor. The interface has PT-BR, EN and ES, a light/dark theme following the system, shortcuts (`⌘K`, `⌘F`, `⌘A`, `⌘L`, `⌘T`, `⌘R`, `⌘B`, `⌘E`, `⌘S`, `Esc`) and the browser back button navigating between screens, with a guard for unsaved changes.
 
 ## Logs and debug
 

@@ -838,15 +838,13 @@
         height: 13px;
       }
 
-      /* Keep the header readable when navigation and language links share a row. */
+      /* Keep navigation labels intact while allowing the header to adapt. */
       .topo__linha {
-        width: min(1720px, calc(100% - 3rem));
+        width: min(1400px, calc(100% - 3rem));
         max-width: none;
-        min-height: 72px;
-        height: auto;
+        min-height: 68px;
         padding-inline: 0;
-        gap: 1rem;
-        justify-content: initial;
+        gap: 1.25rem;
       }
 
       .marca,
@@ -861,12 +859,41 @@
         flex-shrink: 0;
       }
 
+      .topo__acoes {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        min-width: 0;
+        margin-left: auto;
+      }
+
       .nav {
         display: flex;
         align-items: center;
         flex-wrap: nowrap;
-        gap: clamp(0.55rem, 1vw, 1rem);
-        margin-left: auto;
+        gap: clamp(0.7rem, 1.2vw, 1.15rem);
+        min-width: 0;
+        overflow: hidden;
+      }
+
+      .menu-toggle {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        width: 42px;
+        height: 42px;
+        padding: 0;
+        border: 1px solid var(--borda);
+        border-radius: 10px;
+        background: var(--cartao);
+        color: var(--texto);
+        cursor: pointer;
+      }
+
+      .menu-toggle svg {
+        width: 20px;
+        height: 20px;
       }
 
       .idiomas {
@@ -879,29 +906,61 @@
         padding-inline: 0.7rem;
       }
 
-      @media (max-width: 1600px) {
+      @media (max-width: 1180px) {
         .topo__linha {
-          flex-wrap: wrap;
-          padding-block: 0.6rem;
+          position: relative;
         }
 
         .nav {
-          order: 4;
-          flex: 0 0 100%;
+          display: none;
+          position: absolute;
+          top: calc(100% + 0.6rem);
+          right: 0;
+          z-index: 2;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 0.15rem;
+          width: min(280px, calc(100vw - 2rem));
           margin-left: 0;
-          overflow-x: auto;
-          padding-bottom: 0.25rem;
-          scrollbar-width: thin;
+          padding: 0.45rem;
+          overflow: visible;
+          border: 1px solid var(--borda);
+          border-radius: 14px;
+          background: color-mix(in srgb, var(--cartao) 94%, var(--fundo));
+          box-shadow: var(--sombra);
+        }
+
+        .nav.aberto {
+          display: flex;
+        }
+
+        .nav a {
+          padding: 0.7rem 0.75rem;
+          border-radius: 9px;
+        }
+
+        .nav a:hover,
+        .nav a.ativo {
+          background: color-mix(in srgb, var(--violeta) 12%, transparent);
+        }
+
+        .menu-toggle {
+          display: inline-flex;
         }
       }
 
       @media (max-width: 560px) {
         .topo__linha {
           width: calc(100% - 2rem);
+          gap: 0.75rem;
         }
 
         .marca {
           font-size: 0.88rem;
+        }
+
+        .nav {
+          font-size: 0.86rem;
         }
 
         .idiomas {
@@ -975,6 +1034,164 @@
         background: color-mix(in srgb, var(--violeta) 26%, var(--cartao));
         font-weight: 700;
       }
+
+      @media (max-width: 760px) {
+        .container {
+          width: calc(100% - 2rem);
+        }
+
+        .heroi {
+          padding-block: 3rem 2.5rem;
+        }
+
+        .heroi__grade {
+          gap: 2rem;
+        }
+
+        h1 {
+          font-size: clamp(2rem, 10vw, 2.7rem);
+        }
+
+        .heroi__texto {
+          font-size: 1rem;
+        }
+
+        .acoes {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .acoes .botao {
+          justify-content: center;
+        }
+
+        .visual {
+          min-height: 250px;
+        }
+
+        .visual img {
+          width: min(290px, 86%);
+        }
+
+        .faixa {
+          padding-block: 1.25rem;
+        }
+
+        .faixa__linha {
+          align-items: stretch;
+          flex-direction: column;
+          gap: 0.8rem;
+        }
+
+        .faixa__titulo,
+        .faixa__ver-mais {
+          text-align: center;
+        }
+
+        .faixa__itens {
+          flex-wrap: nowrap;
+          justify-content: flex-start;
+          max-width: 100%;
+          overflow-x: auto;
+          padding-bottom: 0.25rem;
+          scrollbar-width: thin;
+        }
+
+        .faixa__itens li {
+          flex: 0 0 auto;
+        }
+
+        .tela {
+          padding-top: 2rem;
+        }
+
+        .janela__barra {
+          padding: 0.6rem 0.75rem;
+        }
+
+        .janela__url {
+          max-width: calc(100% - 4.5rem);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .janela figcaption {
+          padding: 0.8rem 0.9rem;
+          font-size: 0.8rem;
+        }
+
+        .compativeis,
+        .secao {
+          padding-block: 2.75rem;
+        }
+
+        h2 {
+          align-items: flex-start;
+          font-size: clamp(1.45rem, 7vw, 1.9rem);
+        }
+
+        h2 svg {
+          width: 21px;
+          height: 21px;
+          margin-top: 0.15rem;
+        }
+
+        .secao__texto {
+          margin-bottom: 1.75rem;
+        }
+
+        .cartoes,
+        .limites .cartoes,
+        .privacidade,
+        .grade-instaladores {
+          grid-template-columns: 1fr;
+        }
+
+        .cartao,
+        .card-instalador {
+          padding: 1.15rem;
+        }
+
+        .card-instalador__cmd {
+          margin-inline: -0.15rem;
+        }
+
+        .card-instalador__links {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .requisitos {
+          gap: 0.45rem;
+        }
+
+        .requisitos a {
+          font-size: 0.76rem;
+        }
+
+        .codigo {
+          margin-top: 1.4rem;
+        }
+
+        .codigo pre {
+          padding: 0.9rem;
+        }
+
+        .rodape {
+          padding-block: 2rem;
+        }
+
+        .rodape__linha {
+          align-items: flex-start;
+          flex-direction: column;
+          font-size: 0.8rem;
+        }
+
+        .rodape__links {
+          gap: 0.85rem 1rem;
+        }
+      }
     </style>
   </head>
 
@@ -998,7 +1215,8 @@
           <span>AI Manager Local</span>
         </a>
 
-        <nav class="nav" aria-label="Secciones de la página">
+        <div class="topo__acoes">
+          <nav class="nav" id="site-nav" aria-label="Secciones de la página">
           <a href="#conversas">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -1037,25 +1255,40 @@
             </svg>
             Límites
           </a>
-        </nav>
+          </nav>
 
-        <div class="idiomas">
+          <div class="idiomas">
           <a class="botao botao--fantasma" href="../" hreflang="pt-BR" title="Versão em português">
             PT
           </a>
           <a class="botao botao--fantasma" href="../en/" hreflang="en" title="English version">
             EN
           </a>
-        </div>
+          </div>
 
-        <a class="botao botao--fantasma topo__github" href="https://github.com/mvvitorsilvati/ai-manager-local">
+          <a class="botao botao--fantasma topo__github" href="https://github.com/mvvitorsilvati/ai-manager-local">
           <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
             <path
               d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"
             />
           </svg>
           GitHub
-        </a>
+          </a>
+
+          <button
+          class="menu-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="site-nav"
+          aria-label="Abrir menú"
+          data-label-open="Abrir menú"
+          data-label-close="Cerrar menú"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -1742,7 +1975,29 @@ just statusline <span class="c"># instalar statusline (Claude/Antigravity)</span
 
     <script>
       (() => {
+        const nav = document.querySelector(".nav");
+        const menuToggle = document.querySelector(".menu-toggle");
         const links = [...document.querySelectorAll(".nav a[href^='#']")];
+        const fecharMenu = () => {
+          nav?.classList.remove("aberto");
+          menuToggle?.setAttribute("aria-expanded", "false");
+        };
+
+        menuToggle?.addEventListener("click", () => {
+          const aberto = nav?.classList.toggle("aberto") ?? false;
+          menuToggle.setAttribute("aria-expanded", String(aberto));
+          menuToggle.setAttribute("aria-label", aberto ? menuToggle.dataset.labelClose : menuToggle.dataset.labelOpen);
+        });
+        links.forEach((link) => link.addEventListener("click", fecharMenu));
+        document.addEventListener("click", (event) => {
+          if (nav?.classList.contains("aberto") && !nav.contains(event.target) && !menuToggle?.contains(event.target)) {
+            fecharMenu();
+          }
+        });
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") fecharMenu();
+        });
+
         const inicio = document.querySelector("#inicio");
         const compativeis = document.querySelector("#ias-compativeis");
         const alvos = [...(inicio ? [inicio] : []), ...(compativeis ? [compativeis] : []), ...links.map((a) => document.querySelector(a.hash))].filter(Boolean);

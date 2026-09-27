@@ -5,6 +5,7 @@ import {
   Cloud,
   FileText,
   Globe,
+  Plus,
   Server,
   Search as SearchIcon,
   Terminal,
@@ -19,6 +20,7 @@ import { EmptyFilter, SourceBadge, VersionBadges, ViewSkeleton } from "@/compone
 import { useCollapsible } from "@/components/collapse"
 import { CopyCommandButton } from "@/components/CopyCommandButton"
 import { FileTree, type TreeEntry } from "@/components/FileTree"
+import { InstallAiDialog } from "@/components/InstallAiDialog"
 import { McpActions } from "@/components/McpActions"
 import { OpenProjectShell, OpenWith } from "@/components/OpenWith"
 import { SessionList } from "@/components/SessionList"
@@ -327,6 +329,7 @@ export function ToolsView() {
       },
       { replace: true },
     )
+  const [installOpen, setInstallOpen] = useState(false)
   const { t } = useI18n()
   if (!catalog) return <ViewSkeleton />
   if (!selected) return null
@@ -340,7 +343,7 @@ export function ToolsView() {
     <div>
       <h2 className="text-lg font-semibold">{t("tools.title")}</h2>
       <p className="text-muted-foreground mb-4 text-sm">{t("tools.subtitle")}</p>
-      <div className="mb-5 flex flex-wrap gap-2">
+      <div className="mb-5 flex flex-wrap items-center gap-2">
         {catalog.tools.map((t) => {
           const count = catalog.files.filter((f) => f.k === t.id).length
           return (
@@ -356,6 +359,17 @@ export function ToolsView() {
             </Button>
           )
         })}
+
+        <Button
+          size="sm"
+          variant="outline"
+          className="rounded-full gap-1.5 border-dashed border-primary/60 text-primary hover:bg-primary/10 ml-auto sm:ml-0"
+          onClick={() => setInstallOpen(true)}
+          title={t("tools.installAiTitle")}
+        >
+          <Plus className="size-3.5" />
+          <span>{t("tools.installAi")}</span>
+        </Button>
       </div>
       {version && (
         <div className="border-border bg-card mb-5 flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 text-sm">
@@ -399,6 +413,8 @@ export function ToolsView() {
           <FileTree entries={list.map((f) => ({ f }))} onOpen={open} />
         </SourceSection>
       ))}
+
+      <InstallAiDialog open={installOpen} onOpenChange={setInstallOpen} />
     </div>
   )
 }

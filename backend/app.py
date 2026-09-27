@@ -2026,6 +2026,361 @@ def versions_snapshot(force: bool = False) -> dict:
     return snapshot
 
 
+# ---------------------------------------------------------------- instaladores de IAs
+
+INSTALLABLE_TOOLS: list[dict] = [
+    {
+        "id": "cursor",
+        "label": "Cursor",
+        "description": "Editor e IDE de IA (fork do VS Code) com agentes e contexto completo de código.",
+        "docs_url": "https://cursor.com",
+        "category": "IDE & Agente",
+        "monitoring": ["MCP Servers", "Regras (.cursorrules, .windsurfrules)"],
+        "is_monitored": True,
+        "priority": 100,
+        "binary": "cursor",
+        "app_names": ["Cursor.app"],
+        "config_dirs": ["~/.cursor", "~/Library/Application Support/Cursor"],
+        "install": {
+            "darwin": {
+                "command": "brew install --cask cursor",
+                "method": "brew (cask)",
+                "notes": "Também disponível em cursor.com",
+            },
+            "linux": {
+                "command": "curl -fsSL https://cursor.com/download -o cursor.AppImage && chmod +x cursor.AppImage",
+                "method": "AppImage",
+                "notes": "Disponível em cursor.com",
+            },
+            "win32": {
+                "command": "winget install Anysphere.Cursor",
+                "method": "winget",
+                "notes": "Instalador oficial do Windows",
+            },
+        },
+    },
+    {
+        "id": "kiro",
+        "label": "Kiro",
+        "description": "Agente de IA e assistente de codificação autônomo para terminal e IDE.",
+        "docs_url": "https://kiro.dev",
+        "category": "CLI Agent",
+        "monitoring": ["MCP Servers", "Configurações"],
+        "is_monitored": True,
+        "priority": 95,
+        "binary": "kiro",
+        "app_names": ["Kiro.app"],
+        "config_dirs": ["~/.kiro"],
+        "install": {
+            "darwin": {
+                "command": "curl -fsSL https://kiro.dev/install.sh | bash",
+                "method": "curl script",
+                "notes": "Script oficial de instalação",
+            },
+            "linux": {
+                "command": "curl -fsSL https://kiro.dev/install.sh | bash",
+                "method": "curl script",
+                "notes": "Script oficial de instalação",
+            },
+            "win32": {
+                "command": 'powershell -c "irm https://kiro.dev/install.ps1 | iex"',
+                "method": "powershell",
+                "notes": "Script oficial PowerShell",
+            },
+        },
+    },
+    {
+        "id": "commandcode",
+        "label": "CommandCode",
+        "description": "CLI open-source e agente autônomo de terminal para automação e refatoração de código.",
+        "docs_url": "https://commandcode.dev",
+        "category": "CLI Agent",
+        "monitoring": ["Configurações", "MCP Servers"],
+        "is_monitored": True,
+        "priority": 90,
+        "binary": "commandcode",
+        "app_names": [],
+        "config_dirs": ["~/.commandcode"],
+        "install": {
+            "darwin": {"command": "npm install -g commandcode", "method": "npm", "notes": "Requer Node.js 18+"},
+            "linux": {"command": "npm install -g commandcode", "method": "npm", "notes": "Requer Node.js 18+"},
+            "win32": {"command": "npm install -g commandcode", "method": "npm", "notes": "Requer Node.js 18+"},
+        },
+    },
+    {
+        "id": "windsurf",
+        "label": "Windsurf",
+        "description": "IDE com fluxo de agentes Cascade da Codeium e colaboração profunda de código.",
+        "docs_url": "https://codeium.com/windsurf",
+        "category": "IDE & Agente",
+        "monitoring": ["MCP Servers", "Regras (.windsurfrules)"],
+        "is_monitored": True,
+        "priority": 85,
+        "binary": "windsurf",
+        "app_names": ["Windsurf.app"],
+        "config_dirs": ["~/.codeium/windsurf"],
+        "install": {
+            "darwin": {
+                "command": "brew install --cask windsurf",
+                "method": "brew (cask)",
+                "notes": "Também disponível em codeium.com/windsurf",
+            },
+            "linux": {
+                "command": "curl -fsSL https://codeium.com/windsurf/download -o windsurf.tar.gz",
+                "method": "tar.gz",
+                "notes": "Download direto oficial",
+            },
+            "win32": {
+                "command": "winget install Codeium.Windsurf",
+                "method": "winget",
+                "notes": "Instalador oficial do Windows",
+            },
+        },
+    },
+    {
+        "id": "aider",
+        "label": "Aider",
+        "description": "Ferramenta de pair programming via IA direto no terminal, com commits git automáticos.",
+        "docs_url": "https://aider.chat",
+        "category": "Pair Programming",
+        "monitoring": ["Histórico de Sessões Git", "Configurações"],
+        "is_monitored": True,
+        "priority": 80,
+        "binary": "aider",
+        "app_names": [],
+        "config_dirs": ["~/.aider", "~/.aider.conf.yml"],
+        "install": {
+            "darwin": {
+                "command": "curl -LsSf https://aider.chat/install.sh | sh",
+                "method": "curl script",
+                "notes": "Também disponível via brew install aider ou uv tool install aider-chat",
+            },
+            "linux": {
+                "command": "curl -LsSf https://aider.chat/install.sh | sh",
+                "method": "curl script",
+                "notes": "Instalador standalone oficial",
+            },
+            "win32": {
+                "command": 'powershell -ExecutionPolicy ByPass -c "irm https://aider.chat/install.ps1 | iex"',
+                "method": "powershell",
+                "notes": "Instalador oficial PowerShell",
+            },
+        },
+    },
+    {
+        "id": "claude",
+        "label": "Claude Code",
+        "description": "CLI de pesquisa e codificação por agente da Anthropic com integração nativa de terminal e MCP.",
+        "docs_url": "https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview",
+        "category": "CLI Agent",
+        "monitoring": ["Sessões", "Spend", "Statusline", "MCPs", "Plugins", "Contextos"],
+        "is_monitored": True,
+        "priority": 75,
+        "binary": "claude",
+        "app_names": ["Claude.app"],
+        "config_dirs": ["~/.claude"],
+        "install": {
+            "darwin": {
+                "command": "npm install -g @anthropic-ai/claude-code",
+                "method": "npm",
+                "notes": "Também disponível via brew install --cask claude-code",
+            },
+            "linux": {
+                "command": "npm install -g @anthropic-ai/claude-code",
+                "method": "npm",
+                "notes": "Requer Node.js 18+",
+            },
+            "win32": {
+                "command": "npm install -g @anthropic-ai/claude-code",
+                "method": "npm",
+                "notes": "Requer Node.js 18+",
+            },
+        },
+    },
+    {
+        "id": "codex",
+        "label": "Codex",
+        "description": "CLI e agente de terminal da OpenAI com execução assíncrona, rate limits e MCPs TOML.",
+        "docs_url": "https://github.com/openai/codex",
+        "category": "CLI Agent",
+        "monitoring": ["Sessões", "Spend", "Rate Limits", "MCPs"],
+        "is_monitored": True,
+        "priority": 70,
+        "binary": "codex",
+        "app_names": [],
+        "config_dirs": ["~/.codex"],
+        "install": {
+            "darwin": {"command": "npm install -g @openai/codex", "method": "npm", "notes": "Requer Node.js 18+"},
+            "linux": {"command": "npm install -g @openai/codex", "method": "npm", "notes": "Requer Node.js 18+"},
+            "win32": {"command": "npm install -g @openai/codex", "method": "npm", "notes": "Requer Node.js 18+"},
+        },
+    },
+    {
+        "id": "gemini",
+        "label": "Gemini / Antigravity",
+        "description": "Assistente e agente de terminal Google Gemini / Antigravity com ecossistema de skills e MCPs.",
+        "docs_url": "https://github.com/google-gemini/gemini-cli",
+        "category": "CLI Agent",
+        "monitoring": ["Sessões", "Spend", "Statusline", "Skills", "MCPs"],
+        "is_monitored": True,
+        "priority": 65,
+        "binary": "gemini",
+        "app_names": [],
+        "config_dirs": ["~/.gemini"],
+        "install": {
+            "darwin": {"command": "npm install -g @google/gemini-cli", "method": "npm", "notes": "Requer Node.js 18+"},
+            "linux": {"command": "npm install -g @google/gemini-cli", "method": "npm", "notes": "Requer Node.js 18+"},
+            "win32": {"command": "npm install -g @google/gemini-cli", "method": "npm", "notes": "Requer Node.js 18+"},
+        },
+    },
+    {
+        "id": "copilot",
+        "label": "GitHub Copilot CLI",
+        "description": "CLI oficial do GitHub Copilot com suporte a instruções e comandos shell.",
+        "docs_url": "https://docs.github.com/en/copilot/github-copilot-in-the-cli",
+        "category": "CLI Agent",
+        "monitoring": ["Sessões", "Spend", "MCPs", "Instruções (.github)"],
+        "is_monitored": True,
+        "priority": 60,
+        "binary": "copilot",
+        "app_names": [],
+        "config_dirs": ["~/.copilot"],
+        "install": {
+            "darwin": {
+                "command": "npm install -g @github/copilot",
+                "method": "npm",
+                "notes": "Ou via gh extension install github/gh-copilot",
+            },
+            "linux": {
+                "command": "npm install -g @github/copilot",
+                "method": "npm",
+                "notes": "Ou via gh extension install github/gh-copilot",
+            },
+            "win32": {
+                "command": "npm install -g @github/copilot",
+                "method": "npm",
+                "notes": "Ou via gh extension install github/gh-copilot",
+            },
+        },
+    },
+    {
+        "id": "opencode",
+        "label": "OpenCode",
+        "description": "Agente de desenvolvimento autônomo open-source em terminal e runtime TypeScript/Bun.",
+        "docs_url": "https://opencode.ai",
+        "category": "CLI Agent",
+        "monitoring": ["Sessões", "MCPs (opencode.jsonc)", "Plugins", "Autenticação"],
+        "is_monitored": True,
+        "priority": 55,
+        "binary": "opencode",
+        "app_names": [],
+        "config_dirs": ["~/.config/opencode"],
+        "install": {
+            "darwin": {"command": "brew install opencode", "method": "brew", "notes": "Ou npm install -g opencode-ai"},
+            "linux": {"command": "npm install -g opencode-ai", "method": "npm", "notes": "Requer Node.js 18+ ou Bun"},
+            "win32": {"command": "npm install -g opencode-ai", "method": "npm", "notes": "Requer Node.js 18+"},
+        },
+    },
+    {
+        "id": "ollama",
+        "label": "Ollama",
+        "description": "Runtime para rodar modelos abertos localmente (Llama, DeepSeek, Qwen) com API local.",
+        "docs_url": "https://ollama.com",
+        "category": "Local LLM",
+        "monitoring": ["Modelos Locais", "API Local"],
+        "is_monitored": True,
+        "priority": 50,
+        "binary": "ollama",
+        "app_names": ["Ollama.app"],
+        "config_dirs": ["~/.ollama"],
+        "install": {
+            "darwin": {
+                "command": "brew install --cask ollama",
+                "method": "brew (cask)",
+                "notes": "Também disponível via curl -fsSL https://ollama.com/install.sh | sh",
+            },
+            "linux": {
+                "command": "curl -fsSL https://ollama.com/install.sh | sh",
+                "method": "curl script",
+                "notes": "Script oficial para Linux",
+            },
+            "win32": {
+                "command": "winget install Ollama.Ollama",
+                "method": "winget",
+                "notes": "Instalador oficial do Windows",
+            },
+        },
+    },
+]
+
+
+def is_tool_installed(tool_spec: dict, catalog_tools: set[str] | None = None) -> bool:
+    tid = tool_spec["id"]
+    if catalog_tools and tid in catalog_tools:
+        return True
+    binary = tool_spec.get("binary")
+    if binary and shutil.which(binary):
+        return True
+    if sys.platform == "darwin":
+        apps = tool_spec.get("app_names", [])
+        for a in apps:
+            if (Path("/Applications") / a).exists() or (Path.home() / "Applications" / a).exists():
+                return True
+    for c in tool_spec.get("config_dirs", []):
+        p = scan_home.scan_path(c)
+        try:
+            if p.is_dir() and any(p.iterdir()):
+                return True
+            if p.is_file():
+                return True
+        except OSError:
+            pass
+    return False
+
+
+def get_installable_tools(include_installed: bool = False) -> dict:
+    cat = build_catalog()
+    catalog_tools = {t["id"] for t in cat.get("tools", [])}
+
+    current_os = "darwin" if sys.platform == "darwin" else ("win32" if sys.platform == "win32" else "linux")
+    os_labels = {"darwin": "macOS", "linux": "Linux", "win32": "Windows"}
+
+    result = []
+    for spec in INSTALLABLE_TOOLS:
+        installed = is_tool_installed(spec, catalog_tools)
+        if not include_installed and installed:
+            continue
+
+        install_info = spec["install"].get(current_os) or spec["install"].get("linux") or {}
+
+        result.append(
+            {
+                "id": spec["id"],
+                "label": spec["label"],
+                "description": spec["description"],
+                "docs_url": spec["docs_url"],
+                "category": spec["category"],
+                "monitoring": spec["monitoring"],
+                "is_monitored": spec["is_monitored"],
+                "priority": spec["priority"],
+                "installed": installed,
+                "install_command": install_info.get("command", ""),
+                "method": install_info.get("method", ""),
+                "notes": install_info.get("notes", ""),
+            }
+        )
+
+    result.sort(key=lambda t: (-int(t["is_monitored"]), -t["priority"], t["label"]))
+
+    return {
+        "ok": True,
+        "platform": current_os,
+        "platform_label": os_labels.get(current_os, current_os),
+        "total": len(result),
+        "tools": result,
+    }
+
+
 # ---------------------------------------------------------------- http
 
 def git_last_commit(path: Path) -> dict | None:
@@ -2434,6 +2789,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if url.path == "/api/versions":
             self._json(versions_snapshot(force=params.get("refresh", ["0"])[0] == "1"))
+            return
+        if url.path == "/api/installable-tools":
+            self._json(get_installable_tools(include_installed=params.get("all", ["0"])[0] == "1"))
             return
         if url.path == "/api/statusline":
             self._json(statusline.check_status())

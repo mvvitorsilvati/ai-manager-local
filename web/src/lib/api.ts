@@ -247,6 +247,29 @@ export type VersionsResponse = {
   plugins: PluginUpdate[]
 }
 
+export type InstallableTool = {
+  id: string
+  label: string
+  description: string
+  docs_url: string
+  category: string
+  monitoring: string[]
+  is_monitored: boolean
+  priority: number
+  installed: boolean
+  install_command: string
+  method: string
+  notes?: string
+}
+
+export type InstallableToolsResponse = {
+  ok: boolean
+  platform: "darwin" | "linux" | "win32"
+  platform_label: string
+  total: number
+  tools: InstallableTool[]
+}
+
 export type AuditEntry = {
   ts: string
   action: string
@@ -408,4 +431,10 @@ export const api = {
     }>(client.post("/api/statusline/restore", { tool, backup })),
   statuslinePreview: (tool: string) =>
     unwrap<StatuslinePreviewResponse>(client.get("/api/statusline/preview", { params: { tool } })),
+  installableTools: (all = false) =>
+    unwrap<InstallableToolsResponse>(
+      client.get("/api/installable-tools", {
+        params: all ? { all: "1" } : {},
+      }),
+    ),
 }

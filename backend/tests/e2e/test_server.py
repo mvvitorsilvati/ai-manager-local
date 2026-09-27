@@ -381,3 +381,11 @@ def test_sessions_media_nao_encontrada(servidor, tmp_path, monkeypatch):
     assert "não encontrada" in json.loads(body)["error"]
 
 
+def test_installable_tools_endpoint(servidor):
+    status, body = request(f"{servidor.url}/api/installable-tools")
+    assert status == 200
+    data = json.loads(body)
+    assert data["ok"] is True
+    assert "platform" in data
+    assert "tools" in data
+    assert isinstance(data["tools"], list)

@@ -31,6 +31,7 @@ import open_with
 import scan_home
 import skills
 import spend
+import statusline_installer as statusline
 
 try:
     import httpx
@@ -843,6 +844,12 @@ CODEX_SESSIONS = HOME / ".codex" / "sessions"
 CODEX_AUTH = HOME / ".codex" / "auth.json"
 CODEX_TAIL_BYTES = 200_000
 
+GEMINI_KEYCHAIN_SERVICE = "gemini"
+GEMINI_KEYCHAIN_ACCOUNT = "antigravity"
+ANTIGRAVITY_CACHE = HOME / ".gemini" / "antigravity-cli" / "cache"
+ANTIGRAVITY_CACHE_STATUS = ANTIGRAVITY_CACHE / "latest_status.json"
+ANTIGRAVITY_PAYLOAD = Path("/tmp/antigravity_statusline_payload.json")
+
 USAGE_WINDOWS = (
     ("five_hour", "Sessão (5h)"),
     ("seven_day", "Semanal (7d)"),
@@ -1169,9 +1176,113 @@ def copilot_usage() -> dict | None:
     return {**parse_copilot_quota(payload), "account": github_account(token)}
 
 
+def parse_gemini_quota(quota: dict) -> list[dict]:
+    windows = []
+    key_order = (
+        ("gemini-5h", "Sessão (5h)"),
+        ("gemini-weekly", "Semanal (7d)"),
+        ("3p-5h", "3P · Sessão (5h)"),
+        ("3p-weekly", "3P · Semanal (7d)"),
+    )
+    for key, label in key_order:
+        item = quota.get(key)
+        if not isinstance(item, dict):
+            continue
+        rem = item.get("remaining_fraction")
+        used = item.get("used_fraction")
+        if used is None and rem is not None:
+            used = 1.0 - rem
+        if used is None:
+            continue
+        if key.startswith("3p") and used == 0.0:
+            continue
+        utilization = round(used * 100.0, 1)
+        resets_at = item.get("reset_time")
+        windows.append({
+            "label": label,
+            "utilization": utilization,
+            "resets_at": resets_at,
+        })
+    return windows
+
+
+def gemini_account() -> str | None:
+    if sys.platform == "darwin":
+        try:
+            proc = subprocess.run(
+                [
+                    "security", "find-generic-password",
+                    "-s", GEMINI_KEYCHAIN_SERVICE,
+                    "-a", GEMINI_KEYCHAIN_ACCOUNT,
+                    "-w",
+                ],
+                capture_output=True, text=True, timeout=5,
+            )
+            if proc.returncode == 0 and proc.stdout.strip():
+                raw = proc.stdout.strip()
+                if raw.startswith("go-keyring-base64:"):
+                    decoded = base64.b64decode(raw[len("go-keyring-base64:"):])
+                    data = json.loads(decoded)
+                    id_token = data.get("id_token")
+                    if isinstance(id_token, str):
+                        email = _jwt_email(id_token)
+                        if email:
+                            return email
+        except (OSError, subprocess.SubprocessError, ValueError):
+            pass
+
+    for path in (ANTIGRAVITY_CACHE_STATUS, ANTIGRAVITY_PAYLOAD):
+        if path.is_file():
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                email = data.get("email")
+                if isinstance(email, str) and email:
+                    return email
+            except (OSError, ValueError):
+                pass
+    return None
+
+
+def gemini_usage() -> dict | None:
+    account = gemini_account()
+    payload = None
+    mtime = None
+
+    for path in (ANTIGRAVITY_CACHE_STATUS, ANTIGRAVITY_PAYLOAD):
+        if path.is_file():
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    payload = data
+                    mtime = int(path.stat().st_mtime)
+                    break
+            except (OSError, ValueError):
+                continue
+
+    if payload is None and account is None:
+        return None
+
+    plan = (payload.get("plan_tier") if payload else None) or "Google AI Pro"
+    quota = (payload.get("quota") or {}) if payload else {}
+    windows = parse_gemini_quota(quota) if quota else []
+
+    return {
+        "available": True,
+        "plan": plan,
+        "account": account or (payload.get("email") if payload else None),
+        "windows": windows,
+        "updated_at": mtime,
+    }
+
+
 def usage_providers() -> dict:
     """Resolvido a cada chamada: os testes trocam `*_usage` por monkeypatch."""
-    return {"claude": claude_usage, "codex": codex_usage, "copilot": copilot_usage}
+    return {
+        "claude": claude_usage,
+        "codex": codex_usage,
+        "copilot": copilot_usage,
+        "gemini": gemini_usage,
+    }
 
 
 def usage_snapshot(force: bool = False, tool: str | None = None) -> dict:
@@ -1859,6 +1970,7 @@ def versions_snapshot(force: bool = False) -> dict:
         "claude": claude_account(),
         "codex": codex_account(),
         "copilot": github_account(token) if token else None,
+        "gemini": gemini_account(),
     }
     for tool, account in accounts.items():
         if account:
@@ -2278,6 +2390,17 @@ class Handler(BaseHTTPRequestHandler):
         if url.path == "/api/versions":
             self._json(versions_snapshot(force=params.get("refresh", ["0"])[0] == "1"))
             return
+        if url.path == "/api/statusline":
+            self._json(statusline.check_status())
+            return
+        if url.path == "/api/statusline/backups":
+            tool_param = params.get("tool", [None])[0]
+            self._json(statusline.list_backups(tool_param))
+            return
+        if url.path == "/api/statusline/preview":
+            tool_param = params.get("tool", ["antigravity"])[0]
+            self._json(statusline.get_preview(tool_param))
+            return
         if url.path == "/api/incidents":
             self._json(incidents_snapshot(force=params.get("refresh", ["0"])[0] == "1"))
             return
@@ -2447,6 +2570,22 @@ class Handler(BaseHTTPRequestHandler):
                     raise ApiError("ação inválida", 400)
                 self._json(run_mcp_action(str(payload.get("source", "")), str(payload.get("name", "")), action))
                 return
+            if url.path == "/api/statusline":
+                target = str(payload.get("target", "none")) if isinstance(payload, dict) else "none"
+                self._json(statusline.install(target))
+                return
+            if url.path == "/api/statusline/restore":
+                if not isinstance(payload, dict):
+                    raise ApiError("payload inválido", 400)
+                tool = str(payload.get("tool", ""))
+                backup = str(payload.get("backup", ""))
+                if not tool or not backup:
+                    raise ApiError("tool e backup são obrigatórios", 400)
+                try:
+                    self._json(statusline.restore_backup(tool, backup))
+                except (ValueError, FileNotFoundError) as exc:
+                    raise ApiError(str(exc), 400) from exc
+                return
         except ConflictError as exc:
             self._json({"error": str(exc), "conflict": True, **exc.info}, exc.status)
             return
@@ -2473,6 +2612,14 @@ def main():
     url = f"http://{'127.0.0.1' if host == '0.0.0.0' else host}:{port}/"
     if "--no-open" not in sys.argv:
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()
+    statusline_target = os.environ.get("AIM_STATUSLINE_INSTALL", "").strip().lower()
+    if statusline_target and statusline_target not in ("none", "0", "false"):
+        try:
+            res = statusline.install(statusline_target)
+            logger.info(f"Statusline auto-install ({statusline_target}): {res.get('message')}")
+        except Exception as exc:
+            logger.warning(f"Falha ao executar AIM_STATUSLINE_INSTALL={statusline_target}: {exc}")
+
     logger.info(f"AI Manager Local em {url}  (Ctrl+C para parar)")
     try:
         server = ThreadingHTTPServer((host, port), Handler)

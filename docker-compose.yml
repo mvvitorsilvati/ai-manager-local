@@ -11,6 +11,9 @@ services:
       # o HOME do container aponta para o home montado (fontes, backups e audit)
       HOME: /host-home
       AIM_HOST: 0.0.0.0
+      # Instalação do statusline no container (padrão: "none" - não fazer nada):
+      # Opções: "none" (padrão), "both", "claude", "antigravity"
+      AIM_STATUSLINE_INSTALL: "none"
       # WSL com as IAs no Windows: aponte o AIM_HOME para o perfil montado abaixo
       # AIM_HOME: /host-windows
     volumes:

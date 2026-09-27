@@ -169,7 +169,7 @@ export type SkillUsageResponse = {
   top: SkillRow[]
 }
 
-export type UsageTool = "claude" | "codex" | "copilot"
+export type UsageTool = "claude" | "codex" | "copilot" | "gemini"
 export type UsageResponse = Partial<Record<UsageTool, ToolUsage | null>>
 
 export type ToolVersion = {
@@ -218,6 +218,43 @@ export type IncidentsResponse = { sources: Record<string, Incident | null> }
 export type Backup = { name: string; size: number; mtime: number }
 export type SaveResult = { ok: boolean; mtime: number; mtime_ns: string; size: number; created: number; backup: string }
 export type SaveConflict = { error: string; conflict: true; mtime: number; mtime_ns: string; size: number }
+
+export type StatuslineTarget = "both" | "claude" | "antigravity" | "none"
+
+export type ToolStatuslineInfo = {
+  installed: boolean
+  configured: boolean
+  path: string
+}
+
+export type StatuslineStatusResponse = {
+  claude: ToolStatuslineInfo
+  antigravity: ToolStatuslineInfo
+}
+
+export type StatuslineInstallResult = {
+  ok: boolean
+  target: StatuslineTarget
+  installed_files: string[]
+  status: StatuslineStatusResponse
+  message: string
+}
+
+export type StatuslineBackup = {
+  tool: string
+  backup_name: string
+  original_name: string
+  path: string
+  size: number
+  mtime: number
+}
+
+export type StatuslinePreviewResponse = {
+  ok: boolean
+  tool: string
+  raw_lines: string[]
+  plain_lines: string[]
+}
 
 type ApiFailure = Error & { status?: number; data?: unknown }
 
@@ -286,4 +323,15 @@ export const api = {
   openTargets: (tool: string) => unwrap<OpenTargets>(client.get("/api/open-targets", { params: { tool } })),
   openWith: (body: { tool: string; target: string; project?: string }) =>
     unwrap<{ ok: boolean }>(client.post("/api/open", body)),
+  statuslineStatus: () => unwrap<StatuslineStatusResponse>(client.get("/api/statusline")),
+  installStatusline: (target: StatuslineTarget) =>
+    unwrap<StatuslineInstallResult>(client.post("/api/statusline", { target })),
+  statuslineBackups: (tool?: string) =>
+    unwrap<StatuslineBackup[]>(client.get("/api/statusline/backups", { params: tool ? { tool } : {} })),
+  restoreStatuslineBackup: (tool: string, backup: string) =>
+    unwrap<{ ok: boolean; tool: string; restored: string; target: string; status: StatuslineStatusResponse; message: string }>(
+      client.post("/api/statusline/restore", { tool, backup }),
+    ),
+  statuslinePreview: (tool: string) =>
+    unwrap<StatuslinePreviewResponse>(client.get("/api/statusline/preview", { params: { tool } })),
 }

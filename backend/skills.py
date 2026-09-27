@@ -26,12 +26,14 @@ LABEL = {
     "codex": "Codex",
     "opencode": "opencode",
     "copilot": "GitHub Copilot",
+    "gemini": "Gemini / Antigravity",
 }
 NOTE = {
     "claude": "Comandos / e chamadas Skill nos transcripts. Tokens ≈ SKILL.md em disco × invocações.",
     "opencode": "Chamadas da ferramenta skill. Tokens ≈ conteúdo injetado por chamada.",
     "codex": "Os rollouts não registram invocações de skill; skills viram prompt sem marca.",
     "copilot": "O session-store só tem texto livre de turnos, sem registro estruturado.",
+    "gemini": "Comandos / e carregamento de SKILL.md nos transcripts do Antigravity.",
 }
 
 _lock = threading.Lock()
@@ -45,6 +47,8 @@ def default_skill_dirs() -> list[Path]:
         home / ".claude" / "skills",
         home / ".config" / "opencode" / "skills",
         home / ".copilot" / "skills",
+        home / ".gemini" / "antigravity-cli" / "builtin" / "skills",
+        home / ".gemini" / "config" / "skills",
     ]
 
 
@@ -61,6 +65,9 @@ def resolve_skill(name: str, dirs: list[Path]) -> Path | None:
         if candidate.is_file():
             return candidate
     for candidate in scan_home.scan_home().glob(".claude/plugins/*/skills/*/SKILL.md"):
+        if candidate.parent.name == key:
+            return candidate
+    for candidate in scan_home.scan_home().glob(".gemini/config/plugins/*/skills/*/SKILL.md"):
         if candidate.parent.name == key:
             return candidate
     return None
@@ -174,6 +181,56 @@ def scan_opencode(path: Path, start: datetime | None, dirs: list[Path]) -> list[
     ]
 
 
+def scan_gemini(root: Path, start: datetime | None, dirs: list[Path]) -> list[dict]:
+    brain = root / "brain"
+    if not brain.is_dir():
+        return []
+    found: dict[str, dict] = defaultdict(_bucket)
+    for path in sorted(brain.glob("*/.system_generated/logs/transcript.jsonl")):
+        session = path.parent.parent.name
+        for rec in spend.iter_jsonl(path):
+            ts = spend.parse_ts(rec.get("created_at"))
+            if ts is None or (start is not None and ts < start):
+                continue
+            hits: list[tuple[str, str]] = []
+            if rec.get("type") == "USER_INPUT" or rec.get("source") == "USER_EXPLICIT":
+                content = str(rec.get("content") or "").strip()
+                if content.startswith("/"):
+                    cmd = content.split()[0].lstrip("/")
+                    hits.append((cmd, "user"))
+            for tc in rec.get("tool_calls") or []:
+                args = tc.get("args") or {}
+                raw_path = str(args.get("AbsolutePath") or "").strip("\"'")
+                if "/skills/" in raw_path and raw_path.endswith("SKILL.md"):
+                    skill = raw_path.split("/skills/")[1].split("/")[0]
+                    hits.append((skill, "model"))
+            for name, origin in hits:
+                key = skill_key(name)
+                if not key:
+                    continue
+                found[key]["invocations"] += 1
+                found[key]["sessions"].add(session)
+                found[key][origin] += 1
+
+    rows = []
+    for key, info in found.items():
+        path = resolve_skill(key, dirs)
+        if path is None:
+            continue
+        chars = len(path.read_text(encoding="utf-8", errors="replace"))
+        per_use = chars // 4
+        rows.append({
+            "skill": key,
+            "invocations": info["invocations"],
+            "sessions": len(info["sessions"]),
+            "context_tokens": per_use * info["invocations"],
+            "by_origin": {"user": info["user"], "model": info["model"]},
+            "resolved": True,
+        })
+    rows.sort(key=lambda row: (-row["invocations"], row["skill"]))
+    return rows
+
+
 def _pack(name: str, rows: list[dict], missing: bool) -> dict:
     return {
         "id": name,
@@ -208,8 +265,13 @@ def build(
         )
     if "copilot" in names:
         tools["copilot"] = _pack("copilot", [], False)
+    if "gemini" in names:
+        missing = not (roots.get("gemini") and (roots["gemini"] / "brain").is_dir())
+        tools["gemini"] = _pack(
+            "gemini", [] if missing else scan_gemini(roots["gemini"], start, skill_dirs), missing
+        )
     merged: dict[str, dict] = {}
-    for name in ("claude", "opencode"):
+    for name in ("claude", "opencode", "gemini"):
         if name not in tools:
             continue
         for row in tools[name]["rows"]:

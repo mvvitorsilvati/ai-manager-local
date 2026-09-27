@@ -292,10 +292,10 @@ export default function App() {
                 path="*"
                 element={
                   <div className="space-y-1">
-                    <h2 className="text-lg font-semibold">Página não encontrada</h2>
+                    <h2 className="text-lg font-semibold">{t("nav.notFound")}</h2>
                     <p className="text-muted-foreground text-sm">
                       <Link to="/" className="text-primary underline">
-                        Voltar para a visão geral
+                        {t("nav.backToOverview")}
                       </Link>
                     </p>
                   </div>

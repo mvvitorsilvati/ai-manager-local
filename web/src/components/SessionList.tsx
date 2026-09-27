@@ -212,7 +212,7 @@ export function SessionList({
             <Badge
               variant="outline"
               className="gap-1 border-blue-500/30 bg-blue-500/10 font-mono text-[11px] font-normal text-blue-400"
-              title={`${s.tokens.toLocaleString()} tokens consumidos`}
+              title={t("sessions.tokensConsumed", { count: s.tokens.toLocaleString() })}
             >
               <Coins className="size-3 shrink-0 opacity-80" />
               {formatTokens(s.tokens)}
@@ -224,7 +224,7 @@ export function SessionList({
             <Badge
               variant="outline"
               className="gap-1 border-emerald-500/30 bg-emerald-500/10 font-mono text-[11px] font-normal text-emerald-400"
-              title={`Custo estimado: ${formatCost(s.cost, s.currency)}`}
+              title={t("sessions.estimatedCost", { cost: formatCost(s.cost, s.currency) })}
             >
               {formatCost(s.cost, s.currency)}
             </Badge>
@@ -373,7 +373,7 @@ export function SessionList({
                   type="button"
                   onClick={() => setQuery("")}
                   className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2"
-                  aria-label="Limpar busca"
+                  aria-label={t("sessions.clearSearch")}
                 >
                   <X className="size-3.5" />
                 </button>

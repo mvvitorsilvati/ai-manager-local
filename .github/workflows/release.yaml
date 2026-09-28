@@ -23,6 +23,8 @@ jobs:
     name: Release (tag + GitHub Release)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -30,6 +32,7 @@ jobs:
           fetch-depth: 0
 
       - name: Valida versão e sincronia dos arquivos
+        id: version
         env:
           INPUT_VERSION: ${{ inputs.version }}
         run: |
@@ -39,6 +42,7 @@ jobs:
             exit 1
           fi
           TAG="v$VER"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           {
             echo "TAG=$TAG"
             echo "VER=$VER"
@@ -70,6 +74,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           IS_PRERELEASE: ${{ inputs.prerelease }}
+          DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE || 'dockermvvitorsilvati/ai-manager-local' }}
         run: |
           if [ -n "$PREV" ]; then
             RANGE="$PREV..HEAD"
@@ -99,10 +104,22 @@ jobs:
               echo "Comparar: ${{ github.server_url }}/${{ github.repository }}/compare/$PREV...$TAG"
               echo
             fi
-            echo "Imagem: \`localhost/ai-manager-local-py-3.14:$VER\`"
+            echo "Imagem: \`$DOCKERHUB_IMAGE:$VER\` (publicada pelo job Docker Hub após a release)"
           } > notas.md
           if [ "$IS_PRERELEASE" = "true" ]; then
             gh release create "$TAG" --title "$TAG" --notes-file notas.md --prerelease
           else
             gh release create "$TAG" --title "$TAG" --notes-file notas.md --latest
           fi
+
+  dockerhub:
+    name: Publica no Docker Hub
+    needs: release
+    permissions:
+      contents: read
+    uses: ./.github/workflows/dockerhub.yaml
+    with:
+      tag: ${{ needs.release.outputs.tag }}
+      prerelease: ${{ inputs.prerelease }}
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}

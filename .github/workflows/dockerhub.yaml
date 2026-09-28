@@ -1,0 +1,97 @@
+name: Docker Hub
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "Tag da release (ex.: v2.1.0)"
+        required: true
+        type: string
+      prerelease:
+        description: "Publicar sem atualizar latest"
+        default: false
+        type: boolean
+    secrets:
+      DOCKERHUB_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dockerhub-${{ vars.DOCKERHUB_IMAGE || 'dockermvvitorsilvati/ai-manager-local' }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publica imagem no Docker Hub
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Valida configuração e versão
+        id: version
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE || 'dockermvvitorsilvati/ai-manager-local' }}
+          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME || 'dockermvvitorsilvati' }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -z "$DOCKERHUB_USERNAME" ] || [ -z "$DOCKERHUB_TOKEN" ]; then
+            echo "Configure a variável DOCKERHUB_USERNAME e o secret DOCKERHUB_TOKEN no GitHub" >&2
+            exit 1
+          fi
+          if ! [[ "$DOCKERHUB_IMAGE" =~ ^[a-z0-9_-]+/[a-z0-9]+([._-][a-z0-9]+)*$ ]]; then
+            echo "Configure a variável DOCKERHUB_IMAGE no formato namespace/repositorio, sem tag" >&2
+            exit 1
+          fi
+          if ! [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Tag de release inválida (use ex.: v2.1.0)" >&2
+            exit 1
+          fi
+          VERSION="${RELEASE_TAG#v}"
+          if [ "${#VERSION}" -gt 128 ]; then
+            echo "A versão excede o limite de 128 caracteres de uma tag Docker" >&2
+            exit 1
+          fi
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout da tag da release
+        id: checkout
+        uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+
+      - name: Configura Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login no Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME || 'dockermvvitorsilvati' }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Define tags e metadados da imagem
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ vars.DOCKERHUB_IMAGE || 'dockermvvitorsilvati/ai-manager-local' }}
+          flavor: latest=false
+          tags: |
+            type=raw,value=${{ steps.version.outputs.value }}
+            type=raw,value=latest,enable=${{ !inputs.prerelease && !contains(inputs.tag, '-') }}
+          labels: |
+            org.opencontainers.image.version=${{ steps.version.outputs.value }}
+            org.opencontainers.image.revision=${{ steps.checkout.outputs.commit }}
+
+      - name: Build e publicação da imagem
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=dockerhub
+          cache-to: type=gha,mode=max,scope=dockerhub

@@ -25,7 +25,7 @@ Panel web local (solo en tu Mac) para visualizar y editar las configuraciones de
 
 **Sitio web:** https://mvvitorsilvati.github.io/ai-manager-local/es/ (página de inicio servida por GitHub Pages desde `site/`)
 
-Se ejecuta 100% local (`127.0.0.1`), sin telemetría y sin enviar nada al exterior — excepto las llamadas a las APIs oficiales: uso/límites de las cuentas (Claude, Codex, Copilot y Gemini), versiones publicadas en npm y las páginas de estado, siempre con las credenciales que ya existen en tu equipo.
+Se ejecuta 100% local (`127.0.0.1`), sin telemetría y sin enviar nada al exterior — excepto las llamadas a las APIs oficiales: uso/límites de las cuentas (Claude, Codex, Copilot, Gemini y Cursor), versiones publicadas en npm y las páginas de estado, siempre con las credenciales que ya existen en tu equipo.
 
 ![Visión general del panel: contadores de contextos, skills, agentes, comandos, reglas, docs, MCPs, plugins, proyectos y archivos; tarjetas de uso de Codex y GitHub Copilot con límites y reinicio; y el gráfico de consumo por día](site/assets/painel.jpg)
 
@@ -75,7 +75,7 @@ En la Vista General, el campo busca en todo el catálogo por nombre y contenido,
 
 ### Uso y consumo
 
-Las tarjetas de uso muestran la cuenta autenticada y los límites para Claude Code (ventanas de 5h y 7d, o créditos), Codex (5h y 7d, leídos del último despliegue), GitHub Copilot (solicitudes premium y reinicio mensual) y Gemini/Antigravity (ventanas de 5h y 7d). La sección de consumo lee los logs locales de las CLIs y construye gráficos de costo y tokens por día, por modelo o por IA, con tablas detalladas por modelo y proyecto. Son precios de lista oficiales, no tu factura; Copilot se muestra en AIU.
+Las tarjetas de uso muestran la cuenta autenticada y los límites para Claude Code (ventanas de 5h y 7d, o créditos), Codex (5h y 7d, leídos del último despliegue), GitHub Copilot (solicitudes premium y reinicio mensual), Gemini/Antigravity (ventanas de 5h y 7d) y Cursor (porcentajes del uso incluido — Auto y API — y el on-demand en $ cuando exista; el uso incluido no tiene valor en $ para mostrar). La sección de consumo lee los logs locales de las CLIs y construye gráficos de costo y tokens por día, por modelo o por IA, con tablas detalladas por modelo y proyecto. Son precios de lista oficiales, no tu factura; Copilot se muestra en AIU.
 
 ### Historial de conversaciones
 
@@ -129,7 +129,7 @@ Se muestra una alerta en la barra lateral cuando una IA presenta un incidente ac
 | [just](https://github.com/casey/just) | 1.x | atajos de tareas (opcional) |
 | Podman o Docker | — | opcional, solo para ejecutar en contenedor |
 
-Para las tarjetas de uso (opcional): `gh` autenticado (Copilot) y Claude Code iniciado (Keychain); sin ellos, la tarjeta simplemente no aparece.
+Para las tarjetas de uso (opcional): `gh` autenticado (Copilot), Claude Code iniciado (Keychain) y Cursor instalado y con sesión iniciada (la tarjeta lee la sesión del editor); sin ellos, la tarjeta simplemente no aparece.
 
 ## Instalación
 
@@ -354,7 +354,7 @@ El backend escanea las fuentes en cada petición al catálogo, sin base de datos
 | GET | `/api/search?q=` | búsqueda por nombre y contenido |
 | GET | `/api/sessions` | historial de conversaciones, tokens, costos y mensajes por IA o proyecto |
 | GET | `/api/backups?s=&r=` | versiones de copia de seguridad del archivo |
-| GET | `/api/usage[?refresh=1][&tool=claude\|codex\|copilot\|gemini]` | uso/límites de Claude, Codex, Copilot y Gemini (caché de 60 s) |
+| GET | `/api/usage[?refresh=1][&tool=claude\|codex\|copilot\|gemini\|cursor]` | uso/límites de Claude, Codex, Copilot, Gemini y Cursor (caché de 60 s) |
 | GET | `/api/spend[?days=7][&tool=][&refresh=1]` | costo y tokens locales (claude, codex, opencode, copilot) |
 | GET | `/api/skill-usage[?days=7][&tool=][&refresh=1]` | invocaciones de skills y tokens aprox. de contexto (Top 20 global) |
 | GET | `/api/versions[?refresh=1]` | versiones CLI instaladas/recientes, cuentas autenticadas y actualizaciones |
@@ -381,7 +381,7 @@ El backend escanea las fuentes en cada petición al catálogo, sin base de datos
 | Codex | `~/.codex` | `config.toml`, `AGENTS.md`, `prompts/`, `rules/`, `skills/` |
 | GitHub Copilot CLI | `~/.copilot` | `settings.json`, `mcp-config.json`, `hooks/`, `skills/` |
 | Gemini / Antigravity | `~/.gemini` | `GEMINI.md`, `settings.json`, `config/`, `skills/` |
-| Cursor | `~/.cursor` | `mcp.json` global y `.cursor/`, `.cursorrules`/`.windsurfrules` en proyectos, si existen |
+| Cursor | `~/.cursor` | `mcp.json` global y `.cursor/`, `.cursorrules`/`.windsurfrules` en proyectos, si existen; la tarjeta de uso lee la sesión del editor (`state.vscdb` en `~/Library/Application Support/Cursor`, `~/.config/Cursor` o `AppData/Roaming/Cursor`) |
 | Proyectos | `AIM_PROJECTS_DIR` (`~/Projetos` por defecto) | detecta repositorios y escanea las rutas de configuración y `docs/` |
 
 ### Agregar una IA nueva

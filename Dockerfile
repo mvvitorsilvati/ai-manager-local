@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---------------------------------------------------------------- frontend
-FROM node:22-slim AS web
+FROM node:24-slim AS web
 
 WORKDIR /web
 RUN npm install -g pnpm@10

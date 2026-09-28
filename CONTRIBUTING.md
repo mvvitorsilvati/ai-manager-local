@@ -35,6 +35,20 @@ gh release create v1.1.0 --title "v1.1.0 — resumo curto" --notes-file notas.md
 
 A versão sobe por PR antes da tag: `pyproject.toml` e `package.json` seguem o mesmo número (o `uv.lock` acompanha). A tag da imagem é derivada dessa versão pelo `justfile` e pelo CI; no `docker-compose.yml`, atualize o padrão de `AIM_VERSION` junto do bump — ou rode com `AIM_VERSION=$(just version)`.
 
+Para lançar pelo GitHub, execute o workflow **Release** com a versão e a opção de pré-release. Após criar a tag e a GitHub Release, ele chama o workflow reutilizável **Docker Hub** (`.github/workflows/dockerhub.yaml`), que constrói o `Dockerfile` a partir da tag lançada e publica a imagem para `linux/amd64`.
+
+Configure em **Settings → Secrets and variables → Actions** do repositório:
+
+| Tipo | Nome | Valor |
+|---|---|---|
+| Variable (opcional) | `DOCKERHUB_IMAGE` | Repositório no formato `namespace/ai-manager-local`, sem hostname ou tag; padrão: `dockermvvitorsilvati/ai-manager-local` |
+| Variable (opcional) | `DOCKERHUB_USERNAME` | Usuário do Docker Hub com acesso ao destino; padrão: `dockermvvitorsilvati` |
+| Secret | `DOCKERHUB_TOKEN` | Token do Docker Hub com permissão de escrita no repositório de destino |
+
+Crie o repositório de destino no Docker Hub antes do primeiro lançamento. Por padrão, uma release `v2.1.0` publica `dockermvvitorsilvati/ai-manager-local:2.1.0` e `dockermvvitorsilvati/ai-manager-local:latest`. Pré-releases (pela opção do workflow ou pelo sufixo da versão, como `v2.1.0-rc.1`) publicam apenas a tag da versão.
+
+A chamada direta garante a publicação mesmo quando a release é criada com `GITHUB_TOKEN`: releases e tags geradas por esse token não disparam novos workflows por eventos `release` ou `push`. Se a publicação falhar depois da criação da release, use **Re-run failed jobs** na execução de **Release** para repetir a publicação sem recriar a tag. Releases criadas pelos comandos locais acima não chamam esse workflow.
+
 ## Preparando o ambiente
 
 ```bash

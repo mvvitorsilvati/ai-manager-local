@@ -1,9 +1,17 @@
 # AI Manager Local — tarefas do projeto (backend uv + front pnpm)
 set shell := ["bash", "-uc"]
 
+# versão do projeto (fonte da verdade: backend/pyproject.toml) — usada na tag da imagem
+versao_pyproject := `sed -n 's/^version = "\(.*\)"/\1/p' backend/pyproject.toml | head -n 1`
+imagem := "localhost/ai-manager-local-py-3.14:" + versao_pyproject
+
 # lista as tarefas disponíveis
 default:
     @just --list
+
+# imprime a versão do projeto (backend/pyproject.toml)
+version:
+    @echo {{versao_pyproject}}
 
 # instala/sincroniza dependências (uv sync + pnpm install) e liga os git hooks
 setup:
@@ -94,7 +102,7 @@ check: lint test
 # ------------------------------------------------------------------ container
 # build da imagem (tag padrão do time: localhost/<repo>-py-<versão>:<versão do pyproject>)
 docker-build:
-    podman build -t localhost/ai-manager-local-py-3.14:1.0.0 .
+    podman build -t {{imagem}} .
 
 # sobe o painel em http://127.0.0.1:4747 montando o seu HOME (fontes, backups e audit)
 docker-run:
@@ -102,11 +110,11 @@ docker-run:
       -p 127.0.0.1:4747:4747 \
       -e HOME=/host-home -e AIM_HOST=0.0.0.0 \
       -v "$HOME":/host-home \
-      localhost/ai-manager-local-py-3.14:1.0.0
+      {{imagem}}
 
 # roda a suíte de testes dentro da imagem (usa a venv embutida, sem rede)
 docker-test:
     podman run --rm --name ai-manager-local-test \
       -v "$PWD":/workspace -w /workspace/backend \
-      localhost/ai-manager-local-py-3.14:1.0.0 \
+      {{imagem}} \
       /app/backend/.venv/bin/python -m pytest

@@ -115,7 +115,7 @@ Um alerta na sidebar aparece quando a IA está com incidente ativo, consultando 
 | macOS | — | o backend usa Keychain e `open -R` (Finder); em Linux/Windows funciona, exceto esses dois recursos |
 | [uv](https://docs.astral.sh/uv/) | 0.8+ | venv e dependências do backend |
 | Python | 3.14 | runtime do backend |
-| Node.js | 22+ | build/dev do frontend (Vite 8) |
+| Node.js | 24+ | build/dev do frontend (Vite 8) |
 | [pnpm](https://pnpm.io/) | 10+ | dependências do frontend |
 | [just](https://github.com/casey/just) | 1.x | atalhos de tarefas (opcional) |
 | Podman ou Docker | — | opcional, apenas para rodar em container |

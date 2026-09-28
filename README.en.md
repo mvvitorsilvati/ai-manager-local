@@ -72,6 +72,10 @@ On the Overview, the field searches everything by name and content, highlighting
 
 The usage cards show the authenticated account and the limits for Claude Code (5h and 7d windows, or credits), Codex (5h and 7d, read from the last rollout), GitHub Copilot (premium requests and monthly reset), and Gemini/Antigravity (5h and 7d windows). Spend reads the local CLI logs and builds charts of cost and tokens per day, per model or per AI, with tables per model and project. These are list prices, not your bill; Copilot shows up in AIU.
 
+### Conversations
+
+Review session history by AI or project, with USD cost, total tokens, and message count right on the first line. Includes Top 20 filters by cost and tokens, full Markdown message view, and copying the native resume command (`--resume`). The Overview shows recent conversations and the total session count.
+
 ### Skills
 
 Top 20 by invocations, grouped by name across AIs, with the approximate context tokens. Only Claude and opencode record invocations locally.
@@ -90,7 +94,7 @@ An icon next to each AI opens the CLI in the detected terminal (Terminal, iTerm2
 
 ### Status and interface
 
-An alert in the sidebar appears when the AI has an active incident, checking the status pages of Anthropic, OpenAI, GitHub, Google Cloud and Cursor. The interface has PT-BR, EN and ES, a light/dark theme following the system, shortcuts (`⌘K`, `⌘F`, `⌘A`, `⌘L`, `⌘T`, `⌘R`, `⌘B`, `⌘E`, `⌘S`, `Esc`) and the browser back button navigating between screens, with a guard for unsaved changes.
+An alert in the sidebar appears when the AI has an active incident, checking the status pages of Anthropic, OpenAI, GitHub, Google Cloud and Cursor. The interface has PT-BR, EN and ES, a light/dark theme following the system, shortcuts (`⌘K`, `⌘F`, `⌘A`, `⌘L`, `⌃⌘T`, `⌃⌘R`, `⌘B`, `⌘E`, `⌘S`, `Esc`) and the browser back button navigating between screens, with a guard for unsaved changes.
 
 ## Logs and debug
 
@@ -275,6 +279,8 @@ just dev
 | `⌘K` | focuses the search |
 | `⌘E` | enters edit mode (Monaco) |
 | `⌘S` | saves (with automatic backup) |
+| `⌃⌘T` | toggles between light and dark theme |
+| `⌃⌘R` | refreshes data without reloading the browser |
 | `Esc` | closes the backups panel → cancels editing (never closes the preview directly) |
 
 ### Editing and backups

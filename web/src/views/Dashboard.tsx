@@ -15,7 +15,7 @@ import { useIncidents } from "@/hooks/useIncidents"
 import { useUsage } from "@/hooks/useUsage"
 import { useVersions } from "@/hooks/useVersions"
 import { api } from "@/lib/api"
-import { ago } from "@/lib/format"
+import { ago, until } from "@/lib/format"
 import { useI18n } from "@/lib/i18n"
 import { SkillsTop } from "@/views/Skills"
 import { SpendOverviewCard } from "@/views/Spend"
@@ -34,6 +34,11 @@ export default function Dashboard() {
     enabled: recent.length > 0,
     staleTime: 30_000,
   })
+  const { data: sessions } = useQuery({
+    queryKey: ["sessions-recent"],
+    queryFn: () => api.sessions("all", "", 8),
+    staleTime: 60_000,
+  })
   const authorOf = (s: string, r: string) => authors?.find((a) => a.s === s && a.r === r)?.author
 
   if (isLoading || !catalog) {
@@ -50,6 +55,7 @@ export default function Dashboard() {
   const byCat = (c: string) => files.filter((f) => f.c === c).length
   const stats: [string, number, string][] = [
     ["nav.byTool", catalog.tools.length, "/ia"],
+    ["nav.sessions", sessions?.total ?? 0, "/sessoes"],
     ["nav.contexts", byCat("context"), "/contextos"],
     ["nav.skills", catalog.skills.length, "/skills"],
     ["nav.agents", byCat("agent"), "/agentes"],
@@ -172,6 +178,29 @@ export default function Dashboard() {
         </h3>
         <StatuslineCard />
       </div>
+
+      {sessions && sessions.sessions.length > 0 && (
+        <div>
+          <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">
+            {t("dash.sessions")}
+          </h3>
+          <div className="border-border overflow-hidden rounded-lg border">
+            {sessions.sessions.map((s) => (
+              <button
+                key={s.tool + s.id}
+                onClick={() => navigate("/sessoes")}
+                className="border-border hover:bg-accent flex w-full items-center gap-2 border-b px-3 py-2 text-left text-sm last:border-0"
+              >
+                <ToolIcon id={s.tool} className="size-3.5 shrink-0 opacity-70" />
+                <span className="truncate">{s.title}</span>
+                <span className="text-muted-foreground ml-auto shrink-0 font-mono text-[11px]">
+                  {s.project} · {until(s.updated_at)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div>
         <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase">{t("dash.recent")}</h3>

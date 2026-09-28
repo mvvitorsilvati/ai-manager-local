@@ -72,6 +72,10 @@ Na Visão geral, o campo busca por nome e por conteúdo em tudo, destacando as l
 
 Os cards de uso mostram a conta autenticada e os limites do Claude Code (janelas de 5h e 7d, ou créditos), do Codex (5h e 7d, lidos do último rollout), do GitHub Copilot (premium requests e reset mensal) e do Gemini/Antigravity (janelas de 5h e 7d). O Consumo lê os logs locais das CLIs e monta gráficos de custo e tokens por dia, por modelo ou por IA, com tabelas por modelo e projeto. São preços de tabela, não a fatura; o Copilot aparece em AIU.
 
+### Conversas
+
+Revise o histórico de sessões por IA ou projeto, com custo em USD, total de tokens e número de mensagens logo na primeira linha. Inclui filtros Top 20 por custo e tokens, visão completa das mensagens em Markdown e cópia do comando nativo de retomada (`--resume`). A Visão geral mostra as conversas recentes e o total de sessões.
+
 ### Skills
 
 Top 20 por invocações, agrupado por nome entre as IAs, com os tokens aproximados de contexto. Só Claude e opencode registram invocação localmente.
@@ -90,7 +94,7 @@ Um ícone ao lado de cada IA abre a CLI no terminal detectado (Terminal, iTerm2 
 
 ### Status e interface
 
-Um alerta na sidebar aparece quando a IA está com incidente ativo, consultando as páginas de status da Anthropic, OpenAI, GitHub, Google Cloud e Cursor. A interface tem PT-BR, EN e ES, tema claro/escuro seguindo o sistema, atalhos (`⌘K`, `⌘F`, `⌘A`, `⌘L`, `⌘T`, `⌘R`, `⌘B`, `⌘E`, `⌘S`, `Esc`) e o botão voltar do navegador navegando entre telas, com guarda para alteração não salva.
+Um alerta na sidebar aparece quando a IA está com incidente ativo, consultando as páginas de status da Anthropic, OpenAI, GitHub, Google Cloud e Cursor. A interface tem PT-BR, EN e ES, tema claro/escuro seguindo o sistema, atalhos (`⌘K`, `⌘F`, `⌘A`, `⌘L`, `⌃⌘T`, `⌃⌘R`, `⌘B`, `⌘E`, `⌘S`, `Esc`) e o botão voltar do navegador navegando entre telas, com guarda para alteração não salva.
 
 ## Logs e debug
 
@@ -275,6 +279,8 @@ just dev
 | `⌘K` | foca a busca |
 | `⌘E` | entra em edição (Monaco) |
 | `⌘S` | salva (com backup automático) |
+| `⌃⌘T` | alterna entre tema claro e escuro |
+| `⌃⌘R` | atualiza os dados sem recarregar o navegador |
 | `Esc` | fecha o painel de backups → cancela a edição (nunca fecha o preview direto) |
 
 ### Edição e backups

@@ -63,6 +63,16 @@ def test_custo_dos_modelos_novos_bate_com_a_tabela():
     assert spend.openai_cost("gpt-6-luna", 0, 1_000_000, 0, 0) == 0.5
 
 
+def test_custo_do_sonnet_5_5_bate_com_a_tabela():
+    # Sonnet 5.5: 2/10, cache read a 10% do input (0.2), write 1.25x/2x e sem faixa fast própria.
+    assert spend.anthropic_cost("claude-sonnet-5-5", None, 1_000_000, 0, 0, 0, 0) == 2.0
+    assert spend.anthropic_cost("claude-sonnet-5-5", None, 0, 1_000_000, 0, 0, 0) == 10.0
+    assert spend.anthropic_cost("claude-sonnet-5-5", None, 0, 0, 1_000_000, 0, 0) == 2.5
+    assert spend.anthropic_cost("claude-sonnet-5-5", None, 0, 0, 0, 1_000_000, 0) == 4.0
+    assert spend.anthropic_cost("claude-sonnet-5-5", None, 0, 0, 0, 0, 1_000_000) == 0.2
+    assert spend.anthropic_cost("claude-sonnet-5-5", "fast", 1_000_000, 0, 0, 0, 0) == 2.0
+
+
 def test_custo_dos_modelos_codex_e_fable_bate_com_a_tabela():
     # gpt-5.3-codex: 1.75/14, cache read a 10% do input.
     assert spend.openai_cost("gpt-5.3-codex", 1_000_000, 0, 0, 0) == 1.75

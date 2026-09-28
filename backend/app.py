@@ -1046,6 +1046,22 @@ ANTIGRAVITY_CACHE = HOME / ".gemini" / "antigravity-cli" / "cache"
 ANTIGRAVITY_CACHE_STATUS = ANTIGRAVITY_CACHE / "latest_status.json"
 ANTIGRAVITY_PAYLOAD = Path("/tmp/antigravity_statusline_payload.json")
 
+# `agy --print /usage` é respondido pelo próprio CLI, sem abrir turno de modelo
+# (modo headless documentado; envelope medido com `num_turns` e `total_tokens`
+# zerados). Os argumentos vão por lista, nunca por shell — pelo Git Bash o
+# `/usage` viraria um caminho e iria ao modelo como prompt.
+ANTIGRAVITY_USAGE_ARGS = ("--sandbox", "--print-timeout", "30s", "--output-format", "json", "--print", "/usage")
+# Versão contra a qual o envelope e a ausência de turno de modelo foram medidos.
+ANTIGRAVITY_MIN_VERSION = (1, 2, 9)
+ANTIGRAVITY_RUN_TIMEOUT = 45
+ANTIGRAVITY_VERSION_TIMEOUT = 10
+ANTIGRAVITY_MAX_OUTPUT_BYTES = 64 * 1024
+ANTIGRAVITY_WORKDIR = STATE_HOME / "antigravity-work"
+_antigravity_version_cache: tuple[tuple[str, int, int], tuple[int, int, int] | None] | None = None
+# Disjuntor: envelope sem a prova de que o CLI respondeu sozinho pausa a coleta
+# até o processo reiniciar (nem o refresh manual desarma).
+_antigravity_paused = False
+
 CURSOR_USAGE_URL = "https://cursor.com/api/usage-summary"
 # Sessão do editor, por SO e relativa ao HOME (que segue o AIM_HOME): macOS,
 # Linux e Windows — o último cobre o WSL com o Cursor instalado no Windows.
@@ -1539,8 +1555,212 @@ def gemini_account() -> str | None:
     return None
 
 
+class AntigravityGuardError(Exception):
+    """O envelope do `agy /usage` não prova que o CLI respondeu sozinho."""
+
+
+def _parse_agy_version(output: str) -> tuple[int, int, int] | None:
+    match = re.search(r"(\d+)\.(\d+)\.(\d+)", output or "")
+    if match is None:
+        return None
+    return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+
+
+def _antigravity_workdir() -> Path:
+    """Diretório vazio e dedicado: rodar no home convidaria o CLI a tratá-lo como
+    projeto, com detecção e pergunta de confiança que não temos como responder."""
+    try:
+        ANTIGRAVITY_WORKDIR.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return STATE_HOME
+    return ANTIGRAVITY_WORKDIR
+
+
+def _agy_executable() -> str | None:
+    """Caminho do `agy`, recusando shims de shell.
+
+    `.cmd`/`.bat`/`.ps1` passariam pelo shell do Windows — e pelo Git Bash o
+    `/usage` vira um caminho e chega ao modelo como prompt (medido na referência).
+    """
+    candidates = [shutil.which("agy"), str(STATE_HOME / ".local" / "bin" / "agy")]
+    local_appdata = os.environ.get("LOCALAPPDATA")
+    if os.name == "nt" and local_appdata:
+        candidates.insert(0, str(Path(local_appdata) / "agy" / "bin" / "agy.exe"))
+    for candidate in candidates:
+        if not candidate or candidate.lower().endswith((".cmd", ".bat", ".ps1")):
+            continue
+        if Path(candidate).is_file():
+            return candidate
+    return None
+
+
+def _agy_version(path: str) -> tuple[int, int, int] | None:
+    """Versão do CLI, com cache por caminho + tamanho + mtime (atualização revalida)."""
+    global _antigravity_version_cache
+    try:
+        info = os.stat(path)
+    except OSError:
+        return None
+    key = (path, info.st_mtime_ns, info.st_size)
+    if _antigravity_version_cache is not None and _antigravity_version_cache[0] == key:
+        return _antigravity_version_cache[1]
+    try:
+        proc = subprocess.run(
+            [path, "--version"],
+            cwd=str(_antigravity_workdir()),
+            capture_output=True,
+            timeout=ANTIGRAVITY_VERSION_TIMEOUT,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    # Resultado negativo também fica cacheado por chave: um CLI antigo ou com saída
+    # ilegível não paga um `--version` a cada coleta; uma atualização muda a chave.
+    version = _parse_agy_version(proc.stdout.decode("utf-8", "replace"))
+    _antigravity_version_cache = (key, version)
+    return version
+
+
+def antigravity_cli_envelope() -> dict | None:
+    """Envelope de `agy --print /usage`; `None` quando o CLI não pode responder.
+
+    O portão de versão (≥ 1.2.9, a versão medida) e o disjuntor rodam antes de
+    qualquer chamada. O comando é respondido pelo próprio CLI, sem turno de
+    modelo — as provas disso ficam no envelope e são conferidas por
+    `parse_antigravity_usage`.
+    """
+    if _antigravity_paused:
+        return None
+    path = _agy_executable()
+    if path is None:
+        return None
+    version = _agy_version(path)
+    if version is None or version < ANTIGRAVITY_MIN_VERSION:
+        return None
+    try:
+        proc = subprocess.run(
+            [path, *ANTIGRAVITY_USAGE_ARGS],
+            cwd=str(_antigravity_workdir()),
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            timeout=ANTIGRAVITY_RUN_TIMEOUT,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.debug(f"agy /usage indisponível: {exc}")
+        return None
+    stdout = proc.stdout.decode("utf-8", "replace")
+    if not stdout.strip() or len(stdout.encode("utf-8", "replace")) > ANTIGRAVITY_MAX_OUTPUT_BYTES:
+        return None
+    try:
+        envelope = json.loads(stdout)
+    except ValueError:
+        logger.debug("agy /usage devolveu JSON ilegível")
+        return None
+    return envelope if isinstance(envelope, dict) else None
+
+
+def _zero_count(value) -> bool:
+    if isinstance(value, bool):
+        return False
+    return isinstance(value, (int, float)) and value == 0
+
+
+def _antigravity_window_label(group: str, window: str) -> str:
+    short = re.sub(r"\s+models$", "", group.strip(), flags=re.IGNORECASE)
+    short = re.sub(r"\s+and\s+", "/", short, flags=re.IGNORECASE).strip()
+    normalized = window.strip().lower()
+    if normalized == "weekly" or "week" in normalized:
+        suffix = "Semanal (7d)"
+    elif "hour" in normalized or normalized == "5h":
+        suffix = "Sessão (5h)"
+    else:
+        suffix = window.strip() or "Janela"
+    return f"{short} · {suffix}" if short else suffix
+
+
+def _antigravity_bucket_window(bucket, group_label: str) -> dict | None:
+    if not isinstance(bucket, dict):
+        return None
+    fraction = bucket.get("remaining_fraction")
+    if isinstance(fraction, bool) or not isinstance(fraction, (int, float)) or not 0.0 <= fraction <= 1.0:
+        return None
+    raw_window = bucket.get("window")
+    window = raw_window.strip() if isinstance(raw_window, str) else ""
+    if not window:
+        raw_id = bucket.get("id")
+        window = raw_id.strip() if isinstance(raw_id, str) else ""
+    reset = bucket.get("reset_time")
+    # Janela intocada: o CLI devolve "agora + duração" como reset, que anda a cada
+    # leitura — reset conhecido só quando já houve consumo (como na referência).
+    resets_at = reset.strip() if isinstance(reset, str) and reset.strip() and fraction < 1.0 else None
+    return {
+        "label": _antigravity_window_label(group_label, window),
+        "utilization": round(min(max((1.0 - fraction) * 100.0, 0.0), 100.0), 1),
+        "resets_at": resets_at,
+    }
+
+
+def parse_antigravity_usage(envelope: dict) -> list[dict]:
+    """Envelope do `agy --print /usage` → janelas percentuais do card.
+
+    As três provas de que o CLI respondeu sozinho — `command.name == "usage"`,
+    `num_turns == 0` e `usage.total_tokens == 0` — são a salvaguarda de que nenhum
+    turno de modelo (nem gasto) aconteceu. Sem elas, levanta
+    [AntigravityGuardError] e a coleta pausa até o processo reiniciar.
+    """
+    if str(envelope.get("status") or "").upper() == "ERROR":
+        raise ValueError("agy /usage respondeu com erro")
+    command = envelope.get("command")
+    token_usage = envelope.get("usage")
+    answered_by_cli = (
+        isinstance(command, dict)
+        and command.get("name") == "usage"
+        and _zero_count(envelope.get("num_turns"))
+        and isinstance(token_usage, dict)
+        and _zero_count(token_usage.get("total_tokens"))
+    )
+    if not answered_by_cli:
+        raise AntigravityGuardError("envelope sem prova de que o CLI respondeu sozinho")
+
+    windows: list[dict] = []
+    data = command.get("data") if isinstance(command, dict) else None
+    groups = data.get("groups") if isinstance(data, dict) else None
+    for group in groups or []:
+        if not isinstance(group, dict):
+            continue
+        name = group.get("name")
+        group_label = name if isinstance(name, str) else ""
+        for bucket in group.get("buckets") or []:
+            window = _antigravity_bucket_window(bucket, group_label)
+            if window is not None:
+                windows.append(window)
+    if not windows:
+        raise ValueError("agy /usage não devolveu janelas legíveis")
+    return windows
+
+
+def _antigravity_cli_windows() -> list[dict]:
+    """Janelas lidas do `agy`; lista vazia quando indisponível (cai no cache)."""
+    global _antigravity_paused
+    try:
+        envelope = antigravity_cli_envelope()
+        if envelope is None:
+            return []
+        return parse_antigravity_usage(envelope)
+    except AntigravityGuardError as exc:
+        _antigravity_paused = True
+        logger.warning(f"coleta do Antigravity pausada até reiniciar o painel: {exc}")
+        return []
+    except ValueError as exc:
+        logger.debug(f"agy /usage ilegível: {exc}")
+        return []
+
+
 def gemini_usage() -> dict | None:
     account = gemini_account()
+    cli_windows = _antigravity_cli_windows()
+    if cli_windows:
+        return {"available": True, "plan": None, "account": account, "windows": cli_windows}
+
     payload = None
     mtime = None
 

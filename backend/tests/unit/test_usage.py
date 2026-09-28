@@ -13,6 +13,8 @@ import app
 def contas_isoladas(tmp_path, monkeypatch):
     monkeypatch.setattr(app, "CLAUDE_ACCOUNT", tmp_path / "sem-claude.json")
     monkeypatch.setattr(app, "CODEX_AUTH", tmp_path / "sem-auth.json")
+    # nenhum teste chama o CLI de verdade: o agy fica desligado por padrão
+    monkeypatch.setattr(app, "antigravity_cli_envelope", lambda: None)
 
 PAYLOAD_ENTERPRISE = {
     "five_hour": {"utilization": 12.5, "resets_at": "2026-09-19T18:00:00Z"},
@@ -587,4 +589,111 @@ def test_cursor_usage_com_erro_http_retorna_none(monkeypatch):
 
     monkeypatch.setattr(app.httpx, "get", boom)
     assert app.cursor_usage() is None
+
+
+ANTIGRAVITY_ENVELOPE = {
+    "conversation_id": "",
+    "status": "SUCCESS",
+    "response": "ignorado",
+    "num_turns": 0,
+    "usage": {
+        "input_tokens": 0, "output_tokens": 0, "thinking_tokens": 0,
+        "cache_read_tokens": 0, "total_tokens": 0,
+    },
+    "command": {
+        "name": "usage",
+        "data": {
+            "description": "ignorado",
+            "groups": [
+                {
+                    "name": "Gemini Models",
+                    "buckets": [
+                        {"id": "g-7d", "window": "weekly", "remaining_fraction": 0.9592728,
+                         "reset_time": "2026-09-30T21:57:08Z"},
+                        {"id": "g-5h", "window": "5h", "remaining_fraction": 0.78,
+                         "reset_time": "2026-09-28T22:00:00Z"},
+                        {"id": "invalido", "window": "weekly", "remaining_fraction": 1.5},
+                    ],
+                },
+                {
+                    "name": "Claude and GPT models",
+                    "buckets": [
+                        {"id": "c-7d", "window": "weekly", "remaining_fraction": 1.0,
+                         "reset_time": "2026-10-05T00:00:00Z"},
+                    ],
+                },
+            ],
+        },
+    },
+}
+
+
+def test_parse_agy_version():
+    assert app._parse_agy_version("agy 1.2.9 (build 123)") == (1, 2, 9)
+    assert app._parse_agy_version("sem versão") is None
+
+
+def test_agy_executable_recusa_shim_de_shell(tmp_path, monkeypatch):
+    shim = tmp_path / "agy.bat"
+    shim.write_text("@echo off\n")
+    monkeypatch.setattr(app.shutil, "which", lambda name: str(shim))
+    monkeypatch.setattr(app, "STATE_HOME", tmp_path)
+    assert app._agy_executable() is None
+
+    exe = tmp_path / "agy"
+    exe.write_text("#!/bin/sh\n")
+    monkeypatch.setattr(app.shutil, "which", lambda name: str(exe))
+    assert app._agy_executable() == str(exe)
+
+
+def test_parse_antigravity_usage_mapeia_grupos_e_janelas():
+    windows = app.parse_antigravity_usage(ANTIGRAVITY_ENVELOPE)
+    assert [w["label"] for w in windows] == [
+        "Gemini · Semanal (7d)", "Gemini · Sessão (5h)", "Claude/GPT · Semanal (7d)",
+    ]
+    assert [w["utilization"] for w in windows] == [4.1, 22.0, 0.0]
+    assert windows[0]["resets_at"] == "2026-09-30T21:57:08Z"
+    # janela intocada: o reset é "agora + duração" e anda a cada leitura
+    assert windows[2]["resets_at"] is None
+
+
+def test_parse_antigravity_usage_sem_as_provas_levanta_guarda():
+    for change in (
+        {"num_turns": 1},
+        {"usage": {"total_tokens": 12}},
+        {"command": {"name": "model", "data": {}}},
+        {"command": None},
+    ):
+        with pytest.raises(app.AntigravityGuardError):
+            app.parse_antigravity_usage({**ANTIGRAVITY_ENVELOPE, **change})
+
+
+def test_parse_antigravity_usage_erro_ou_sem_janelas_falha():
+    with pytest.raises(ValueError):
+        app.parse_antigravity_usage({"status": "ERROR", "error": "não logado"})
+    with pytest.raises(ValueError):
+        vazio = {"status": "SUCCESS", "num_turns": 0, "usage": {"total_tokens": 0},
+                 "command": {"name": "usage", "data": {"groups": []}}}
+        app.parse_antigravity_usage(vazio)
+
+
+def test_gemini_usage_usa_o_agy_quando_disponivel(monkeypatch):
+    monkeypatch.setattr(app, "gemini_account", lambda: "dev@example.com")
+    monkeypatch.setattr(app, "antigravity_cli_envelope", lambda: ANTIGRAVITY_ENVELOPE)
+    usage = app.gemini_usage()
+    assert usage is not None
+    assert usage["account"] == "dev@example.com"
+    assert usage["plan"] is None
+    assert len(usage["windows"]) == 3
+
+
+def test_gemini_usage_pausa_a_coleta_quando_o_envelope_nao_prova_o_cli(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "ANTIGRAVITY_CACHE_STATUS", tmp_path / "sem.json")
+    monkeypatch.setattr(app, "ANTIGRAVITY_PAYLOAD", tmp_path / "sem2.json")
+    monkeypatch.setattr(app, "gemini_account", lambda: None)
+    monkeypatch.setattr(app, "_antigravity_paused", False)
+    monkeypatch.setattr(app, "antigravity_cli_envelope", lambda: {**ANTIGRAVITY_ENVELOPE, "num_turns": 1})
+
+    assert app.gemini_usage() is None
+    assert app._antigravity_paused is True
 

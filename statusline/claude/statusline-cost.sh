@@ -94,10 +94,11 @@ cost=$(
     # Tabela de preços ($/MTok). Atualizar quando preços/modelos mudarem.
     # Colunas: input, output, cache_write_5m (1.25x), cache_write_1h (2x), cache_read (0.1x)
     function price(model,   p) {
-      if (model ~ /claude-fable/)       { in_p=10.0; out_p=50.0; w5=12.5; w1=20.0; rd=1.0 }
-      else if (model ~ /claude-haiku/)  { in_p=1.0;  out_p=5.0;  w5=1.25; w1=2.0;  rd=0.1 }
-      else if (model ~ /claude-sonnet/) { in_p=3.0;  out_p=15.0; w5=3.75; w1=6.0;  rd=0.3 }
-      else                              { in_p=5.0;  out_p=25.0; w5=6.25; w1=10.0; rd=0.5 }  # opus / fallback
+      if (model ~ /claude-fable/)          { in_p=10.0; out_p=50.0; w5=12.5; w1=20.0; rd=1.0 }
+      else if (model ~ /claude-haiku/)     { in_p=1.0;  out_p=5.0;  w5=1.25; w1=2.0;  rd=0.1 }
+      else if (model ~ /claude-sonnet-5/)  { in_p=2.0;  out_p=10.0; w5=2.5;  w1=4.0;  rd=0.2 }
+      else if (model ~ /claude-sonnet/)    { in_p=3.0;  out_p=15.0; w5=3.75; w1=6.0;  rd=0.3 }
+      else                                 { in_p=5.0;  out_p=25.0; w5=6.25; w1=10.0; rd=0.5 }  # opus / fallback
     }
     {
       model=$1; in_t=$2; out_t=$3; cr=$4; cw5=$5; cw1=$6

@@ -1,6 +1,10 @@
 import json
+import shutil
 import stat
+import subprocess
 from pathlib import Path
+
+import pytest
 
 import statusline_installer as statusline
 
@@ -281,4 +285,59 @@ def test_get_preview_claude(tmp_path):
     full_text = " ".join(preview["plain_lines"])
     assert "lim 5h:" in full_text or "Sonnet" in full_text
 
+
+def test_custo_do_statusline_distingue_sonnet_5_5_do_sonnet_4(tmp_path, monkeypatch):
+    if shutil.which("jq") is None:
+        pytest.skip("jq não disponível")
+    monkeypatch.setenv("TMPDIR", str(tmp_path))
+    script = statusline.STATUSLINE_SRC / "claude" / "statusline-cost.sh"
+    transcript = tmp_path / "sessao.jsonl"
+    for modelo, sessao, esperado in (
+        ("claude-sonnet-5-5", "s55", "2.0000"),
+        ("claude-sonnet-4-5", "s45", "3.0000"),
+    ):
+        transcript.write_text(json.dumps({
+            "type": "assistant",
+            "message": {"model": modelo, "usage": {"input_tokens": 1_000_000}},
+        }) + "\n")
+        custo = subprocess.run(
+            ["bash", str(script), str(transcript), sessao],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        assert custo == esperado, modelo
+
+
+def test_subagent_statusline_exibe_sonnet_5_5(tmp_path, monkeypatch):
+    if shutil.which("jq") is None:
+        pytest.skip("jq não disponível")
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir()
+    for nome in ("subagent-statusline.sh", "statusline-subagent-cost.sh"):
+        shutil.copy(statusline.STATUSLINE_SRC / "claude" / nome, claude_dir / nome)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    payload = {
+        "session_id": "sessao",
+        "transcript_path": "",
+        "columns": 100,
+        "tasks": [
+            {"id": "t1", "name": "explorer", "model": "claude-sonnet-5-5", "status": "completed", "tokenCount": 1500},
+            {"id": "t2", "name": "builder", "model": "claude-sonnet-5", "status": "completed", "tokenCount": 900},
+        ],
+    }
+    saida = subprocess.run(
+        ["bash", str(claude_dir / "subagent-statusline.sh")],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    conteudos = {}
+    for linha in saida.splitlines():
+        if linha.strip():
+            item = json.loads(linha)
+            conteudos[item["id"]] = item["content"]
+    assert "Sonnet 5.5" in conteudos["t1"]
+    assert "Sonnet 5.5" not in conteudos["t2"]
 

@@ -51,6 +51,7 @@ jq -r '
     elif m|test("opus-5")     then "Opus 5"
     elif m|test("opus-4-8")   then "Opus 4.8"
     elif m|test("opus-4-6")   then "Opus 4.6"
+    elif m|test("sonnet-5-5") then "Sonnet 5.5"
     elif m|test("sonnet-5")   then "Sonnet 5"
     elif m|test("sonnet-4-6") then "Sonnet 4.6"
     elif m|test("sonnet-4-5") then "Sonnet 4.5"

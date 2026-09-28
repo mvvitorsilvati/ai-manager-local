@@ -120,7 +120,7 @@ export default function App() {
     refreshUsage(queryClient)
   }, [queryClient])
 
-  // Atalhos de teclado globais (Cmd ou Ctrl + F / A / L / T / R)
+  // Atalhos de teclado globais (Cmd ou Ctrl + F / A / L, Ctrl+Cmd + T / R)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isCmdOrCtrl = e.metaKey || e.ctrlKey
@@ -162,15 +162,15 @@ export default function App() {
         return
       }
 
-      // Cmd/Ctrl + T -> Alternar tema claro/escuro
-      if (key === "t") {
+      // Ctrl+Cmd + T -> Alternar tema claro/escuro
+      if (key === "t" && e.metaKey && e.ctrlKey) {
         e.preventDefault()
         toggleTheme()
         return
       }
 
-      // Cmd/Ctrl + R -> Atualizar dados sem recarregar o navegador
-      if (key === "r") {
+      // Ctrl+Cmd + R -> Atualizar dados sem recarregar o navegador (Cmd+R segue sendo o reload do navegador)
+      if (key === "r" && e.metaKey && e.ctrlKey) {
         e.preventDefault()
         refreshAll()
         return
@@ -319,7 +319,7 @@ export default function App() {
               variant="outline"
               size="sm"
               onClick={toggleTheme}
-              title={`${t(theme === "dark" ? "theme.toLight" : "theme.toDark")} (⌘T)`}
+              title={`${t(theme === "dark" ? "theme.toLight" : "theme.toDark")} (⌃⌘T)`}
               aria-label={t(theme === "dark" ? "theme.toLight" : "theme.toDark")}
             >
               {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
@@ -364,7 +364,7 @@ export default function App() {
               size="sm"
               onClick={refreshAll}
               disabled={isFetching}
-              title={`${t("header.refresh")} (⌘R)`}
+              title={`${t("header.refresh")} (⌃⌘R)`}
             >
               <RefreshCw className={cn("size-4", isFetching && "animate-spin")} />
               {t("header.refresh")}

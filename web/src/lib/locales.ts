@@ -118,6 +118,7 @@ export const pt = {
   "dash.skills": "Skills mais usadas",
   "dash.versions": "Versões das IAs",
   "dash.statusline": "Statusline (CLI)",
+  "dash.sessions": "Conversas recentes",
   "dash.recent": "Modificados recentemente",
 
   "statusline.title": "Statusline (CLI)",
@@ -528,6 +529,7 @@ export const en: Record<Key, string> = {
   "dash.skills": "Most used skills",
   "dash.versions": "AI versions",
   "dash.statusline": "Statusline (CLI)",
+  "dash.sessions": "Recent conversations",
   "dash.recent": "Recently modified",
 
   "statusline.title": "Statusline (CLI)",
@@ -935,6 +937,7 @@ export const es: Record<Key, string> = {
   "dash.skills": "Skills más usadas",
   "dash.versions": "Versiones de las IAs",
   "dash.statusline": "Statusline (CLI)",
+  "dash.sessions": "Conversaciones recientes",
   "dash.recent": "Modificados recientemente",
 
   "statusline.title": "Statusline (CLI)",

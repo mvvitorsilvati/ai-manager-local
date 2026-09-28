@@ -38,7 +38,7 @@ Se ejecuta 100% local (`127.0.0.1`), sin telemetría y sin enviar nada al exteri
 - **Statusline de terminal**: barra de estado en tiempo real para Claude Code y Antigravity (`just statusline`), con vista previa web e instalador interactivo
 - **Instaladores oficiales de IA**: detección de asistentes no instalados con comandos y enlaces oficiales de documentación
 - **Operación**: MCPs, plugins, versiones y actualizaciones, apertura de la IA en terminal o app nativa, auditoría y logs
-- **Búsqueda, idiomas y tema**: búsqueda global y contextual (`⌘F`), atajos globales (`⌘A`, `⌘T`, `⌘R`, `⌘B`, `⌘L`), interfaz en PT-BR/EN/ES y modo claro/oscuro
+- **Búsqueda, idiomas y tema**: búsqueda global y contextual (`⌘F`), atajos globales (`⌘A`, `⌃⌘T`, `⌃⌘R`, `⌘B`, `⌘L`), interfaz en PT-BR/EN/ES y modo claro/oscuro
 
 Detalles en [Qué hace](#qué-hace).
 
@@ -79,7 +79,7 @@ Las tarjetas de uso muestran la cuenta autenticada y los límites para Claude Co
 
 ### Historial de conversaciones
 
-Permite revisar el historial de sesiones por IA o proyecto, mostrando en la primera línea el costo en USD, tokens totales y número de mensajes. Incluye filtros Top 20 por costo y tokens, vista completa de mensajes en Markdown y copia del comando nativo de reanudación (`--resume`).
+Permite revisar el historial de sesiones por IA o proyecto, mostrando en la primera línea el costo en USD, tokens totales y número de mensajes. Incluye filtros Top 20 por costo y tokens, vista completa de mensajes en Markdown y copia del comando nativo de reanudación (`--resume`). La Visión general muestra las conversaciones recientes y el total de sesiones.
 
 ### Statusline de terminal
 
@@ -103,7 +103,7 @@ Un icono junto a cada IA abre la CLI en el terminal detectado (Terminal, iTerm2 
 
 ### Estado e interfaz
 
-Se muestra una alerta en la barra lateral cuando una IA presenta un incidente activo, consultando las páginas de estado de Anthropic, OpenAI, GitHub, Google Cloud y Cursor. La interfaz está disponible en PT-BR, EN y ES, cuenta con tema claro/oscuro que sigue al sistema, atajos (`⌘K`, `⌘F`, `⌘A`, `⌘L`, `⌘T`, `⌘R`, `⌘B`, `⌘E`, `⌘S`, `Esc`) y navegación integrada con el historial del navegador.
+Se muestra una alerta en la barra lateral cuando una IA presenta un incidente activo, consultando las páginas de estado de Anthropic, OpenAI, GitHub, Google Cloud y Cursor. La interfaz está disponible en PT-BR, EN y ES, cuenta con tema claro/oscuro que sigue al sistema, atajos (`⌘K`, `⌘F`, `⌘A`, `⌘L`, `⌃⌘T`, `⌃⌘R`, `⌘B`, `⌘E`, `⌘S`, `Esc`) y navegación integrada con el historial del navegador.
 
 ## Logs y depuración
 
@@ -282,8 +282,8 @@ just dev
 | `⌘F` | enfoca la barra de búsqueda global |
 | `⌘A` | colapsa o expande todas las carpetas (cuando no se está editando texto) |
 | `⌘L` | alterna entre idiomas (Português → English → Español) |
-| `⌘T` | alterna entre tema claro y oscuro |
-| `⌘R` | actualiza los datos sin recargar el navegador |
+| `⌃⌘T` | alterna entre tema claro y oscuro |
+| `⌃⌘R` | actualiza los datos sin recargar el navegador |
 | `⌘B` | colapsa o expande el menú lateral |
 | `⌘K` | abre el menú de comandos |
 | `⌘E` | entra en modo de edición (Monaco) |

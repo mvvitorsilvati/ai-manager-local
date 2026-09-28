@@ -25,7 +25,7 @@ Local web panel (on your Mac only) to view and edit the settings of the AIs inst
 
 **Website:** https://mvvitorsilvati.github.io/ai-manager-local/ (landing page served by GitHub Pages from `site/`)
 
-It runs 100% locally (`127.0.0.1`), with no telemetry and nothing sent out — except calls to the official APIs: account usage/limits (Claude, Codex, Copilot and Gemini), versions published on npm and the status pages, always with the credentials that already exist on your machine.
+It runs 100% locally (`127.0.0.1`), with no telemetry and nothing sent out — except calls to the official APIs: account usage/limits (Claude, Codex, Copilot, Gemini and Cursor), versions published on npm and the status pages, always with the credentials that already exist on your machine.
 
 ![Panel overview: counters for contexts, skills, agents, commands, rules, docs, MCPs, plugins, projects and files; Codex and GitHub Copilot usage cards with limits and reset; and the daily spend chart](site/assets/painel.jpg)
 
@@ -70,7 +70,7 @@ On the Overview, the field searches everything by name and content, highlighting
 
 ### Usage and spend
 
-The usage cards show the authenticated account and the limits for Claude Code (5h and 7d windows, or credits), Codex (5h and 7d, read from the last rollout), GitHub Copilot (premium requests and monthly reset), and Gemini/Antigravity (5h and 7d windows). Spend reads the local CLI logs and builds charts of cost and tokens per day, per model or per AI, with tables per model and project. These are list prices, not your bill; Copilot shows up in AIU.
+The usage cards show the authenticated account and the limits for Claude Code (5h and 7d windows, or credits), Codex (5h and 7d, read from the last rollout), GitHub Copilot (premium requests and monthly reset), Gemini/Antigravity (5h and 7d windows) and Cursor (included usage as Auto/API percentages, plus on-demand in $ when present — included usage has no $ figure to show). Spend reads the local CLI logs and builds charts of cost and tokens per day, per model or per AI, with tables per model and project. These are list prices, not your bill; Copilot shows up in AIU.
 
 ### Conversations
 
@@ -120,7 +120,7 @@ An alert in the sidebar appears when the AI has an active incident, checking the
 | [just](https://github.com/casey/just) | 1.x | task shortcuts (optional) |
 | Podman or Docker | — | optional, only to run in a container |
 
-For the usage cards (optional): authenticated `gh` (Copilot) and Claude Code logged in (Keychain) — without that, the card simply does not appear.
+For the usage cards (optional): authenticated `gh` (Copilot), Claude Code logged in (Keychain) and Cursor installed and signed in (the card reads the editor session) — without that, the card simply does not appear.
 
 ## Install
 
@@ -346,7 +346,7 @@ The backend scans the sources on every catalog request (no database). The fronte
 | GET | `/api/raw?s=&r=` | raw bytes (images, up to 20 MB) |
 | GET | `/api/search?q=` | search by name and content |
 | GET | `/api/backups?s=&r=` | backup versions of the file |
-| GET | `/api/usage[?refresh=1][&tool=claude\|codex\|copilot\|gemini]` | usage/limits for Claude, Codex, Copilot and Gemini (60 s cache); `tool` limits the refresh to one AI |
+| GET | `/api/usage[?refresh=1][&tool=claude\|codex\|copilot\|gemini\|cursor]` | usage/limits for Claude, Codex, Copilot, Gemini and Cursor (60 s cache); `tool` limits the refresh to one AI |
 | GET | `/api/spend[?days=7][&tool=][&refresh=1]` | local cost and tokens (claude, codex, opencode, copilot). `days=0` reads everything. 60 s cache |
 | GET | `/api/skill-usage[?days=7][&tool=][&refresh=1]` | skill invocations and approx. context tokens, with a global top 20 grouped by name. Only Claude and opencode keep records; Codex/Copilot come with a note. 60 s cache |
 | GET | `/api/versions[?refresh=1]` | installed/latest CLI versions, authenticated accounts and plugin updates (10 min cache) |
@@ -373,7 +373,7 @@ The backend scans the sources on every catalog request (no database). The fronte
 | Codex | `~/.codex` | `config.toml`, `AGENTS.md`, `prompts/`, `rules/`, `skills/` |
 | GitHub Copilot CLI | `~/.copilot` | `settings.json`, `mcp-config.json`, `hooks/`, `skills/` |
 | Gemini / Antigravity | `~/.gemini` | `GEMINI.md`, `settings.json`, `config/`, `skills/` |
-| Cursor | `~/.cursor` | global `mcp.json`, `.cursor/`, `.cursorrules`/`.windsurfrules` in projects (only appears if it exists) |
+| Cursor | `~/.cursor` | global `mcp.json`, `.cursor/`, `.cursorrules`/`.windsurfrules` in projects (only appears if it exists); the usage card reads the editor session (`state.vscdb` under `~/Library/Application Support/Cursor`, `~/.config/Cursor` or `AppData/Roaming/Cursor`) |
 | Projects | `AIM_PROJECTS_DIR` (default `~/Projetos`) | detects repos (`.git` or shallow level) and scans only the config paths + `docs/` |
 
 ### Adding a new AI

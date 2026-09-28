@@ -209,8 +209,10 @@ def test_scan_sessoes_opencode(tmp_path: Path):
     conn.execute("""
         CREATE TABLE part (
             id TEXT PRIMARY KEY,
+            message_id TEXT,
             session_id TEXT,
-            data TEXT
+            data TEXT,
+            time_created INTEGER
         )
     """)
 
@@ -224,12 +226,27 @@ def test_scan_sessoes_opencode(tmp_path: Path):
     )
     conn.execute(
         """
-        INSERT INTO message VALUES ('msg_1', 'ses_1', '{"content": "Erro ao autenticar"}', 1727400000000)
+        INSERT INTO message VALUES (
+            'msg_1', 'ses_1',
+            '{"role": "user", "time": {"created": 1727400000000}}', 1727400000000
+        )
     """
     )
     conn.execute(
         """
-        INSERT INTO part VALUES ('part_1', 'ses_1', '{"tool": "skill", "args": {"name": "github-pr-metrics"}}')
+        INSERT INTO part VALUES (
+            'part_0', 'msg_1', 'ses_1', '{"type": "text", "text": "Erro ao autenticar"}', 1727400000000
+        )
+    """
+    )
+    conn.execute(
+        """
+        INSERT INTO part VALUES (
+            'part_1', 'msg_1', 'ses_1',
+            '{"type": "tool", "tool": "skill",
+              "state": {"input": {"name": "github-pr-metrics"}, "status": "completed"}}',
+            1727400001000
+        )
     """
     )
     conn.commit()
@@ -244,6 +261,91 @@ def test_scan_sessoes_opencode(tmp_path: Path):
     assert s["tokens"] == 1700
     assert s["cost"] == 0.015
     assert s["resume_cmd"] == "opencode session ses_1"
+
+
+def test_detalhes_sessao_opencode_com_parts(tmp_path: Path):
+    db_dir = tmp_path / ".local" / "share" / "opencode"
+    db_dir.mkdir(parents=True)
+    db_file = db_dir / "opencode.db"
+
+    conn = sqlite3.connect(db_file)
+    conn.execute("""
+        CREATE TABLE session (
+            id TEXT PRIMARY KEY,
+            title TEXT,
+            directory TEXT,
+            cost REAL,
+            tokens_input INTEGER,
+            tokens_output INTEGER,
+            tokens_cache_read INTEGER,
+            time_created INTEGER,
+            time_updated INTEGER
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE message (
+            id TEXT PRIMARY KEY,
+            session_id TEXT,
+            data TEXT,
+            time_created INTEGER
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE part (
+            id TEXT PRIMARY KEY,
+            message_id TEXT,
+            session_id TEXT,
+            data TEXT,
+            time_created INTEGER
+        )
+    """)
+    conn.execute(
+        "INSERT INTO session VALUES ("
+        "'ses-opencode-1', 'Ajustar HTTPS local', '/tmp/repo',"
+        " 0.01, 100, 50, 10, 1727400000000, 1727401000000)"
+    )
+    conn.execute(
+        "INSERT INTO message VALUES ("
+        "'msg_u1', 'ses-opencode-1',"
+        " '{\"role\": \"user\", \"time\": {\"created\": 1727400000000}}', 1727400000000)"
+    )
+    conn.execute(
+        "INSERT INTO part VALUES ("
+        "'part_u1', 'msg_u1', 'ses-opencode-1',"
+        " '{\"type\": \"text\", \"text\": \"Como ativar o HTTPS?\"}', 1727400000000)"
+    )
+    conn.execute(
+        "INSERT INTO message VALUES ("
+        "'msg_a1', 'ses-opencode-1',"
+        " '{\"role\": \"assistant\", \"time\": {\"created\": 1727400001000}}', 1727400001000)"
+    )
+    conn.execute(
+        "INSERT INTO part VALUES ("
+        "'part_a1', 'msg_a1', 'ses-opencode-1',"
+        " '{\"type\": \"text\", \"text\": \"Ative com o self-signed.\"}', 1727400001000)"
+    )
+    conn.execute(
+        "INSERT INTO part VALUES ("
+        "'part_a2', 'msg_a1', 'ses-opencode-1',"
+        " '{\"type\": \"tool\", \"tool\": \"read\","
+        " \"state\": {\"input\": {\"filePath\": \"/tmp/repo/app.py\"}, \"status\": \"completed\"}}',"
+        " 1727400002000)"
+    )
+    conn.commit()
+    conn.close()
+
+    res = sessions.get_session_details("opencode", "ses-opencode-1", home=tmp_path)
+    assert res["ok"] is True
+    assert res["id"] == "ses-opencode-1"
+    assert len(res["messages"]) == 2
+    assert res["messages"][0]["role"] == "user"
+    assert "Como ativar o HTTPS?" in res["messages"][0]["content"]
+    assistant_msg = res["messages"][1]
+    assert assistant_msg["role"] == "assistant"
+    assert "Ative com o self-signed." in assistant_msg["content"]
+    assert assistant_msg["tool_calls"] == ["Read(/tmp/repo/app.py)"]
+    assert assistant_msg["tool_details"][0]["name"] == "read"
+    assert "/tmp/repo/app.py" in assistant_msg["tool_details"][0]["raw"]
 
 
 def test_busca_e_filtro_multi_termo(tmp_path: Path):
@@ -989,3 +1091,98 @@ def test_get_sessions_retorna_top_cost_e_top_tokens(tmp_path: Path):
 
 
 
+
+
+def test_detalhes_sessao_codex_remove_contexto_e_imagem(tmp_path: Path):
+    sid = "ses-codex-ctx"
+    proj_dir = tmp_path / ".codex" / "sessions"
+    proj_dir.mkdir(parents=True)
+    tfile = proj_dir / f"rollout-{sid}.jsonl"
+    lines = [
+        json.dumps({
+            "type": "response_item",
+            "timestamp": "2026-09-27T10:00:00Z",
+            "payload": {
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": "# AGENTS.md instructions"},
+                    {"type": "input_text", "text": "<environment_context><cwd>/tmp</cwd></environment_context>"},
+                ],
+            },
+        }),
+        json.dumps({
+            "type": "response_item",
+            "timestamp": "2026-09-27T10:01:00Z",
+            "payload": {
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": '<image name="[Image #1]" path="/tmp/x.png">'},
+                    {
+                        "type": "input_image",
+                        "image_url": "data:image/png;base64,iVBORw0KGgo=",
+                    },
+                    {"type": "input_text", "text": "</image>"},
+                    {"type": "input_text", "text": "ajuste o menu"},
+                ],
+            },
+        }),
+        json.dumps({
+            "type": "response_item",
+            "timestamp": "2026-09-27T10:02:00Z",
+            "payload": {
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "Menu ajustado."}],
+            },
+        }),
+    ]
+    tfile.write_text("\n".join(lines) + "\n")
+
+    res = sessions.get_session_details("codex", sid, home=tmp_path)
+    assert res["ok"] is True
+    assert [(m["role"], m["content"]) for m in res["messages"]] == [
+        ("user", "ajuste o menu"),
+        ("assistant", "Menu ajustado."),
+    ]
+    assert res["messages"][0]["images"] == [{
+        "url": "data:image/png;base64,iVBORw0KGgo=",
+        "name": "imagem.png",
+        "mime": "image/png",
+    }]
+
+
+def test_detalhes_sessao_copilot_le_turnos(tmp_path: Path):
+    db_dir = tmp_path / ".copilot"
+    db_dir.mkdir(parents=True)
+    db_file = db_dir / "session-store.db"
+    conn = sqlite3.connect(db_file)
+    conn.execute("""
+        CREATE TABLE sessions (
+            id TEXT PRIMARY KEY, summary TEXT, cwd TEXT,
+            created_at TEXT, updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE turns (
+            id TEXT PRIMARY KEY, session_id TEXT, turn_index INTEGER,
+            user_message TEXT, assistant_response TEXT, timestamp TEXT
+        )
+    """)
+    conn.execute(
+        "INSERT INTO sessions VALUES ("
+        "'ses-copilot-1', 'Ajustar layout', '/tmp/repo',"
+        " '2026-09-21T11:22:36.936Z', '2026-09-21T11:24:14.201Z')"
+    )
+    conn.execute(
+        "INSERT INTO turns VALUES ("
+        "'turn-1', 'ses-copilot-1', 0, 'mova o botão', 'Botão movido.',"
+        " '2026-09-21T11:22:36.936Z')"
+    )
+    conn.commit()
+    conn.close()
+
+    res = sessions.get_session_details("copilot", "ses-copilot-1", home=tmp_path)
+    assert res["ok"] is True
+    assert [(m["role"], m["content"]) for m in res["messages"]] == [
+        ("user", "mova o botão"),
+        ("assistant", "Botão movido."),
+    ]

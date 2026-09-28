@@ -847,8 +847,8 @@ def collect_plugins() -> list[dict]:
             entry["detail"] = detail
 
     oc = load_jsonc(OPENCODE_CONFIG) or {}
-    for name in oc.get("plugin") or []:
-        add(str(name), "opencode")
+    for name in _opencode_plugin_names(oc):
+        add(name, "opencode")
 
     cl_settings = load_json(CLAUDE_SETTINGS) or {}
     for name, enabled in (cl_settings.get("enabledPlugins") or {}).items():
@@ -908,9 +908,19 @@ def plugins_from_config(path: Path) -> list[dict]:
         out.append({"name": str(name), "enabled": True, "detail": ""})
     for name, enabled in (data.get("enabledPlugins") or {}).items():
         out.append({"name": name, "enabled": bool(enabled), "detail": ""})
-    for name, cfg in (data.get("plugins") or {}).items():
-        enabled = cfg.get("enabled", True) if isinstance(cfg, dict) else True
-        out.append({"name": name, "enabled": bool(enabled), "detail": ""})
+    plugins = data.get("plugins")
+    if isinstance(plugins, list):
+        # opencode v2: lista de str ou {package, options}
+        for raw in plugins:
+            if isinstance(raw, dict):
+                pkg = raw.get("package")
+                out.append({"name": str(pkg) if pkg else str(raw), "enabled": True, "detail": ""})
+            else:
+                out.append({"name": str(raw), "enabled": True, "detail": ""})
+    elif isinstance(plugins, dict):
+        for name, cfg in plugins.items():
+            enabled = cfg.get("enabled", True) if isinstance(cfg, dict) else True
+            out.append({"name": name, "enabled": bool(enabled), "detail": ""})
     return out
 
 
@@ -1647,7 +1657,10 @@ def opencode_account() -> str | None:
 
 
 def opencode_plugin_version(name: str) -> str | None:
-    for manifest in OPENCODE_PACKAGES.glob(f"{name}@*/node_modules/{name}/package.json"):
+    for manifest in (
+        *sorted(OPENCODE_PACKAGES.glob(f"{name}*/package.json")),
+        *sorted(OPENCODE_PACKAGES.glob(f"{name}@*/node_modules/{name}/package.json")),
+    ):
         try:
             data = json.loads(manifest.read_text())
         except (OSError, ValueError):
@@ -1755,15 +1768,14 @@ def plugin_update_command(source: str, name: str) -> list[str] | None:
         return [binary, "plugin", "update", name, "-y"] if binary else None
     if source == "opencode":
         binary = shutil.which("opencode")
-        return [binary, "plugin", name, "-g", "--force"] if binary else None
+        return [binary, "plugin", "update", name] if binary else None
     return None
 
 
 def plugin_updates() -> list[dict]:
     out = []
     oc = load_jsonc(OPENCODE_CONFIG) or {}
-    for raw in oc.get("plugin") or []:
-        name = str(raw)
+    for name in _opencode_plugin_names(oc):
         installed, latest = opencode_plugin_version(name), npm_latest(name)
         command = plugin_update_command("opencode", name)
         out.append({
@@ -1794,7 +1806,10 @@ def update_command(tool: str) -> list[str] | None:
     if spec.get("cask") and "/Caskroom/" in real:
         return [shutil.which("brew") or "/opt/homebrew/bin/brew", "upgrade", "--cask", spec["cask"]]
     if spec.get("formula") and "/Cellar/" in real:
-        return [shutil.which("brew") or "/opt/homebrew/bin/brew", "upgrade", spec["formula"]]
+        formula = spec["formula"]
+        if "opencode-v2" in real:
+            formula = "opencode-v2"
+        return [shutil.which("brew") or "/opt/homebrew/bin/brew", "upgrade", formula]
     if spec.get("package") and "/lib/node_modules/" in real:
         npm = Path(real.split("/lib/node_modules/")[0]) / "bin" / "npm"
         return [str(npm) if npm.is_file() else "npm", "install", "-g", f"{spec['package']}@latest"]
@@ -1808,9 +1823,23 @@ def claude_known_plugins() -> set[str]:
     return set(installed) | set(settings.get("enabledPlugins") or {})
 
 
+def _opencode_plugin_names(oc: dict) -> list[str]:
+    """Nomes de plugins do opencode: chave `plugins` (v2: str ou {package, options}) + `plugin` (v1)."""
+    names: list[str] = []
+    for raw in oc.get("plugins") or []:
+        if isinstance(raw, dict):
+            pkg = raw.get("package")
+            names.append(str(pkg) if pkg else str(raw))
+        else:
+            names.append(str(raw))
+    for raw in oc.get("plugin") or []:
+        names.append(str(raw))
+    return names
+
+
 def opencode_plugins() -> set[str]:
     oc = load_jsonc(OPENCODE_CONFIG) or {}
-    return {str(name) for name in oc.get("plugin") or []}
+    return set(_opencode_plugin_names(oc))
 
 
 def _run_command(command: list[str]) -> dict:
@@ -2179,6 +2208,10 @@ def versions_snapshot(force: bool = False) -> dict:
     tools = {}
     for tool, binary, package in CLI_PACKAGES:
         installed, latest = cli_version(binary), npm_latest(package)
+        if installed and latest and _version_tuple(installed) > _version_tuple(latest):
+            # instalado é de uma linha de release mais nova que a consultada (ex.: opencode v2
+            # vs pacote npm da v1): sem base de comparação, em vez de declarar "atualizado"
+            latest = None
         command = update_command(tool)
         method = cli_install_method(binary)
         if not method and tool == "gemini":

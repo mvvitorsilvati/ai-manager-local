@@ -281,7 +281,7 @@ def test_run_plugin_update_opencode_usa_comando_oficial(tmp_path, monkeypatch):
     monkeypatch.setattr(app.subprocess, "run", fake_run)
     result = app.run_plugin_update("opencode", "@dietrichgebert/ponytail")
     assert result["ok"] is True
-    assert captured["command"] == ["/usr/local/bin/opencode", "plugin", "@dietrichgebert/ponytail", "-g", "--force"]
+    assert captured["command"] == ["/usr/local/bin/opencode", "plugin", "update", "@dietrichgebert/ponytail"]
 
 
 def test_run_plugin_update_claude_usa_comando_oficial(tmp_path, monkeypatch):
@@ -383,3 +383,49 @@ def test_metodo_instalacao_cli(monkeypatch):
     monkeypatch.setattr(shutil, "which", lambda b: None)
     assert app.cli_install_method("inexistente") is None
 
+
+
+def test_update_command_opencode_v2_usa_formula_v2(monkeypatch):
+    monkeypatch.setattr(app.shutil, "which", lambda b: "/usr/local/bin/brew" if b == "brew" else f"/usr/local/bin/{b}")
+    monkeypatch.setattr(
+        app.os.path, "realpath", lambda path: "/opt/homebrew/Cellar/opencode-v2/2.0.18/bin/opencode"
+    )
+    assert app.update_command("opencode") == ["/usr/local/bin/brew", "upgrade", "opencode-v2"]
+
+
+def test_opencode_plugin_version_le_layout_v2(tmp_path, monkeypatch):
+    manifest = tmp_path / "@dietrichgebert/ponytail@latest/package.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(json.dumps({"version": "4.10.0"}))
+    monkeypatch.setattr(app, "OPENCODE_PACKAGES", tmp_path)
+    assert app.opencode_plugin_version("@dietrichgebert/ponytail") == "4.10.0"
+
+
+def test_nomes_plugins_opencode_v2_aceita_lista_e_objeto(tmp_path, monkeypatch):
+    config = tmp_path / "opencode.jsonc"
+    config.write_text(
+        '{"plugins": ["opencode-acme-plugin", {"package": "@acme/opencode-plugin", "options": {}}],'
+        ' "plugin": ["legado-v1"]}'
+    )
+    monkeypatch.setattr(app, "OPENCODE_CONFIG", config)
+    assert app.opencode_plugins() == {"opencode-acme-plugin", "@acme/opencode-plugin", "legado-v1"}
+
+
+def test_versions_instalado_mais_novo_que_latest_nao_marca_atualizado(monkeypatch):
+    monkeypatch.setattr(app, "CLI_PACKAGES", (("opencode", "opencode", "opencode-ai"),))
+    monkeypatch.setattr(app, "cli_version", lambda binary: "2.0.18")
+    monkeypatch.setattr(app, "npm_latest", lambda package: "1.18.32")
+    monkeypatch.setattr(app, "update_command", lambda tool: ["opencode", "upgrade"])
+    monkeypatch.setattr(app, "cli_install_method", lambda binary: "brew")
+    monkeypatch.setattr(app, "github_token", lambda: None)
+    monkeypatch.setattr(app, "opencode_account", lambda: None)
+    monkeypatch.setattr(app, "claude_account", lambda: None)
+    monkeypatch.setattr(app, "codex_account", lambda: None)
+    monkeypatch.setattr(app, "github_account", lambda token: None)
+    monkeypatch.setattr(app, "gemini_account", lambda: None)
+    monkeypatch.setattr(app, "plugin_updates", lambda: [])
+    app._versions_cache = (0.0, {})
+    tools = app.versions_snapshot(force=True)["tools"]
+    assert tools["opencode"]["installed"] == "2.0.18"
+    assert tools["opencode"]["latest"] is None
+    assert tools["opencode"]["update"] is None

@@ -193,6 +193,24 @@ def _strip_claude_internal_envelopes(text: str) -> str:
     return text
 
 
+def _is_codex_preamble(text: str) -> bool:
+    """Detecta o preâmbulo injetado do Codex (instruções AGENTS.md, guia Memory), que não é fala real."""
+    stripped = text.lstrip()
+    return stripped.startswith("# AGENTS.md instructions") or stripped.startswith("## Memory")
+
+
+def _strip_codex_internal_blocks(text: str) -> str:
+    """Remove blocos injetados do Codex: environment_context, multi_agent_* e tags <image>."""
+    text = re.sub(r"<environment_context>[\s\S]*?</environment_context>", "", text)
+    text = re.sub(r"<skills_instructions>[\s\S]*?</skills_instructions>", "", text)
+    text = re.sub(r"<collaboration_mode>[\s\S]*?</collaboration_mode>", "", text)
+    text = re.sub(r"<permissions instructions>[\s\S]*?</permissions instructions>", "", text)
+    text = re.sub(r"<multi_agent_\w+>[\s\S]*?</multi_agent_\w+>", "", text)
+    text = re.sub(r"<image\b[^>]*>[\s\S]*?</image>", "", text)
+    text = re.sub(r"<image\b[^>]*/>", "", text)
+    return text
+
+
 def is_claude_user_prompt(record: dict) -> bool:
     """Descarta contexto injetado, resumo de compactação e resultados de ferramentas."""
     if record.get("isMeta") or record.get("isCompactSummary") or record.get("isVisibleInTranscriptOnly"):
@@ -239,17 +257,17 @@ def format_tool_call(name: str, args: dict | None, home: Path | None = None) -> 
 
     # 2. Leitura de Arquivo
     if n_lower in ("view_file", "read", "read_file", "view"):
-        p = _clean_path(args.get("AbsolutePath") or args.get("file_path") or args.get("path"))
+        p = _clean_path(args.get("AbsolutePath") or args.get("file_path") or args.get("filePath") or args.get("path"))
         return f"Read({p})" if p else "Read"
 
     # 3. Edição de Arquivo
     if n_lower in ("replace_file_content", "edit", "edit_file"):
-        p = _clean_path(args.get("TargetFile") or args.get("file_path") or args.get("path"))
+        p = _clean_path(args.get("TargetFile") or args.get("file_path") or args.get("filePath") or args.get("path"))
         return f"Edit({p})" if p else "Edit"
 
     # 4. Criação / Escrita de Arquivo
     if n_lower in ("write_to_file", "write", "create_file"):
-        p = _clean_path(args.get("TargetFile") or args.get("file_path") or args.get("path"))
+        p = _clean_path(args.get("TargetFile") or args.get("file_path") or args.get("filePath") or args.get("path"))
         return f"Write({p})" if p else "Write"
 
     # 5. Busca de Código / Grep / Glob
@@ -281,7 +299,7 @@ def format_tool_call(name: str, args: dict | None, home: Path | None = None) -> 
 
     # 8. Skills
     if n_lower == "skill":
-        sk = _clean_arg(args.get("skill"))
+        sk = _clean_arg(args.get("skill") or args.get("name"))
         return f"Skill({sk})" if sk else "Skill"
 
     # 9. MCP tools (ex: mcp__plugin_linear_linear__get_issue)
@@ -341,6 +359,7 @@ def extract_raw_tool_command(name: str, args: dict | None, formatted: str) -> st
         args.get("AbsolutePath")
         or args.get("TargetFile")
         or args.get("file_path")
+        or args.get("filePath")
         or args.get("path")
         or args.get("pattern")
         or args.get("query")
@@ -770,15 +789,27 @@ def scan_codex_sessions(home: Path | None = None) -> list[dict]:
                         if role == "user" and not first_prompt:
                             if isinstance(content, list):
                                 for item in content:
-                                    if isinstance(item, dict) and item.get("text"):
-                                        first_prompt = item["text"]
-                                        break
+                                    if (
+                                        isinstance(item, dict)
+                                        and item.get("type", "input_text") == "input_text"
+                                        and item.get("text")
+                                    ):
+                                        candidate = _strip_codex_internal_blocks(str(item["text"]))
+                                        if candidate.strip() and not _is_codex_preamble(candidate):
+                                            first_prompt = candidate
+                                            break
                             elif isinstance(content, str):
-                                first_prompt = content
+                                candidate = _strip_codex_internal_blocks(content)
+                                if candidate.strip():
+                                    first_prompt = candidate
                         elif role == "assistant":
                             if isinstance(content, list):
                                 for item in content:
-                                    if isinstance(item, dict) and item.get("text"):
+                                    if (
+                                        isinstance(item, dict)
+                                        and item.get("type", "output_text") == "output_text"
+                                        and item.get("text")
+                                    ):
                                         last_response = item["text"]
                             elif isinstance(content, str):
                                 last_response = content
@@ -839,6 +870,15 @@ def scan_codex_sessions(home: Path | None = None) -> list[dict]:
     return sessions
 
 
+def _opencode_part_input(pdata: dict) -> dict:
+    """Extrai os argumentos de uma part do tipo tool (schema atual: state.input)."""
+    state = pdata.get("state")
+    if isinstance(state, dict) and isinstance(state.get("input"), dict):
+        return state["input"]
+    args = pdata.get("args")
+    return args if isinstance(args, dict) else {}
+
+
 def scan_opencode_sessions(home: Path | None = None) -> list[dict]:
     h = home or get_home()
     db_candidates = [
@@ -868,7 +908,19 @@ def scan_opencode_sessions(home: Path | None = None) -> list[dict]:
 
         for sid, title, directory, cost, tin, tout, read, created, updated in rows:
             first_msg = ""
-            if has_message:
+            if has_part:
+                text_row = conn.execute(
+                    "SELECT data FROM part WHERE session_id = ? "
+                    "AND json_extract(data, '$.type') = 'text' "
+                    "ORDER BY time_created ASC LIMIT 1",
+                    (sid,),
+                ).fetchone()
+                if text_row:
+                    try:
+                        first_msg = str(json.loads(text_row[0]).get("text") or "")
+                    except Exception:
+                        pass
+            if not first_msg and has_message:
                 msg_row = conn.execute(
                     "SELECT data FROM message WHERE session_id = ? ORDER BY time_created ASC LIMIT 1",
                     (sid,),
@@ -883,18 +935,25 @@ def scan_opencode_sessions(home: Path | None = None) -> list[dict]:
             skills_found = set()
             if has_part:
                 parts = conn.execute(
-                    "SELECT data FROM part WHERE session_id = ? AND data LIKE '%skill%'",
+                    "SELECT data FROM part WHERE session_id = ? AND json_extract(data, '$.tool') = 'skill'",
                     (sid,),
                 ).fetchall()
                 for p in parts:
                     try:
-                        pdata = json.loads(p[0])
-                        if pdata.get("tool") == "skill":
-                            sk_name = pdata.get("args", {}).get("name")
-                            if sk_name:
-                                skills_found.add(str(sk_name))
+                        sk_name = _opencode_part_input(json.loads(p[0])).get("name")
+                        if sk_name:
+                            skills_found.add(str(sk_name))
                     except Exception:
                         pass
+
+            msg_count = 1
+            if has_message:
+                try:
+                    msg_count = conn.execute(
+                        "SELECT COUNT(*) FROM message WHERE session_id = ?", (sid,)
+                    ).fetchone()[0] or 1
+                except Exception:
+                    pass
 
             tokens = int(tin or 0) + int(tout or 0) + int(read or 0)
             sessions.append({
@@ -910,7 +969,7 @@ def scan_opencode_sessions(home: Path | None = None) -> list[dict]:
                 "tokens": tokens,
                 "cost": round(float(cost or 0.0), 4),
                 "currency": "USD",
-                "message_count": 1,
+                "message_count": msg_count,
                 "resume_cmd": f"opencode session {sid}",
             })
         conn.close()
@@ -1371,25 +1430,50 @@ def get_session_details(
                             payload = rec.get("payload") or {}
                             role = payload.get("role") or "assistant"
                             c = payload.get("content")
-                            text = ""
+                            text_parts: list[str] = []
+                            images: list[dict] = []
                             if isinstance(c, list):
-                                text = "\n".join(
-                                    item.get("text", "") for item in c if isinstance(item, dict) and item.get("text")
-                                )
+                                for item in c:
+                                    if not isinstance(item, dict):
+                                        continue
+                                    itype = item.get("type", "input_text")
+                                    if itype in ("input_text", "output_text") and item.get("text"):
+                                        txt = str(item["text"])
+                                        if _is_codex_preamble(txt):
+                                            continue
+                                        text_parts.append(txt)
+                                    elif itype == "input_image":
+                                        url = str(item.get("image_url") or "")
+                                        if url:
+                                            m = re.match(r"data:(image/[^;]+);base64,", url)
+                                            images.append({
+                                                "url": url,
+                                                "name": "imagem.png",
+                                                "mime": m.group(1) if m else "image/png",
+                                            })
                             elif isinstance(c, str):
-                                text = c
-                            clean_t = clean_message_content(text)
-                            if clean_t:
+                                text_parts.append(c)
+                            clean_t = clean_message_content(
+                                _strip_codex_internal_blocks("\n".join(text_parts))
+                            )
+                            if clean_t or images:
+                                entry: dict = {
+                                    "role": "user" if role == "user" else "assistant",
+                                    "content": clean_t,
+                                    "timestamp": _iso_from_ts(rec.get("timestamp")),
+                                }
+                                if images:
+                                    entry["images"] = images
                                 if role == "assistant" and messages and messages[-1].get("role") == "assistant":
                                     last_msg = messages[-1]
                                     existing = last_msg.get("content", "").strip()
-                                    last_msg["content"] = f"{existing}\n\n{clean_t}".strip() if existing else clean_t
+                                    last_msg["content"] = (
+                                        f"{existing}\n\n{clean_t}".strip() if existing else clean_t
+                                    )
+                                    if images:
+                                        last_msg.setdefault("images", []).extend(images)
                                 else:
-                                    messages.append({
-                                        "role": "user" if role == "user" else "assistant",
-                                        "content": clean_t,
-                                        "timestamp": _iso_from_ts(rec.get("timestamp")),
-                                    })
+                                    messages.append(entry)
                 except Exception as exc:
                     logger.debug(f"erro ao parsear codex {sid}: {exc}")
 
@@ -1404,21 +1488,73 @@ def get_session_details(
         if db_path:
             try:
                 conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-                rows = conn.execute(
-                    "SELECT data, time_created FROM message WHERE session_id = ? ORDER BY time_created ASC",
+                msg_rows = conn.execute(
+                    "SELECT id, data, time_created FROM message WHERE session_id = ? ORDER BY time_created ASC",
                     (sid,),
                 ).fetchall()
-                for d_raw, t_created in rows:
-                    mdata = json.loads(d_raw)
+                for mid, d_raw, t_created in msg_rows:
+                    try:
+                        mdata = json.loads(d_raw)
+                    except Exception:
+                        continue
                     role = mdata.get("role") or "user"
-                    c = mdata.get("content") or ""
-                    clean_c = clean_message_content(c)
-                    if clean_c:
-                        messages.append({
+                    ts = (mdata.get("time") or {}).get("created", t_created)
+                    texts: list[str] = []
+                    tool_calls: list[str] = []
+                    tool_details: list[dict] = []
+                    images: list[dict] = []
+                    try:
+                        part_rows = conn.execute(
+                            "SELECT data FROM part WHERE message_id = ? ORDER BY time_created ASC",
+                            (mid,),
+                        ).fetchall()
+                    except Exception:
+                        part_rows = []
+                    for (p_raw,) in part_rows:
+                        try:
+                            pdata = json.loads(p_raw)
+                        except Exception:
+                            continue
+                        ptype = pdata.get("type")
+                        if ptype == "text":
+                            txt = str(pdata.get("text") or "")
+                            if txt.strip():
+                                texts.append(txt)
+                        elif ptype == "tool":
+                            tname = str(pdata.get("tool") or "")
+                            targs = _opencode_part_input(pdata)
+                            formatted = format_tool_call(tname, targs, home=h)
+                            tool_calls.append(formatted)
+                            tool_details.append({
+                                "display": formatted,
+                                "name": tname,
+                                "raw": extract_raw_tool_command(tname, targs, formatted),
+                            })
+                            if tname == "skill" and targs.get("name"):
+                                skills_all.add(str(targs["name"]))
+                        elif ptype == "file":
+                            mime = str(pdata.get("mime") or "")
+                            if mime.startswith("image/"):
+                                url = str(pdata.get("url") or "")
+                                if url:
+                                    images.append({
+                                        "url": url,
+                                        "name": str(pdata.get("filename") or "imagem"),
+                                        "mime": mime,
+                                    })
+                    clean_c = clean_message_content("\n\n".join(texts))
+                    if clean_c or tool_calls or images:
+                        entry: dict = {
                             "role": "user" if role == "user" else "assistant",
                             "content": clean_c,
-                            "timestamp": _iso_from_ts(t_created),
-                        })
+                            "timestamp": _iso_from_ts(ts),
+                        }
+                        if tool_calls:
+                            entry["tool_calls"] = tool_calls
+                            entry["tool_details"] = tool_details
+                        if images:
+                            entry["images"] = images
+                        messages.append(entry)
                 conn.close()
             except Exception as exc:
                 logger.debug(f"erro ao ler opencode db para {sid}: {exc}")
@@ -1436,7 +1572,7 @@ def get_session_details(
                 conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
                 rows = conn.execute(
                     """
-                    SELECT user_message, assistant_response, created_at
+                    SELECT user_message, assistant_response, timestamp
                     FROM turns
                     WHERE session_id = ?
                     ORDER BY turn_index ASC

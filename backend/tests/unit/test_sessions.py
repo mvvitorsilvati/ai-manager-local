@@ -1186,3 +1186,76 @@ def test_detalhes_sessao_copilot_le_turnos(tmp_path: Path):
         ("user", "mova o botão"),
         ("assistant", "Botão movido."),
     ]
+
+
+def test_claude_skill_key_extrai_comando_e_rejeita_meta():
+    envelope = "<command-name>{}</command-name>"
+    assert sessions._claude_skill_key(envelope.format("/gh-create-pr-guidelines")) == "gh-create-pr-guidelines"
+    assert sessions._claude_skill_key(envelope.format("/core:agent-readiness")) == "agent-readiness"
+    assert sessions._claude_skill_key("<command-name>/model</command-name>") is None
+    assert sessions._claude_skill_key("<command-name>/effort</command-name>") is None
+    assert sessions._claude_skill_key("texto normal sem envelope") is None
+
+
+def test_scan_claude_registra_skill_de_slash_command(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    projects_dir = claude_dir / "projects" / "p1"
+    projects_dir.mkdir(parents=True)
+    sid = "ses-claude-skill"
+    (claude_dir / "history.jsonl").write_text(
+        json.dumps({"sessionId": sid, "display": "Revisar PR", "project": "/tmp/repo", "timestamp": 1727400000000})
+        + "\n"
+    )
+    (projects_dir / f"{sid}.jsonl").write_text(
+        json.dumps({
+            "type": "user",
+            "timestamp": "2026-09-27T10:00:00Z",
+            "message": {"content": "<command-name>/pr-review-expert</command-name>"},
+
+        })
+        + "\n"
+        + json.dumps({
+            "type": "user",
+            "timestamp": "2026-09-27T10:01:00Z",
+            "message": {"content": "<command-message>x</command-message>\n<command-name>/model</command-name>"},
+        })
+        + "\n"
+    )
+
+    res = sessions.scan_claude_sessions(home=tmp_path)
+    assert res[0]["skills"] == ["pr-review-expert"]
+    det = sessions.get_session_details("claude", sid, home=tmp_path)
+    assert det["skills"] == ["pr-review-expert"]
+
+
+def test_scan_gemini_registra_skill_com_caminho_aspado(tmp_path: Path):
+    gemini_root = tmp_path / ".gemini" / "antigravity-cli"
+    brain_dir = gemini_root / "brain" / "conv-skill" / ".system_generated" / "logs"
+    brain_dir.mkdir(parents=True)
+    (brain_dir / "transcript.jsonl").write_text(
+        json.dumps({
+            "type": "PLANNER_RESPONSE",
+            "content": "lendo skill",
+            "created_at": "2026-09-27T10:00:00Z",
+            "tool_calls": [{
+                "name": "view_file",
+                "args": {"AbsolutePath": '"/repo/.gemini/config/skills/gh-create-pr-guidelines/SKILL.md"'},
+            }],
+        })
+        + "\n"
+        + json.dumps({
+            "type": "PLANNER_RESPONSE",
+            "content": "rodando script",
+            "created_at": "2026-09-27T10:01:00Z",
+            "tool_calls": [{
+                "name": "run_command",
+                "args": {"CommandLine": '"bash /repo/.gemini/config/skills/agent-readiness/scripts/check.sh"'},
+            }],
+        })
+        + "\n"
+    )
+
+    res = sessions.scan_gemini_sessions(home=tmp_path)
+    assert sorted(res[0]["skills"]) == ["agent-readiness", "gh-create-pr-guidelines"]
+    det = sessions.get_session_details("gemini", "conv-skill", home=tmp_path)
+    assert sorted(det["skills"]) == ["agent-readiness", "gh-create-pr-guidelines"]

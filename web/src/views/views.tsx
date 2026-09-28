@@ -338,7 +338,11 @@ export function ToolsView() {
   const ordered = orderGroups(catalog, groups)
   const selectedLabel = catalog.tools.find((t) => t.id === selected)?.label ?? selected
   const hasUsageCard =
-    selected === "claude" || selected === "codex" || selected === "copilot" || selected === "gemini" || selected === "cursor"
+    selected === "claude" ||
+    selected === "codex" ||
+    selected === "copilot" ||
+    selected === "gemini" ||
+    selected === "cursor"
   const version = versions?.tools[selected]
   return (
     <div>

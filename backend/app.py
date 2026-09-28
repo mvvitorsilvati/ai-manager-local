@@ -1025,6 +1025,9 @@ CLAUDE_CREDENTIALS = HOME / ".claude" / ".credentials.json"
 CLAUDE_ACCOUNT = HOME / ".claude.json"
 CLAUDE_KEYCHAIN_SERVICE = "Claude Code-credentials"
 CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
+# Sem o User-Agent do Claude Code o endpoint responde 429 direto (mesmo achado
+# registrado pelo usage-monitor/ai-usagebar); o UA default do httpx não serve.
+CLAUDE_USER_AGENT = "claude-code/1.0.0"
 USAGE_CACHE_SECONDS = 60
 _usage_cache: tuple[float, dict] = (0.0, {})
 _usage_lock = threading.Lock()
@@ -1032,6 +1035,9 @@ _usage_lock = threading.Lock()
 CODEX_SESSIONS = HOME / ".codex" / "sessions"
 CODEX_AUTH = HOME / ".codex" / "auth.json"
 CODEX_TAIL_BYTES = 200_000
+# Quantos rollouts olhar quando o mais novo ainda não gravou `rate_limits`
+# (sessão recém-criada); mesmo desenho do usage-monitor, que varre os 5 últimos.
+CODEX_ROLLOUT_SCAN = 5
 
 GEMINI_KEYCHAIN_SERVICE = "gemini"
 GEMINI_KEYCHAIN_ACCOUNT = "antigravity"
@@ -1108,6 +1114,27 @@ def _money(money: dict | None) -> float | None:
     return round(money["amount_minor"] / (10 ** (money.get("exponent") or 0)), 2)
 
 
+def _minor_units(value, exponent: int = 2) -> float | None:
+    """Valor monetário em unidades menores da moeda (55000 = R$ 550,00).
+
+    `extra_usage` não traz expoente próprio: o padrão é 2, o mesmo do
+    usage-monitor; `decimal_places` assume quando vier.
+    """
+    if not isinstance(value, (int, float)):
+        return None
+    return round(value / (10**exponent), 2)
+
+
+def _ratio_percent(used: float | None, limit: float | None) -> float | None:
+    if used is None or not limit:
+        return None
+    return round(used / limit * 100, 1)
+
+
+def _informed_percent(value) -> float | None:
+    return round(value, 1) if isinstance(value, (int, float)) else None
+
+
 def _first_reset(source: dict) -> str | None:
     for key in ("resets_at", "reset_at", "next_reset_at"):
         value = source.get(key)
@@ -1123,26 +1150,55 @@ def _first_reset(source: dict) -> str | None:
 
 
 def parse_credits(payload: dict) -> dict | None:
-    spend = payload.get("spend")
-    if isinstance(spend, dict) and spend.get("enabled"):
-        return {
-            "used": _money(spend.get("used")),
-            "limit": _money(spend.get("limit")),
-            "currency": (spend.get("used") or {}).get("currency"),
-            "percent": spend.get("percent"),
-            "severity": spend.get("severity"),
-            "resets_at": _first_reset(spend),
-        }
+    """Créditos de uso da Anthropic.
+
+    `extra_usage` é a fonte primária (utilization exato e a moeda real da conta);
+    `spend` cobre quando ela não fecha — mesma precedência do usage-monitor.
+    Desligado é resposta, não falha: a linha some, sem aviso.
+    """
     extra = payload.get("extra_usage")
+    spend = payload.get("spend")
+    severity = spend.get("severity") if isinstance(spend, dict) else None
+
+    if isinstance(extra, dict) and extra.get("is_enabled") is False:
+        return None
+
     if isinstance(extra, dict) and extra.get("is_enabled"):
-        return {
-            "used": extra.get("used_credits"),
-            "limit": extra.get("monthly_limit"),
-            "currency": extra.get("currency"),
-            "percent": extra.get("utilization"),
-            "severity": None,
-            "resets_at": _first_reset(extra),
-        }
+        places = extra.get("decimal_places")
+        exponent = places if isinstance(places, int) else 2
+        limit = _minor_units(extra.get("monthly_limit"), exponent)
+        if limit is not None and limit > 0:
+            used = _minor_units(extra.get("used_credits"), exponent)
+            percent = _informed_percent(extra.get("utilization"))
+            if percent is None:
+                percent = _ratio_percent(used, limit)
+            return {
+                "used": used,
+                "limit": limit,
+                "currency": extra.get("currency"),
+                "percent": percent,
+                "severity": severity,
+                "resets_at": _first_reset(extra),
+            }
+        # `is_enabled` sem limite utilizável: a mesma resposta ainda traz o `spend`.
+
+    if isinstance(spend, dict) and spend.get("enabled"):
+        used = _money(spend.get("used"))
+        limit = _money(spend.get("limit"))
+        if limit is not None and limit > 0:
+            # `spend.percent` chega arredondado; o cálculo sobre as unidades
+            # menores é exato (mesma regra do usage-monitor).
+            percent = _ratio_percent(used, limit)
+            if percent is None:
+                percent = _informed_percent(spend.get("percent"))
+            return {
+                "used": used,
+                "limit": limit,
+                "currency": (spend.get("used") or {}).get("currency"),
+                "percent": percent,
+                "severity": severity,
+                "resets_at": _first_reset(spend),
+            }
     return None
 
 
@@ -1153,7 +1209,12 @@ def claude_usage() -> dict | None:
     try:
         response = httpx.get(
             CLAUDE_USAGE_URL,
-            headers={"Authorization": f"Bearer {token}", "anthropic-beta": "oauth-2025-04-20"},
+            headers={
+                "Authorization": f"Bearer {token}",
+                "anthropic-beta": "oauth-2025-04-20",
+                "User-Agent": CLAUDE_USER_AGENT,
+                "Accept": "application/json",
+            },
             timeout=10,
         )
         response.raise_for_status()
@@ -1177,17 +1238,35 @@ def _epoch_iso(value) -> str | None:
     return datetime.fromtimestamp(value, tz=UTC).isoformat()
 
 
+def _window_duration(minutes: int) -> str:
+    if minutes % 1440 == 0:
+        return f"{minutes // 1440}d"
+    if minutes % 60 == 0:
+        return f"{minutes // 60}h"
+    return f"{minutes}min"
+
+
 def parse_codex_rate_limits(rate: dict) -> list[dict]:
+    """Janelas rotuladas pela duração, não pela posição no payload.
+
+    Planos diferentes já mudaram qual janela chega em `primary`; a duração é o
+    que define o que a janela significa (mesma classificação do usage-monitor).
+    """
     windows = []
     for key in ("primary", "secondary"):
         item = rate.get(key)
         if not isinstance(item, dict):
             continue
         minutes = item.get("window_minutes")
-        if key == "primary":
-            label = f"Sessão ({minutes // 60}h)" if isinstance(minutes, int) else "Sessão"
+        if isinstance(minutes, int) and minutes > 0:
+            if minutes < 1440:
+                label = f"Sessão ({_window_duration(minutes)})"
+            elif minutes < 40320:
+                label = f"Semanal ({_window_duration(minutes)})"
+            else:
+                label = f"Mensal ({_window_duration(minutes)})"
         else:
-            label = f"Semanal ({minutes // 1440}d)" if isinstance(minutes, int) else "Semanal"
+            label = "Sessão" if key == "primary" else "Semanal"
         windows.append({
             "label": label,
             "utilization": item.get("used_percent"),
@@ -1229,19 +1308,9 @@ def codex_account() -> str | None:
     return _jwt_email(id_token) if isinstance(id_token, str) else None
 
 
-def latest_codex_rollout() -> Path | None:
-    if not CODEX_SESSIONS.is_dir():
-        return None
-    files = sorted(CODEX_SESSIONS.glob("**/*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
-    return files[0] if files else None
-
-
-def codex_usage() -> dict | None:
-    rollout = latest_codex_rollout()
-    if rollout is None:
-        return None
-    size = rollout.stat().st_size
+def _last_rate_limits(rollout: Path) -> dict | None:
     try:
+        size = rollout.stat().st_size
         with open(rollout, "rb") as fh:
             if size > CODEX_TAIL_BYTES:
                 fh.seek(size - CODEX_TAIL_BYTES)
@@ -1260,8 +1329,34 @@ def codex_usage() -> dict | None:
         candidate = (payload if isinstance(payload, dict) else obj).get("rate_limits")
         if isinstance(candidate, dict):
             rate = candidate
-    if rate is None:
+    return rate
+
+
+def latest_codex_rate_limits() -> tuple[dict, int] | None:
+    """`rate_limits` do rollout mais recente que já gravou um evento.
+
+    O arquivo mais novo pode ser de uma sessão recém-criada, que ainda não
+    chegou ao primeiro `token_count` — olhar só ele zerava o card nesse
+    intervalo. Varre os mais recentes, como o usage-monitor faz.
+    """
+    if not CODEX_SESSIONS.is_dir():
         return None
+    files = sorted(CODEX_SESSIONS.glob("**/*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+    for rollout in files[:CODEX_ROLLOUT_SCAN]:
+        rate = _last_rate_limits(rollout)
+        if rate is not None:
+            try:
+                return rate, int(rollout.stat().st_mtime)
+            except OSError:
+                continue
+    return None
+
+
+def codex_usage() -> dict | None:
+    found = latest_codex_rate_limits()
+    if found is None:
+        return None
+    rate, updated_at = found
     raw_credits = rate.get("credits")
     credits = raw_credits if isinstance(raw_credits, dict) else {}
     return {
@@ -1269,7 +1364,7 @@ def codex_usage() -> dict | None:
         "windows": parse_codex_rate_limits(rate),
         "plan": rate.get("plan_type"),
         "credits_balance": credits.get("balance"),
-        "updated_at": int(rollout.stat().st_mtime),
+        "updated_at": updated_at,
         "account": codex_account(),
     }
 
@@ -1386,7 +1481,9 @@ def parse_gemini_quota(quota: dict) -> list[dict]:
         if key.startswith("3p") and used == 0.0:
             continue
         utilization = round(used * 100.0, 1)
-        resets_at = item.get("reset_time")
+        # Janela intocada: o CLI devolve "agora + 7d" como reset, que anda a cada
+        # leitura — reset conhecido só quando já houve consumo (como na referência).
+        resets_at = None if used == 0.0 else item.get("reset_time")
         windows.append({
             "label": label,
             "utilization": utilization,
@@ -1451,7 +1548,7 @@ def gemini_usage() -> dict | None:
     if payload is None and account is None:
         return None
 
-    plan = (payload.get("plan_tier") if payload else None) or "Google AI Pro"
+    plan = payload.get("plan_tier") if payload else None
     quota = (payload.get("quota") or {}) if payload else {}
     windows = parse_gemini_quota(quota) if quota else []
 

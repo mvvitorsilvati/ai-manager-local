@@ -1,5 +1,6 @@
 import base64
 import json
+import os
 
 import httpx
 import pytest
@@ -95,20 +96,56 @@ def test_parse_credits_converte_valores_e_reset():
     assert credits is not None
     assert (credits["used"], credits["limit"], credits["currency"]) == (236.7, 250.0, "USD")
     assert credits["severity"] == "critical"
+    # 236,7/250 = 94,68% — o percent exato das unidades menores, não o 95 arredondado do payload.
+    assert credits["percent"] == 94.7
     assert credits["resets_at"] == "2026-09-30T21:00:00Z"
 
 
-def test_parse_credits_usa_extra_usage_como_fallback():
+def test_parse_credits_prefere_extra_usage_e_converte_unidades_menores():
     payload = {
         "extra_usage": {
-            "is_enabled": True, "used_credits": 10.0, "monthly_limit": 100.0,
-            "currency": "USD", "utilization": 10.0,
-        }
+            "is_enabled": True, "used_credits": 32784.0, "monthly_limit": 55000,
+            "utilization": 59.60727272727273, "currency": "BRL", "decimal_places": 2,
+        },
+        "spend": {
+            "used": {"amount_minor": 32784, "currency": "BRL", "exponent": 2},
+            "limit": {"amount_minor": 55000, "currency": "BRL", "exponent": 2},
+            "percent": 60, "enabled": True, "severity": "warning",
+        },
     }
     credits = app.parse_credits(payload)
     assert credits is not None
-    assert credits["used"] == 10.0
-    assert credits["resets_at"] is None
+    # Unidades menores: 55000 = R$ 550,00 (forma real da resposta, como na referência).
+    assert (credits["used"], credits["limit"], credits["currency"]) == (327.84, 550.0, "BRL")
+    assert credits["percent"] == 59.6
+    assert credits["severity"] == "warning"
+
+
+def test_parse_credits_extra_usage_sem_limite_cai_no_spend():
+    payload = {
+        "extra_usage": {"is_enabled": True, "used_credits": None, "monthly_limit": None},
+        "spend": {
+            "used": {"amount_minor": 55134, "currency": "USD", "exponent": 2},
+            "limit": {"amount_minor": 57000, "currency": "USD", "exponent": 2},
+            "enabled": True,
+        },
+    }
+    credits = app.parse_credits(payload)
+    assert credits is not None
+    assert (credits["used"], credits["limit"]) == (551.34, 570.0)
+    assert credits["percent"] == 96.7
+
+
+def test_parse_credits_extra_usage_desabilitado_esconde_mesmo_com_spend_ligado():
+    payload = {
+        "extra_usage": {"is_enabled": False},
+        "spend": {
+            "enabled": True,
+            "used": {"amount_minor": 100, "currency": "USD", "exponent": 2},
+            "limit": {"amount_minor": 1000, "currency": "USD", "exponent": 2},
+        },
+    }
+    assert app.parse_credits(payload) is None
 
 
 def test_parse_credits_desabilitado_retorna_none():
@@ -130,6 +167,28 @@ def test_claude_usage_com_erro_http_retorna_none(monkeypatch):
     assert app.claude_usage() is None
 
 
+def test_claude_usage_envia_user_agent_do_claude_code(monkeypatch):
+    monkeypatch.setattr(app, "claude_access_token", lambda: "token")
+    capturado: dict = {}
+
+    class Resp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {}
+
+    def fake_get(url, **kwargs):
+        capturado.update(kwargs.get("headers") or {})
+        return Resp()
+
+    monkeypatch.setattr(app.httpx, "get", fake_get)
+    app.claude_usage()
+    # Sem o UA do Claude Code o endpoint responde 429 direto.
+    assert capturado["User-Agent"] == "claude-code/1.0.0"
+    assert capturado["anthropic-beta"] == "oauth-2025-04-20"
+
+
 def test_claude_usage_parseia_resposta(monkeypatch):
     monkeypatch.setattr(app, "claude_access_token", lambda: "token")
 
@@ -144,7 +203,7 @@ def test_claude_usage_parseia_resposta(monkeypatch):
     usage = app.claude_usage()
     assert usage is not None
     assert usage["available"] is True
-    assert usage["credits"]["percent"] == 95
+    assert usage["credits"]["percent"] == 94.7
     assert len(usage["windows"]) == 3
 
 
@@ -157,6 +216,22 @@ def test_parse_codex_rate_limits_rotula_janelas():
     assert windows[0]["utilization"] == 83.0
     assert windows[0]["resets_at"] == "2026-09-18T14:52:13+00:00"
     assert windows[1]["label"] == "Semanal (7d)"
+
+
+def test_parse_codex_rate_limits_rotula_pela_duracao_nao_pela_posicao():
+    windows = app.parse_codex_rate_limits({
+        "primary": {"used_percent": 49.0, "window_minutes": 10080},
+        "secondary": {"used_percent": 83.0, "window_minutes": 300},
+    })
+    assert [w["label"] for w in windows] == ["Semanal (7d)", "Sessão (5h)"]
+
+
+def test_parse_codex_rate_limits_janela_mensal_e_sem_duracao():
+    windows = app.parse_codex_rate_limits({
+        "primary": {"used_percent": 10.0, "window_minutes": 40320},
+        "secondary": {"used_percent": 20.0},
+    })
+    assert [w["label"] for w in windows] == ["Mensal (28d)", "Semanal"]
 
 
 def test_codex_usage_le_ultimo_rollout(tmp_path, monkeypatch):
@@ -175,6 +250,24 @@ def test_codex_usage_le_ultimo_rollout(tmp_path, monkeypatch):
     assert usage["plan"] == "plus"
     assert usage["windows"][0]["utilization"] == 10.0
     assert usage["updated_at"] > 0
+
+
+def test_codex_usage_usa_rollout_anterior_quando_o_mais_novo_ainda_nao_tem_rate_limits(tmp_path, monkeypatch):
+    day = tmp_path / "sessions" / "2026" / "09" / "18"
+    day.mkdir(parents=True)
+    antigo = day / "rollout-antigo.jsonl"
+    rate = {"primary": {"used_percent": 21.0, "window_minutes": 300, "resets_at": 1789743133}, "plan_type": "plus"}
+    antigo.write_text(json.dumps({"payload": {"rate_limits": rate}}) + "\n")
+    novo = day / "rollout-novo.jsonl"
+    novo.write_text('{"payload":{"type":"turn"}}\n')
+    os.utime(antigo, (1_700_000_000, 1_700_000_000))
+    os.utime(novo, (1_700_000_100, 1_700_000_100))
+    monkeypatch.setattr(app, "CODEX_SESSIONS", tmp_path / "sessions")
+
+    usage = app.codex_usage()
+    assert usage is not None
+    assert usage["windows"][0]["utilization"] == 21.0
+    assert usage["updated_at"] == 1_700_000_000
 
 
 def test_codex_usage_sem_sessoes_retorna_none(tmp_path, monkeypatch):
@@ -282,6 +375,17 @@ def test_parse_gemini_quota_extrai_janelas_de_5h_e_7d():
     assert windows[2]["utilization"] == 15.0
 
 
+def test_parse_gemini_quota_janela_intocada_sem_reset_conhecido():
+    windows = app.parse_gemini_quota({
+        "gemini-5h": {"remaining_fraction": 1.0, "reset_time": "2026-09-27T14:00:00Z"},
+        "gemini-weekly": {"remaining_fraction": 0.5, "reset_time": "2026-10-04T09:00:00Z"},
+    })
+    # Com a janela intocada o CLI devolve "agora + 7d" como reset, que anda a cada leitura.
+    assert windows[0]["utilization"] == 0.0
+    assert windows[0]["resets_at"] is None
+    assert windows[1]["resets_at"] == "2026-10-04T09:00:00Z"
+
+
 def test_gemini_usage_retorna_dados_do_payload(tmp_path, monkeypatch):
     payload_file = tmp_path / "latest_status.json"
     payload_file.write_text(
@@ -313,4 +417,15 @@ def test_gemini_usage_sem_conta_e_sem_payload_retorna_none(tmp_path, monkeypatch
     monkeypatch.setattr(app, "gemini_account", lambda: None)
 
     assert app.gemini_usage() is None
+
+
+def test_gemini_usage_sem_payload_nao_inventa_plano(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "ANTIGRAVITY_CACHE_STATUS", tmp_path / "inexistente1.json")
+    monkeypatch.setattr(app, "ANTIGRAVITY_PAYLOAD", tmp_path / "inexistente2.json")
+    monkeypatch.setattr(app, "gemini_account", lambda: "dev@example.com")
+
+    usage = app.gemini_usage()
+    assert usage is not None
+    assert usage["plan"] is None
+    assert usage["windows"] == []
 

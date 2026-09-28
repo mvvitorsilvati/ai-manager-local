@@ -18,6 +18,7 @@ from pathlib import Path
 from loguru import logger
 
 import scan_home
+import skills
 import spend
 
 CACHE_TTL = 30  # segundos
@@ -197,6 +198,44 @@ def _is_codex_preamble(text: str) -> bool:
     """Detecta o preâmbulo injetado do Codex (instruções AGENTS.md, guia Memory), que não é fala real."""
     stripped = text.lstrip()
     return stripped.startswith("# AGENTS.md instructions") or stripped.startswith("## Memory")
+
+
+_CLAUDE_META_COMMANDS = frozenset({
+    "model", "mcp", "effort", "cost", "status", "init", "help", "clear", "compact",
+    "doctor", "bug", "login", "logout", "terminal-setup", "resume", "review",
+    "permissions", "tools", "verbose", "memory", "context", "config", "listen", "mode",
+})
+
+
+def _claude_skill_key(text: str | None) -> str | None:
+    """Extrai a skill de um envelope <command-name>/skill</command-name>, ignorando meta-comandos."""
+    m = re.search(r"<command-name>\s*(.*?)\s*</command-name>", text or "")
+    if not m:
+        return None
+    name = (m.group(1).strip().split() or [""])[0]
+    if not name.startswith("/"):
+        return None
+    if name[1:].split(":")[-1].lower() in _CLAUDE_META_COMMANDS:
+        return None
+    return skills.skill_key(name) or None
+
+
+def _clean_tool_path(raw: object) -> str:
+    """Normaliza caminhos de argumentos de ferramenta (o Antigravity costuma aspá-los)."""
+    return str(raw or "").strip().strip("\"").strip("'").strip()
+
+
+def _gemini_tool_skills(name: object, args: dict) -> list[str]:
+    """Extrai skills de uma tool_call do Antigravity: SKILL.md lido ou script executado em /skills/<nome>/."""
+    found: list[str] = []
+    raw = _clean_tool_path(args.get("AbsolutePath"))
+    if "/skills/" in raw and raw.endswith("SKILL.md"):
+        found.append(raw.split("/skills/")[1].split("/")[0])
+    cmd = _clean_tool_path(args.get("CommandLine") or args.get("command"))
+    m = re.search(r"/skills/([^/\"'\s]+)", cmd)
+    if m:
+        found.append(m.group(1))
+    return [skills.skill_key(skill) for skill in found if skills.skill_key(skill)]
 
 
 def _strip_codex_internal_blocks(text: str) -> str:
@@ -479,6 +518,9 @@ def scan_claude_sessions(home: Path | None = None) -> list[dict]:
                 if t == "user" and is_claude_user_prompt(rec):
                     content = (rec.get("message") or {}).get("content")
                     if isinstance(content, str):
+                        skill = _claude_skill_key(content)
+                        if skill:
+                            skills_found.add(skill)
                         prompt = clean_claude_user_text(content)
                         if prompt:
                             user_prompts.append(prompt)
@@ -487,6 +529,9 @@ def scan_claude_sessions(home: Path | None = None) -> list[dict]:
                         msg_count += 1
                         for b in content:
                             if isinstance(b, dict) and b.get("type") == "text" and b.get("text"):
+                                skill = _claude_skill_key(str(b["text"]))
+                                if skill:
+                                    skills_found.add(skill)
                                 user_prompts.append(clean_claude_user_text(str(b["text"])))
                 elif t == "assistant":
                     msg_count += 1
@@ -651,9 +696,10 @@ def scan_gemini_sessions(home: Path | None = None) -> list[dict]:
                                 responses.append(c)
                         for tc in rec.get("tool_calls") or []:
                             args = tc.get("args") or {}
-                            raw = str(args.get("AbsolutePath") or "")
-                            if "/skills/" in raw and raw.endswith("SKILL.md"):
-                                skills_found.add(raw.split("/skills/")[1].split("/")[0])
+                            if not isinstance(args, dict):
+                                continue
+                            for sk in _gemini_tool_skills(tc.get("name"), args):
+                                skills_found.add(sk)
                 except Exception:
                     pass
 
@@ -1248,6 +1294,9 @@ def get_session_details(
                                                     "mime": mtype,
                                                 })
                                 text = "\n".join(text_parts)
+                            skill = _claude_skill_key(text)
+                            if skill:
+                                skills_all.add(skill)
                             clean_t = clean_claude_user_text(text)
                             if clean_t or images:
                                 user_entry: dict = {
@@ -1347,9 +1396,8 @@ def get_session_details(
                             "name": str(tname),
                             "raw": raw_str,
                         })
-                        raw = str(targs.get("AbsolutePath") or "")
-                        if "/skills/" in raw and raw.endswith("SKILL.md"):
-                            skills_all.add(raw.split("/skills/")[1].split("/")[0])
+                        for sk in _gemini_tool_skills(tname, targs):
+                            skills_all.add(sk)
 
                     if stype == "USER_INPUT" or source == "USER_EXPLICIT":
                         clean_c = clean_message_content(content)

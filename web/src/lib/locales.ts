@@ -264,6 +264,8 @@ export const pt = {
   "usage.updated": "Dados da última sessão · {when}",
   "usage.refreshError": "Falha ao atualizar o uso das IAs",
   "usage.details": "Detalhes",
+  "usage.cursorNote":
+    "O uso incluído do Cursor aparece em percentual (Auto/API); valores em $ só quando há cobrança on-demand.",
 
   "spend.title": "Consumo",
   "spend.subtitle": "Tokens e custo lidos dos logs locais. A primeira leitura do período pode levar alguns segundos.",
@@ -678,6 +680,8 @@ export const en: Record<Key, string> = {
   "usage.updated": "Last session data · {when}",
   "usage.refreshError": "Failed to refresh AI usage",
   "usage.details": "Details",
+  "usage.cursorNote":
+    "Cursor included usage appears as a percentage (Auto/API); $ values appear only when there is on-demand billing.",
 
   "spend.title": "Usage",
   "spend.subtitle": "Tokens and cost read from local logs. The first read of the period may take a few seconds.",
@@ -1091,6 +1095,8 @@ export const es: Record<Key, string> = {
   "usage.updated": "Datos de la última sesión · {when}",
   "usage.refreshError": "Error al actualizar el uso de las IAs",
   "usage.details": "Detalles",
+  "usage.cursorNote":
+    "El uso incluido de Cursor aparece en porcentaje (Auto/API); los valores en $ solo aparecen cuando hay cobro on-demand.",
 
   "spend.title": "Consumo",
   "spend.subtitle":

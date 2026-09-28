@@ -3772,6 +3772,9 @@ class Handler(BaseHTTPRequestHandler):
                 target = str(payload.get("target", "none")) if isinstance(payload, dict) else "none"
                 self._json(statusline.install(target))
                 return
+            if url.path == "/api/statusline/jq":
+                self._json(statusline.install_jq())
+                return
             if url.path == "/api/statusline/restore":
                 if not isinstance(payload, dict):
                     raise ApiError("payload inválido", 400)
@@ -3814,7 +3817,10 @@ def main():
     if statusline_target and statusline_target not in ("none", "0", "false"):
         try:
             res = statusline.install(statusline_target)
-            logger.info(f"Statusline auto-install ({statusline_target}): {res.get('message')}")
+            if res.get("ok"):
+                logger.info(f"Statusline auto-install ({statusline_target}): {res.get('message')}")
+            else:
+                logger.warning(f"Statusline auto-install ({statusline_target}) abortado: {res.get('message')}")
         except Exception as exc:
             logger.warning(f"Falha ao executar AIM_STATUSLINE_INSTALL={statusline_target}: {exc}")
 

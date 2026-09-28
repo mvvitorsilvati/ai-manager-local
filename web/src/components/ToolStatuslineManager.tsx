@@ -1,19 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import {
-  CheckCircle2,
-  Clock,
-  Download,
-  FileCode,
-  Info,
-  Loader2,
-  RotateCcw,
-  Sparkles,
-  Terminal,
-  XCircle,
-} from "lucide-react"
+import { CheckCircle2, Clock, Download, FileCode, Info, RotateCcw, Sparkles, Terminal, XCircle } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 
+import { StatuslineInstallDialog } from "@/components/StatuslineInstallDialog"
 import { StatuslineTerminal } from "@/components/StatuslineTerminal"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -28,6 +18,7 @@ export function ToolStatuslineManager({ tool, className }: { tool: "claude" | "g
   const queryClient = useQueryClient()
   const { t } = useI18n()
   const [activeTab, setActiveTab] = useState<"preview" | "backups">("preview")
+  const [installOpen, setInstallOpen] = useState(false)
 
   const targetTool = tool === "claude" ? "claude" : "antigravity"
   const toolLabel = tool === "claude" ? "Claude Code" : "Antigravity (agy)"
@@ -42,19 +33,6 @@ export function ToolStatuslineManager({ tool, className }: { tool: "claude" | "g
     queryKey: ["statusline-backups", targetTool],
     queryFn: () => api.statuslineBackups(targetTool),
     staleTime: 5_000,
-  })
-
-  const installMutation = useMutation({
-    mutationFn: () => api.installStatusline(targetTool),
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["statusline"] })
-      queryClient.invalidateQueries({ queryKey: ["statusline-backups"] })
-      queryClient.invalidateQueries({ queryKey: ["statusline-preview"] })
-      toast.success(result.message)
-    },
-    onError: (error: Error) => {
-      toast.error(error.message)
-    },
   })
 
   const restoreMutation = useMutation({
@@ -126,17 +104,8 @@ export function ToolStatuslineManager({ tool, className }: { tool: "claude" | "g
             </div>
           </div>
 
-          <Button
-            size="sm"
-            onClick={() => installMutation.mutate()}
-            disabled={installMutation.isPending}
-            className="shrink-0"
-          >
-            {installMutation.isPending ? (
-              <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-            ) : (
-              <Download className="mr-1.5 size-3.5" />
-            )}
+          <Button size="sm" onClick={() => setInstallOpen(true)} className="shrink-0">
+            <Download className="mr-1.5 size-3.5" />
             {t("statusline.install_single", { name: toolLabel })}
           </Button>
         </div>
@@ -241,6 +210,14 @@ export function ToolStatuslineManager({ tool, className }: { tool: "claude" | "g
           )}
         </div>
       </CardContent>
+
+      <StatuslineInstallDialog
+        open={installOpen}
+        target={targetTool}
+        jqAvailable={status?.jq.available ?? true}
+        jqCommand={status?.jq.command}
+        onOpenChange={setInstallOpen}
+      />
     </Card>
   )
 }

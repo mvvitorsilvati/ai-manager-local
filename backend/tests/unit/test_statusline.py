@@ -133,7 +133,8 @@ def test_install_antigravity_faz_backup(tmp_path):
     assert backups[0].read_text() == "antigo_agy"
 
 
-def test_install_target_both(tmp_path):
+def test_install_target_both(tmp_path, monkeypatch):
+    monkeypatch.setattr(statusline, "jq_available", lambda: True)
     res = statusline.install("both", home=tmp_path)
     assert res["ok"] is True
     assert res["target"] == "both"
@@ -142,7 +143,8 @@ def test_install_target_both(tmp_path):
     assert res["status"]["antigravity"]["installed"] is True
 
 
-def test_install_target_claude(tmp_path):
+def test_install_target_claude(tmp_path, monkeypatch):
+    monkeypatch.setattr(statusline, "jq_available", lambda: True)
     res = statusline.install("claude", home=tmp_path)
     assert res["ok"] is True
     assert res["target"] == "claude"
@@ -150,7 +152,8 @@ def test_install_target_claude(tmp_path):
     assert res["status"]["antigravity"]["installed"] is False
 
 
-def test_install_target_antigravity(tmp_path):
+def test_install_target_antigravity(tmp_path, monkeypatch):
+    monkeypatch.setattr(statusline, "jq_available", lambda: True)
     res = statusline.install("antigravity", home=tmp_path)
     assert res["ok"] is True
     assert res["target"] == "antigravity"
@@ -341,3 +344,72 @@ def test_subagent_statusline_exibe_sonnet_5_5(tmp_path, monkeypatch):
     assert "Sonnet 5.5" in conteudos["t1"]
     assert "Sonnet 5.5" not in conteudos["t2"]
 
+
+def test_statusline_exige_jq_na_instalacao(tmp_path, monkeypatch):
+    monkeypatch.setattr(statusline, "jq_available", lambda: False)
+    res = statusline.install("claude", home=tmp_path)
+    assert res["ok"] is False
+    assert res["needs_jq"] is True
+    assert res["installed_files"] == []
+    assert not (tmp_path / ".claude" / "statusline-command.sh").exists()
+
+
+def test_status_inclui_o_estado_do_jq(tmp_path, monkeypatch):
+    monkeypatch.setattr(statusline, "jq_available", lambda: False)
+    monkeypatch.setattr(statusline, "jq_install_command", lambda: "brew install jq")
+    st = statusline.check_status(home=tmp_path)
+    assert st["jq"] == {"available": False, "command": "brew install jq"}
+
+
+def test_instalacao_do_jq_chama_o_gerenciador_e_confirma(monkeypatch):
+    estado = {"instalado": False}
+    chamadas = []
+
+    def fake_run(cmd, **kwargs):
+        chamadas.append(cmd)
+        estado["instalado"] = True
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(statusline, "jq_available", lambda: estado["instalado"])
+    monkeypatch.setattr(statusline, "jq_install_command", lambda: "brew install jq")
+    monkeypatch.setattr(statusline.subprocess, "run", fake_run)
+
+    res = statusline.install_jq()
+    assert res["ok"] is True
+    assert res["installed"] is True
+    assert chamadas == [["brew", "install", "jq"]]
+
+
+def test_instalacao_do_jq_reporta_falha_sem_quebrar(monkeypatch):
+    monkeypatch.setattr(statusline, "jq_available", lambda: False)
+    monkeypatch.setattr(statusline, "jq_install_command", lambda: "brew install jq")
+    monkeypatch.setattr(
+        statusline.subprocess,
+        "run",
+        lambda cmd, **kwargs: subprocess.CompletedProcess(cmd, 1, "", "boom: sem rede"),
+    )
+    res = statusline.install_jq()
+    assert res["ok"] is False
+    assert res["installed"] is False
+    assert "boom: sem rede" in res["message"]
+
+
+def test_prompt_do_jq_aceita_instalar(monkeypatch):
+    monkeypatch.setattr(statusline, "jq_available", lambda: True)
+    monkeypatch.setattr(statusline, "jq_install_command", lambda: "brew install jq")
+    monkeypatch.setattr(statusline, "install_jq", lambda: {"ok": True, "message": "jq instalado com sucesso."})
+    monkeypatch.setattr("builtins.input", lambda _: "s")
+    assert statusline.prompt_install_jq() is True
+
+
+def test_prompt_do_jq_recusa_e_aborta(monkeypatch):
+    monkeypatch.setattr(statusline, "jq_available", lambda: False)
+    monkeypatch.setattr(statusline, "jq_install_command", lambda: "brew install jq")
+    monkeypatch.setattr("builtins.input", lambda _: "n")
+    assert statusline.prompt_install_jq() is False
+
+
+def test_ensure_jq_sem_terminal_aborta(monkeypatch):
+    monkeypatch.setattr(statusline, "jq_available", lambda: False)
+    monkeypatch.setattr(statusline.sys.stdin, "isatty", lambda: False)
+    assert statusline.ensure_jq() is False

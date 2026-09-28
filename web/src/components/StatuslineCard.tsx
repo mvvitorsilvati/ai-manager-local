@@ -14,6 +14,7 @@ import {
 import { useState } from "react"
 import { toast } from "sonner"
 
+import { StatuslineInstallDialog } from "@/components/StatuslineInstallDialog"
 import { StatuslineTerminal } from "@/components/StatuslineTerminal"
 import { ToolIcon } from "@/components/ToolIcon"
 import { Badge } from "@/components/ui/badge"
@@ -23,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { api, type StatuslineBackup, type StatuslineTarget } from "@/lib/api"
 import { fmtDT } from "@/lib/format"
 import { useI18n } from "@/lib/i18n"
+import { requiresConfirmation } from "@/lib/statuslineInstall"
 import { cn } from "@/lib/utils"
 
 export function StatuslineCard({ className }: { className?: string }) {
@@ -31,6 +33,8 @@ export function StatuslineCard({ className }: { className?: string }) {
   const [selectedTarget, setSelectedTarget] = useState<StatuslineTarget>("none")
   const [activeTab, setActiveTab] = useState<"install" | "preview" | "backups">("install")
   const [previewTool, setPreviewTool] = useState<"claude" | "antigravity">("antigravity")
+  const [installOpen, setInstallOpen] = useState(false)
+  const [installTarget, setInstallTarget] = useState<Exclude<StatuslineTarget, "none">>("claude")
 
   const { data: status, isLoading } = useQuery({
     queryKey: ["statusline"],
@@ -251,7 +255,14 @@ export function StatuslineCard({ className }: { className?: string }) {
               </div>
               <Button
                 size="sm"
-                onClick={() => mutation.mutate(selectedTarget)}
+                onClick={() => {
+                  if (requiresConfirmation(selectedTarget)) {
+                    setInstallTarget(selectedTarget)
+                    setInstallOpen(true)
+                  } else {
+                    mutation.mutate(selectedTarget)
+                  }
+                }}
                 disabled={mutation.isPending}
                 className="ml-auto"
               >
@@ -357,6 +368,14 @@ export function StatuslineCard({ className }: { className?: string }) {
           </div>
         )}
       </CardContent>
+
+      <StatuslineInstallDialog
+        open={installOpen}
+        target={installTarget}
+        jqAvailable={status?.jq.available ?? true}
+        jqCommand={status?.jq.command}
+        onOpenChange={setInstallOpen}
+      />
     </Card>
   )
 }

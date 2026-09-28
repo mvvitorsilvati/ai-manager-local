@@ -189,6 +189,15 @@ export type SessionItem = {
   currency: string
   message_count: number
   resume_cmd: string
+  snippet?: string
+  deep_match?: boolean
+}
+
+export type SessionDirectory = {
+  cwd: string
+  project: string
+  count: number
+  latest: string
 }
 
 export type SessionsResponse = {
@@ -198,6 +207,7 @@ export type SessionsResponse = {
   sessions: SessionItem[]
   top_cost?: SessionItem[]
   top_tokens?: SessionItem[]
+  directories?: SessionDirectory[]
 }
 
 export type SessionImage = {
@@ -402,7 +412,7 @@ export const api = {
   openTargets: (tool: string) => unwrap<OpenTargets>(client.get("/api/open-targets", { params: { tool } })),
   openWith: (body: { tool: string; target: string; project?: string; session_id?: string; cwd?: string }) =>
     unwrap<{ ok: boolean }>(client.post("/api/open", body)),
-  sessions: (tool: string, q?: string, limit?: number, refresh = false) =>
+  sessions: (tool: string, q?: string, limit?: number, refresh = false, dirs?: string[]) =>
     unwrap<SessionsResponse>(
       client.get("/api/sessions", {
         params: {
@@ -410,6 +420,7 @@ export const api = {
           ...(q ? { q } : {}),
           ...(limit != null ? { limit } : {}),
           ...(refresh ? { refresh: "1" } : {}),
+          ...(dirs && dirs.length > 0 ? { dirs: dirs.join(",") } : {}),
         },
       }),
     ),

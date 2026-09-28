@@ -20,6 +20,7 @@ import {
   Zap,
 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { useCollapseContext } from "@/components/collapse"
@@ -30,7 +31,7 @@ import { ToolIcon } from "@/components/ToolIcon"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api, type SessionItem } from "@/lib/api"
 import { until } from "@/lib/format"
@@ -67,8 +68,12 @@ export function SessionList({
   showHeader?: boolean
 }) {
   const { t, tn } = useI18n()
+  const [params] = useSearchParams()
+  const screenFilter = (params.get("f") ?? "").trim()
   const [query, setQuery] = useState("")
   const [debouncedQuery, setDebouncedQuery] = useState("")
+  const [dirPattern, setDirPattern] = useState("")
+  const [debouncedDirPattern, setDebouncedDirPattern] = useState("")
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [groupByDirectory, setGroupByDirectory] = useState(true)
   const [viewMode, setViewMode] = useState<"all" | "top_cost" | "top_tokens">("all")
@@ -78,17 +83,32 @@ export function SessionList({
   const [selectedSession, setSelectedSession] = useState<SessionItem | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
-  // Debounce search query
+  // Debounce da busca e do filtro de diretório (busca profunda no backend tem cache próprio)
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedQuery(query.trim())
-    }, 250)
+    }, 400)
     return () => clearTimeout(handler)
   }, [query])
 
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedDirPattern(dirPattern.trim())
+    }, 400)
+    return () => clearTimeout(handler)
+  }, [dirPattern])
+
+  // Busca da barra superior ("Filtrar nesta tela…", ?f=) combina com a busca local
+  const effectiveQuery = useMemo(() => {
+    const parts = [screenFilter, debouncedQuery].map((p) => p.trim()).filter(Boolean)
+    return parts.join(" ")
+  }, [screenFilter, debouncedQuery])
+
+  const activeDirs = useMemo(() => (debouncedDirPattern ? [debouncedDirPattern] : []), [debouncedDirPattern])
+
   const { data, isPending, isFetching, refetch } = useQuery({
-    queryKey: ["sessions", tool, debouncedQuery],
-    queryFn: () => api.sessions(tool, debouncedQuery),
+    queryKey: ["sessions", tool, effectiveQuery, debouncedDirPattern],
+    queryFn: () => api.sessions(tool, effectiveQuery, undefined, false, activeDirs),
     staleTime: 30_000,
   })
 
@@ -172,28 +192,61 @@ export function SessionList({
     })
   }
 
-  // Filtragem local para top_cost e top_tokens com busca
+  // Filtragem local para top_cost e top_tokens com busca (inclui trecho profundo)
   const topCostSessions = useMemo(() => {
     const list = data?.top_cost ?? []
-    if (!debouncedQuery) return list
-    const terms = debouncedQuery.toLowerCase().split(/\s+/)
+    if (!effectiveQuery) return list
+    const terms = effectiveQuery.toLowerCase().split(/\s+/)
     return list.filter((s) => {
       const searchable =
-        `${s.title} ${s.preview} ${s.cwd} ${s.project} ${s.id} ${s.tool} ${(s.skills || []).join(" ")}`.toLowerCase()
+        `${s.title} ${s.preview} ${s.snippet ?? ""} ${s.cwd} ${s.project} ${s.id} ${s.tool} ${(s.skills || []).join(" ")}`.toLowerCase()
       return terms.every((t) => searchable.includes(t))
     })
-  }, [data?.top_cost, debouncedQuery])
+  }, [data?.top_cost, effectiveQuery])
 
   const topTokensSessions = useMemo(() => {
     const list = data?.top_tokens ?? []
-    if (!debouncedQuery) return list
-    const terms = debouncedQuery.toLowerCase().split(/\s+/)
+    if (!effectiveQuery) return list
+    const terms = effectiveQuery.toLowerCase().split(/\s+/)
     return list.filter((s) => {
       const searchable =
-        `${s.title} ${s.preview} ${s.cwd} ${s.project} ${s.id} ${s.tool} ${(s.skills || []).join(" ")}`.toLowerCase()
+        `${s.title} ${s.preview} ${s.snippet ?? ""} ${s.cwd} ${s.project} ${s.id} ${s.tool} ${(s.skills || []).join(" ")}`.toLowerCase()
       return terms.every((t) => searchable.includes(t))
     })
-  }, [data?.top_tokens, debouncedQuery])
+  }, [data?.top_tokens, effectiveQuery])
+
+  // Diretórios disponíveis para o filtro (vindos do backend, com fallback local)
+  const directories = useMemo(() => {
+    if (data?.directories && data.directories.length > 0) return data.directories
+    const map = new Map<string, { cwd: string; project: string; count: number; latest: string }>()
+    for (const s of sessions) {
+      const key = s.cwd || "global"
+      const existing = map.get(key)
+      if (!existing) {
+        map.set(key, { cwd: s.cwd, project: s.project || key, count: 1, latest: s.updated_at })
+      } else {
+        existing.count += 1
+        if (s.updated_at > existing.latest) existing.latest = s.updated_at
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.latest.localeCompare(a.latest))
+  }, [data?.directories, sessions])
+
+  function highlightSnippet(text: string, highlightQuery: string) {
+    const terms = highlightQuery.toLowerCase().split(/\s+/).filter(Boolean)
+    if (terms.length === 0) return text
+    const pattern = new RegExp(`(${terms.map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "ig")
+    const parts = text.split(pattern)
+    return parts.map((part, i) =>
+      terms.includes(part.toLowerCase()) ? (
+        <b key={i} className="text-amber-400">
+          {part}
+        </b>
+      ) : (
+        <span key={i}>{part}</span>
+      ),
+    )
+  }
 
   const renderSessionCard = (s: SessionItem, rank?: number) => {
     const isExpanded = expanded.has(s.id)
@@ -380,6 +433,19 @@ export function SessionList({
             </div>
           </div>
         )}
+
+        {/* Linha 4: Trecho encontrado na busca profunda */}
+        {s.snippet && (
+          <div className="mt-2 rounded border border-amber-500/20 bg-amber-500/5 p-2.5 text-xs select-text">
+            <div className="text-muted-foreground mb-1 flex items-center gap-1 text-[11px] font-medium">
+              <Search className="size-3" />
+              {t("sessions.deepMatch")}
+            </div>
+            <p className="text-muted-foreground font-mono text-[11px] whitespace-pre-wrap">
+              {highlightSnippet(s.snippet, effectiveQuery)}
+            </p>
+          </div>
+        )}
       </div>
     )
   }
@@ -456,26 +522,71 @@ export function SessionList({
                 </>
               )}
 
-              {/* Campo de busca */}
-              <div className="relative min-w-[200px] flex-1 sm:w-64">
-                <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
-                <Input
-                  type="text"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t("sessions.searchPlaceholder")}
-                  className="h-8 pr-7 pl-8 text-xs"
-                />
-                {query && (
-                  <button
-                    type="button"
-                    onClick={() => setQuery("")}
-                    className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2"
-                    aria-label={t("sessions.clearSearch")}
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                )}
+              {/* Filtro por diretório (texto com glob, estilo "files to include" do VSCode) */}
+              <div className="min-w-[180px] flex-1 sm:w-56">
+                <InputGroup>
+                  <InputGroupAddon align="inline-start">
+                    <Folder className="size-3.5" />
+                  </InputGroupAddon>
+                  <InputGroupInput
+                    type="text"
+                    value={dirPattern}
+                    onChange={(e) => setDirPattern(e.target.value)}
+                    placeholder={t("sessions.directoryPlaceholder")}
+                    className="h-8 text-xs"
+                    aria-label={t("sessions.directoryFilter")}
+                    list="session-directories"
+                    title={t("sessions.directoryFilter")}
+                  />
+                  {dirPattern && (
+                    <InputGroupAddon align="inline-end">
+                      <InputGroupButton
+                        type="button"
+                        size="icon-xs"
+                        onClick={() => setDirPattern("")}
+                        aria-label={t("sessions.clearSearch")}
+                      >
+                        <X className="size-3.5" />
+                      </InputGroupButton>
+                    </InputGroupAddon>
+                  )}
+                </InputGroup>
+                <datalist id="session-directories">
+                  {directories.map((d) => (
+                    <option key={d.cwd} value={d.cwd}>
+                      {d.project} ({d.count})
+                    </option>
+                  ))}
+                </datalist>
+              </div>
+
+              {/* Campo de busca (Input Group shadcn) */}
+              <div className="min-w-[200px] flex-1 sm:w-64">
+                <InputGroup>
+                  <InputGroupAddon align="inline-start">
+                    <Search className="size-3.5" />
+                  </InputGroupAddon>
+                  <InputGroupInput
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder={t("sessions.searchPlaceholder")}
+                    className="h-8 text-xs"
+                    aria-label={t("sessions.searchPlaceholder")}
+                  />
+                  {query && (
+                    <InputGroupAddon align="inline-end">
+                      <InputGroupButton
+                        type="button"
+                        size="icon-xs"
+                        onClick={() => setQuery("")}
+                        aria-label={t("sessions.clearSearch")}
+                      >
+                        <X className="size-3.5" />
+                      </InputGroupButton>
+                    </InputGroupAddon>
+                  )}
+                </InputGroup>
               </div>
 
               <Button
@@ -571,7 +682,7 @@ export function SessionList({
           sessions.length === 0 ? (
             <div className="text-muted-foreground border-border/60 flex flex-col items-center justify-center rounded-lg border border-dashed py-8 text-center text-sm">
               <MessageSquare className="mb-2 size-8 opacity-40" />
-              <p>{debouncedQuery ? t("sessions.emptySearch", { q: debouncedQuery }) : t("sessions.empty")}</p>
+              <p>{effectiveQuery ? t("sessions.emptySearch", { q: effectiveQuery }) : t("sessions.empty")}</p>
             </div>
           ) : groupByDirectory && directoryGroups ? (
             /* Visualização Agrupada por Diretório */

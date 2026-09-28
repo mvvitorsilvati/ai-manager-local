@@ -466,7 +466,7 @@ O backend responde `503` pedindo o build quando `web/dist` não existe. Rode `ju
 - Claude: precisa do Claude Code logado (Keychain) ou `~/.claude/.credentials.json`
 - Copilot: precisa de `GITHUB_TOKEN`/`GH_TOKEN` ou `gh auth token`
 - Codex: lê o último rollout em `~/.codex/sessions` — sem sessão recente, não há dados
-- Gemini/Antigravity: lê o status das quotas em `~/.gemini/antigravity-cli/cache/latest_status.json` ou as credenciais do Keychain (`security`)
+- Gemini/Antigravity: com o CLI instalado (1.2.9+), lê as quotas direto do `agy --print /usage` (sem precisar do statusline); sem o CLI, cai no cache do statusline (`~/.gemini/antigravity-cli/cache/latest_status.json`) ou nas credenciais do Keychain (`security`)
 - Cursor: precisa do editor instalado e logado — o painel lê a sessão do editor (`state.vscdb`); o uso incluído aparece em percentual (Auto/API), e valores em $ só aparecem quando há on-demand
 - opencode (Zen/Go) não expõe uso localmente; o consumo do Zen aparece só no console da opencode
 

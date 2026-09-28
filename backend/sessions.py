@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import fnmatch
 import json
 import os
 import re
@@ -24,6 +25,13 @@ import spend
 CACHE_TTL = 30  # segundos
 _cache: dict[str, tuple[float, list[dict]]] = {}
 _cache_lock = threading.Lock()
+
+DEEP_CACHE_TTL = 120  # segundos para resultados de busca profunda
+_deep_cache: dict[str, tuple[float, dict[str, str]]] = {}
+_deep_lock = threading.Lock()
+
+MAX_DEEP_FILE_BYTES = 20_000_000
+MAX_DEEP_ROWS = 3000
 
 
 def get_home() -> Path:
@@ -1109,6 +1117,246 @@ def scan_copilot_sessions(home: Path | None = None) -> list[dict]:
     return sessions
 
 
+# ---------------------------------------------------------------- Busca profunda
+
+
+def _deep_terms(query: str | None) -> list[str]:
+    """Normaliza a query em termos minúsculos para busca profunda."""
+    if not query or not query.strip():
+        return []
+    return [t for t in query.lower().strip().split() if t]
+
+
+def _like_escape(value: str) -> str:
+    """Escapa curingas do LIKE (`%`, `_` e a própria barra)."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _snippet_for(content: str, terms: list[str], radius: int = 120, max_len: int = 300) -> str:
+    """Extrai um trecho de contexto ao redor do primeiro termo encontrado."""
+    if not content or not terms:
+        return ""
+    lowered = content.lower()
+    best = -1
+    best_term = ""
+    for term in terms:
+        idx = lowered.find(term)
+        if idx != -1 and (best == -1 or idx < best):
+            best = idx
+            best_term = term
+    if best == -1:
+        return ""
+    start = max(0, best - radius)
+    end = min(len(content), best + len(best_term) + radius)
+    snippet = re.sub(r"\s+", " ", content[start:end]).strip()
+    if start > 0:
+        snippet = "…" + snippet
+    if end < len(content):
+        snippet = snippet + "…"
+    if len(snippet) > max_len:
+        snippet = snippet[:max_len].rstrip() + "…"
+    return snippet
+
+
+def _opencode_part_text(pdata: dict) -> str:
+    """Texto pesquisável de uma part do opencode (inclui output de tools)."""
+    ptype = pdata.get("type")
+    if ptype == "text":
+        return str(pdata.get("text") or "")
+    if ptype == "tool":
+        chunks: list[str] = []
+        state = pdata.get("state")
+        if isinstance(state, dict):
+            inp = state.get("input")
+            if isinstance(inp, dict):
+                chunks.append(json.dumps(inp, ensure_ascii=False))
+            out = state.get("output")
+            if isinstance(out, str) and out:
+                chunks.append(out)
+        args = pdata.get("args")
+        if isinstance(args, dict):
+            chunks.append(json.dumps(args, ensure_ascii=False))
+        return "\n".join(chunks)
+    return ""
+
+
+def _deep_search_opencode(home: Path, terms: list[str]) -> dict[str, str]:
+    """Busca termos no `opencode.db`, incluindo output de tools. Retorna sid -> snippet."""
+    db_candidates = [
+        home / ".local" / "share" / "opencode" / "opencode.db",
+        home / "AppData" / "Local" / "opencode" / "opencode.db",
+        home / "AppData" / "Roaming" / "opencode" / "opencode.db",
+    ]
+    db_path = next((c for c in db_candidates if c.is_file()), None)
+    if not db_path:
+        return {}
+    found: dict[str, str] = {}
+    try:
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        clauses = " AND ".join(["data LIKE ? ESCAPE '\\'"] * len(terms))
+        params = [f"%{_like_escape(t)}%" for t in terms]
+        rows = conn.execute(
+            f"SELECT session_id, data FROM part WHERE {clauses} LIMIT {MAX_DEEP_ROWS}",
+            params,
+        ).fetchall()
+        for sid, raw in rows:
+            if sid in found:
+                continue
+            try:
+                pdata = json.loads(raw)
+            except Exception:
+                continue
+            text = _opencode_part_text(pdata)
+            if not text:
+                text = raw
+            if all(t in text.lower() for t in terms):
+                snippet = _snippet_for(text, terms)
+                if snippet:
+                    found[sid] = snippet
+        conn.close()
+    except Exception as exc:
+        logger.debug(f"busca profunda opencode falhou: {exc}")
+    return found
+
+
+def _file_deep_match(path: Path, terms: list[str]) -> str:
+    """Verifica se todos os termos aparecem no arquivo; retorna snippet do 1º hit."""
+    try:
+        if path.stat().st_size > MAX_DEEP_FILE_BYTES:
+            return ""
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    lowered = text.lower()
+    if not all(t in lowered for t in terms):
+        return ""
+    return _snippet_for(text, terms)
+
+
+def _deep_search_jsonl_files(
+    files: list[tuple[str, Path]],
+    terms: list[str],
+) -> dict[str, str]:
+    """Agrega hits de arquivos jsonl por id de sessão (primeiro snippet por id)."""
+    found: dict[str, str] = {}
+    for sid, path in files:
+        if sid in found:
+            continue
+        snippet = _file_deep_match(path, terms)
+        if snippet:
+            found[sid] = snippet
+    return found
+
+
+def _claude_transcript_files(home: Path) -> list[tuple[str, Path]]:
+    projects_dir = home / ".claude" / "projects"
+    out: list[tuple[str, Path]] = []
+    if not projects_dir.is_dir():
+        return out
+    for p in projects_dir.rglob("*.jsonl"):
+        stem = p.stem
+        # Subagentes ficam em <sid>/subagents/*.jsonl: atribui o hit à sessão pai
+        if p.parent.name == "subagents":
+            sid = p.parent.parent.name
+        else:
+            sid = stem
+        out.append((sid, p))
+    return out
+
+
+def _gemini_transcript_files(home: Path) -> list[tuple[str, Path]]:
+    brain_dir = home / ".gemini" / "antigravity-cli" / "brain"
+    out: list[tuple[str, Path]] = []
+    if not brain_dir.is_dir():
+        return out
+    for b in brain_dir.iterdir():
+        if not b.is_dir():
+            continue
+        for name in ("transcript.jsonl", "transcript_full.jsonl"):
+            tpath = b / ".system_generated" / "logs" / name
+            if tpath.is_file():
+                out.append((b.name, tpath))
+                break
+    return out
+
+
+def _codex_transcript_files(home: Path) -> list[tuple[str, Path]]:
+    sessions_dir = home / ".codex" / "sessions"
+    out: list[tuple[str, Path]] = []
+    if not sessions_dir.is_dir():
+        return out
+    for p in sessions_dir.rglob("*.jsonl"):
+        sid = p.stem.split("-")[-1] if "-" in p.stem else p.stem
+        uuid_match = re.search(r"([0-9a-fA-F-]{36})", p.name)
+        if uuid_match:
+            sid = uuid_match.group(1)
+        out.append((sid, p))
+    return out
+
+
+def _deep_search_copilot(home: Path, terms: list[str]) -> dict[str, str]:
+    db_candidates = [
+        home / ".copilot" / "session-store.db",
+        home / "AppData" / "Local" / "GitHub Copilot" / "session-store.db",
+        home / "AppData" / "Roaming" / "GitHub Copilot" / "session-store.db",
+    ]
+    db_path = next((c for c in db_candidates if c.is_file()), None)
+    if not db_path:
+        return {}
+    found: dict[str, str] = {}
+    try:
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        rows = conn.execute(
+            "SELECT session_id, user_message, assistant_response FROM turns"
+        ).fetchall()
+        for sid, u_msg, a_resp in rows:
+            if sid in found:
+                continue
+            text = f"{u_msg or ''}\n{a_resp or ''}"
+            if text and all(t in text.lower() for t in terms):
+                snippet = _snippet_for(text, terms)
+                if snippet:
+                    found[sid] = snippet
+        conn.close()
+    except Exception as exc:
+        logger.debug(f"busca profunda copilot falhou: {exc}")
+    return found
+
+
+def deep_search(tool: str, query: str, home: Path | None = None) -> dict[str, str]:
+    """Busca profunda no texto completo das sessões (inclui output de tools)."""
+    terms = _deep_terms(query)
+    if len(query.strip()) < 2 or not terms:
+        return {}
+    h = home or get_home()
+    t = tool.lower().strip()
+    cache_key = f"{t}:{str(h)}:{' '.join(terms)}"
+    now = time.time()
+    with _deep_lock:
+        if cache_key in _deep_cache:
+            ts, cached = _deep_cache[cache_key]
+            if now - ts < DEEP_CACHE_TTL:
+                return cached
+    result: dict[str, str] = {}
+    try:
+        if t == "opencode":
+            result = _deep_search_opencode(h, terms)
+        elif t == "claude":
+            result = _deep_search_jsonl_files(_claude_transcript_files(h), terms)
+        elif t in ("gemini", "antigravity"):
+            result = _deep_search_jsonl_files(_gemini_transcript_files(h), terms)
+        elif t == "codex":
+            result = _deep_search_jsonl_files(_codex_transcript_files(h), terms)
+        elif t == "copilot":
+            result = _deep_search_copilot(h, terms)
+    except Exception as exc:
+        logger.debug(f"busca profunda {t} falhou: {exc}")
+        result = {}
+    with _deep_lock:
+        _deep_cache[cache_key] = (now, result)
+    return result
+
+
 SCANNERS = {
     "claude": scan_claude_sessions,
     "gemini": scan_gemini_sessions,
@@ -1121,26 +1369,93 @@ SCANNERS = {
 PRIMARY_TOOLS = ("claude", "gemini", "codex", "opencode", "copilot")
 
 
+def _cwd_matches(cwd: str, project: str, patterns: set[str]) -> bool:
+    """Casa `cwd`/projeto contra padrões glob estilo "files to include" do VSCode.
+
+    - `*sigaweb*`, `src/**/include`, `*.pas`: glob (fnmatch, case-insensitive).
+    - texto puro sem curingas: substring (mantém compat com o filtro exato anterior).
+    - vários padrões separados por vírgula: basta um casar (OR).
+    """
+    haystacks = [cwd.lower(), project.lower(), f"{project.lower()}/{cwd.lower()}"]
+    for raw in patterns:
+        pat = raw.strip().lower()
+        if not pat:
+            continue
+        if any(ch in pat for ch in ("*", "?", "[")):
+            if any(fnmatch.fnmatchcase(h, pat) for h in haystacks):
+                return True
+            # `*termo*` implícito quando o glob não casa o caminho completo
+            core = pat.strip("*")
+            if core and any(core in h for h in haystacks):
+                return True
+        elif any(hay == pat or pat in hay for hay in haystacks):
+            return True
+    return False
+
+
+def _directories_from(sessions_pool: list[dict]) -> list[dict]:
+    """Agrega diretórios (`cwd`) com contagem para popular o filtro da UI."""
+    grouped: dict[str, dict] = {}
+    for s in sessions_pool:
+        cwd = str(s.get("cwd") or "")
+        if not cwd:
+            continue
+        entry = grouped.get(cwd)
+        if not entry:
+            grouped[cwd] = {
+                "cwd": cwd,
+                "project": str(s.get("project") or cwd),
+                "count": 1,
+                "latest": str(s.get("updated_at") or ""),
+            }
+        else:
+            entry["count"] = int(entry.get("count", 0)) + 1
+            if str(s.get("updated_at", "")) > str(entry.get("latest", "")):
+                entry["latest"] = str(s.get("updated_at", ""))
+    return sorted(grouped.values(), key=lambda d: str(d.get("latest", "")), reverse=True)
+
+
 def get_sessions(
     tool: str,
     query: str | None = None,
     limit: int | None = None,
     home: Path | None = None,
     force_refresh: bool = False,
+    dirs: Sequence[str] | None = None,
 ) -> dict:
-    """Retorna lista filtrada de sessões/conversas para a ferramenta solicitada (sem limite por padrão)."""
+    """Retorna lista filtrada de sessões/conversas para a ferramenta solicitada (sem limite por padrão).
+
+    - `query`: busca rasa (título/prévia/cwd/skills) + busca profunda no texto
+      completo (inclui output de tools) quando tem ao menos 2 caracteres.
+    - `dirs`: restringe aos diretórios (`cwd`) exatos informados.
+    """
     t = tool.lower().strip()
     if t == "all":
         all_sessions: list[dict] = []
+        all_dirs: dict[str, dict] = {}
         for pt in PRIMARY_TOOLS:
-            res = get_sessions(pt, query=None, limit=None, home=home, force_refresh=force_refresh)
+            res = get_sessions(
+                pt, query=None, limit=None, home=home, force_refresh=force_refresh, dirs=dirs
+            )
             all_sessions.extend(res.get("sessions", []))
+            for d in res.get("directories", []):
+                key = str(d.get("cwd") or "")
+                if not key:
+                    continue
+                prev = all_dirs.get(key)
+                if prev:
+                    prev["count"] = int(prev.get("count", 0)) + int(d.get("count", 0))
+                    if str(d.get("latest", "")) > str(prev.get("latest", "")):
+                        prev["latest"] = d.get("latest")
+                else:
+                    all_dirs[key] = dict(d)
         all_sessions.sort(key=lambda s: s.get("updated_at", ""), reverse=True)
         sessions_pool = all_sessions
+        pool_directories = sorted(all_dirs.values(), key=lambda d: str(d.get("latest", "")), reverse=True)
     else:
         scanner = SCANNERS.get(t)
         if not scanner:
-            return {"ok": True, "tool": t, "total": 0, "sessions": []}
+            return {"ok": True, "tool": t, "total": 0, "sessions": [], "directories": []}
 
         now = time.time()
         cache_key = f"{t}:{str(home or '')}"
@@ -1156,8 +1471,20 @@ def get_sessions(
             else:
                 sessions_pool = scanner(home)
                 _cache[cache_key] = (now, sessions_pool)
+        pool_directories = _directories_from(sessions_pool)
+
+    # Filtro estruturado por diretórios (glob estilo VSCode, antes da busca textual)
+    if dirs:
+        wanted = {str(d) for d in dirs if str(d).strip()}
+        if wanted:
+            sessions_pool = [
+                s
+                for s in sessions_pool
+                if _cwd_matches(str(s.get("cwd", "")), str(s.get("project", "")), wanted)
+            ]
 
     # Filtragem por busca (termo em título, prévia, diretório, projeto, id, ferramenta ou skills)
+    deep_hits: dict[str, str] = {}
     if query and query.strip():
         terms = query.lower().strip().split()
         filtered = []
@@ -1168,6 +1495,35 @@ def get_sessions(
             ).lower()
             if all(term in searchable for term in terms):
                 filtered.append(s)
+        # Busca profunda no texto completo (inclui output de tools) como união
+        if len(query.strip()) >= 2:
+            h = home or get_home()
+            if t == "all":
+                for pt in PRIMARY_TOOLS:
+                    for sid, snippet in deep_search(pt, query, home=h).items():
+                        deep_hits.setdefault(f"{pt}:{sid}", snippet)
+            else:
+                for sid, snippet in deep_search(t, query, home=h).items():
+                    deep_hits.setdefault(f"{t}:{sid}", snippet)
+        if deep_hits:
+            by_id = {f"{s.get('tool', '')}:{s.get('id', '')}": s for s in sessions_pool}
+            shallow_ids = {f"{s.get('tool', '')}:{s.get('id', '')}" for s in filtered}
+            for key, snippet in deep_hits.items():
+                base = by_id.get(key)
+                if not base:
+                    continue
+                if key in shallow_ids:
+                    for s in filtered:
+                        if f"{s.get('tool', '')}:{s.get('id', '')}" == key:
+                            s.setdefault("snippet", snippet)
+                            s["deep_match"] = True
+                            break
+                else:
+                    copy = dict(base)
+                    copy["snippet"] = snippet
+                    copy["deep_match"] = True
+                    filtered.append(copy)
+            filtered.sort(key=lambda s: s.get("updated_at", ""), reverse=True)
     else:
         filtered = sessions_pool
 
@@ -1191,6 +1547,7 @@ def get_sessions(
         "sessions": filtered if limit is None else filtered[:limit],
         "top_cost": top_cost,
         "top_tokens": top_tokens,
+        "directories": pool_directories,
     }
 
 

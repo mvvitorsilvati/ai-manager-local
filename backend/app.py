@@ -3029,7 +3029,17 @@ class Handler(BaseHTTPRequestHandler):
                 except ValueError:
                     limit = None
             force = params.get("refresh", ["0"])[0] == "1"
-            self._json(sessions.get_sessions(tool_param, query=query, limit=limit, force_refresh=force))
+            raw_dirs = params.get("dirs", []) + params.get("dir", [])
+            dirs: list[str] = []
+            for raw in raw_dirs:
+                for part in str(raw).split(","):
+                    part = part.strip()
+                    if part:
+                        dirs.append(part)
+            self._json(sessions.get_sessions(
+                tool_param, query=query, limit=limit, force_refresh=force,
+                dirs=dirs or None,
+            ))
             return
         if url.path == "/api/sessions/detail":
             tool_param = params.get("tool", ["claude"])[0]

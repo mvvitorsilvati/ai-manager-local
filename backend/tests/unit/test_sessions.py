@@ -1259,3 +1259,88 @@ def test_scan_gemini_registra_skill_com_caminho_aspado(tmp_path: Path):
     assert sorted(res[0]["skills"]) == ["agent-readiness", "gh-create-pr-guidelines"]
     det = sessions.get_session_details("gemini", "conv-skill", home=tmp_path)
     assert sorted(det["skills"]) == ["agent-readiness", "gh-create-pr-guidelines"]
+
+
+def test_busca_profunda_opencode_inclui_output_de_tool(tmp_path: Path):
+    db_dir = tmp_path / ".local" / "share" / "opencode"
+    db_dir.mkdir(parents=True)
+    db_file = db_dir / "opencode.db"
+    conn = sqlite3.connect(db_file)
+    conn.execute("""
+        CREATE TABLE session (
+            id TEXT PRIMARY KEY, title TEXT, directory TEXT, cost REAL,
+            tokens_input INT, tokens_output INT, tokens_cache_read INT,
+            time_created INT, time_updated INT
+        )
+    """)
+    conn.execute("CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT, data TEXT, time_created INT)")
+    conn.execute(
+        "CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT, data TEXT, time_created INT)"
+    )
+    conn.execute(
+        "INSERT INTO session VALUES ('ses-deep-1', 'Titulo sem termo', '/tmp/repo', 0, 0, 0, 0, 1, 2)"
+    )
+    conn.execute("INSERT INTO message VALUES ('m1', 'ses-deep-1', '{}', 1)")
+    conn.execute(
+        "INSERT INTO part VALUES ('p1', 'm1', 'ses-deep-1', '{\"type\": \"text\", \"text\": \"inicio\"}', 1)"
+    )
+    conn.execute(
+        "INSERT INTO part VALUES ('p2', 'm1', 'ses-deep-1', "
+        "'{\"type\": \"tool\", \"tool\": \"read\", \"state\": "
+        "{\"input\": {\"filePath\": \"/tmp/a.pas\"}, \"status\": \"completed\", "
+        "\"output\": \"... AND fr.BOL_TipoCarteira = QuotedStr(Agente) ...\"}}', 2)"
+    )
+    conn.commit()
+    conn.close()
+
+    res = sessions.get_sessions("opencode", query="QuotedStr", home=tmp_path, force_refresh=True)
+    assert res["total"] == 1
+    hit = res["sessions"][0]
+    assert hit["id"] == "ses-deep-1"
+    assert hit.get("deep_match") is True
+    assert "QuotedStr" in (hit.get("snippet") or "")
+
+
+def test_busca_profunda_claude_meio_da_conversa(tmp_path: Path):
+    proj = tmp_path / ".claude" / "projects" / "p1"
+    proj.mkdir(parents=True)
+    sid = "ses-claude-deep"
+    (tmp_path / ".claude" / "history.jsonl").write_text(
+        json.dumps({"sessionId": sid, "display": "Titulo sem termo", "timestamp": 1}) + "\n"
+    )
+    (proj / f"{sid}.jsonl").write_text(
+        json.dumps({"type": "user", "message": {"content": "primeira pergunta"}})
+        + "\n"
+        + json.dumps({
+            "type": "assistant",
+            "message": {"content": [{"type": "text", "text": "meio com QuotedStr aqui"}]},
+        })
+        + "\n"
+    )
+    res = sessions.get_sessions("claude", query="QuotedStr", home=tmp_path, force_refresh=True)
+    assert res["total"] == 1
+    assert res["sessions"][0]["id"] == sid
+    assert "QuotedStr" in (res["sessions"][0].get("snippet") or "")
+
+
+def test_filtro_por_diretorio_e_agregacao(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True)
+    (claude_dir / "history.jsonl").write_text(
+        json.dumps({"sessionId": "s-a", "display": "Tarefa A", "project": "/repo/a", "timestamp": 1})
+        + "\n"
+        + json.dumps({"sessionId": "s-b", "display": "Tarefa B", "project": "/repo/b", "timestamp": 2})
+        + "\n"
+    )
+    res = sessions.get_sessions("claude", home=tmp_path, force_refresh=True)
+    assert {d["cwd"] for d in res["directories"]} == {"/repo/a", "/repo/b"}
+
+    only_a = sessions.get_sessions("claude", home=tmp_path, force_refresh=True, dirs=["/repo/a"])
+    assert only_a["total"] == 1
+    assert only_a["sessions"][0]["id"] == "s-a"
+    # Agregação continua listando todos os diretórios mesmo com filtro ativo
+    assert {d["cwd"] for d in only_a["directories"]} == {"/repo/a", "/repo/b"}
+
+    # Padrão glob estilo VSCode e substring também casam
+    assert sessions.get_sessions("claude", home=tmp_path, force_refresh=True, dirs=["*b"])["total"] == 1
+    assert sessions.get_sessions("claude", home=tmp_path, force_refresh=True, dirs=["repo"])["total"] == 2

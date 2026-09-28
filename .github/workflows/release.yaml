@@ -51,8 +51,10 @@ jobs:
           fi
           PYVER="$(sed -n 's/^version = "\(.*\)"/\1/p' backend/pyproject.toml | head -n 1)"
           JSVER="$(node -p "require('./web/package.json').version")"
-          if [ "$PYVER" != "$VER" ] || [ "$JSVER" != "$VER" ]; then
-            echo "Versões fora de sincronia: pyproject=$PYVER package.json=$JSVER tag=$VER" >&2
+          # Tag da imagem no docker-compose.yml (default de AIM_VERSION)
+          COMPOSEVER="$(sed -n 's/.*AIM_VERSION:-\([0-9][^}]*\)}.*/\1/p' docker-compose.yml | head -n 1)"
+          if [ "$PYVER" != "$VER" ] || [ "$JSVER" != "$VER" ] || [ "$COMPOSEVER" != "$VER" ]; then
+            echo "Versões fora de sincronia: pyproject=$PYVER package.json=$JSVER docker-compose=$COMPOSEVER tag=$VER" >&2
             echo "Faça o bump via PR antes de lançar a release" >&2
             exit 1
           fi

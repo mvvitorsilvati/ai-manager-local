@@ -181,6 +181,7 @@ just stop       # stops the instance on port 4747
 | `just check` | lint + tests |
 | `just hooks` | enables the versioned git hooks (pre-commit runs `just check`) |
 | `just statusline [target]` | installs statusline for Claude Code and/or Antigravity (interactive; default: do nothing) |
+| `just jq` | checks jq (statusline dependency) and offers to install it when missing |
 | `just version` | prints the project version (backend/pyproject.toml) |
 | `just docker-build` | builds the image `localhost/ai-manager-local-py-3.14:<pyproject version>` |
 | `just docker-run` | runs the panel in a container mounting your `$HOME` |
@@ -190,6 +191,8 @@ just stop       # stops the instance on port 4747
 
 The project includes high-performance custom statuslines for **Claude Code** (`~/.claude/`) and **Google Antigravity CLI (`agy`)** (`~/.gemini/antigravity-cli/`).
 They display real-time token quotas (5h, 7d, and monthly windows), context window usage, cumulative session costs, Git branch, and diff stats (+X/-Y) with zero token overhead.
+
+> **Prerequisite:** the scripts use [`jq`](https://jqlang.org/download/) to read the transcripts. Without it, installation (CLI or Web UI) asks whether you want to install it — and **aborts** if you decline. On macOS: `brew install jq`.
 
 Installation is always optional and choice-driven:
 
@@ -223,7 +226,7 @@ Deseja instalar os statusline para o claude-code e ou agy?
      ```
 
 3. **Inside the system (Web UI):**
-   - In the **Dashboard** and on the **By AI** page (`/ia`), the **Statusline (CLI)** card displays current installation and configuration status, script paths, and lets you select and apply installation with one click, creating timestamped backups (`.bak-<timestamp>`) automatically.
+   - In the **Dashboard** and on the **By AI** page (`/ia`), the **Statusline (CLI)** card displays current installation and configuration status, script paths, and lets you select and apply installation with one click, creating timestamped backups (`.bak-<timestamp>`) automatically. Every install asks for confirmation in a modal and, when `jq` is missing, offers to install it — declining aborts the installation.
 
 ### Running in a container (Docker/Podman)
 

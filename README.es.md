@@ -190,6 +190,7 @@ just stop       # detiene la instancia en el puerto 4747
 | `just check` | linters + pruebas |
 | `just hooks` | activa los git hooks versionados (pre-commit ejecuta `just check`) |
 | `just statusline [target]` | instala la statusline para Claude Code y/o Antigravity (interactivo) |
+| `just jq` | verifica jq (dependencia del statusline) y ofrece instalarlo cuando falte |
 | `just version` | imprime la versión del proyecto (backend/pyproject.toml) |
 | `just docker-build` | construye la imagen `localhost/ai-manager-local-py-3.14:<versión del pyproject>` |
 | `just docker-run` | ejecuta el panel en un contenedor montando tu `$HOME` |
@@ -199,6 +200,8 @@ just stop       # detiene la instancia en el puerto 4747
 
 El proyecto incluye barras de estado personalizadas de alto rendimiento para **Claude Code** (`~/.claude/`) y **Google Antigravity CLI (`agy`)** (`~/.gemini/antigravity-cli/`).
 Muestran cuotas de tokens en tiempo real (ventanas de 5h, 7d y mensual), uso de ventana de contexto, costo acumulado de la sesión, rama de Git y estadísticas de diff (+X/-Y) sin sobrecarga de tokens.
+
+> **Requisito previo:** los scripts usan [`jq`](https://jqlang.org/download/) para leer los transcripts. Si no está instalado, la instalación (CLI o interfaz web) pregunta si deseas instalarlo — y **aborta** si rechazas. En macOS: `brew install jq`.
 
 La instalación es siempre opcional:
 
@@ -230,7 +233,7 @@ Deseja instalar os statusline para o claude-code e ou agy?
      ```
 
 3. **Desde la interfaz web:**
-   - En el **Dashboard** y en la pantalla **Por IA** (`/ia`), la tarjeta **Statusline (CLI)** muestra el estado actual y permite aplicar la instalación con un clic, generando copias de seguridad automáticas (`.bak-<timestamp>`).
+   - En el **Dashboard** y en la pantalla **Por IA** (`/ia`), la tarjeta **Statusline (CLI)** muestra el estado actual y permite aplicar la instalación con un clic, generando copias de seguridad automáticas (`.bak-<timestamp>`). Toda instalación pide confirmación en un modal y, si falta `jq`, ofrece instalarlo — rechazar aborta la instalación.
 
 ### Ejecución en contenedor (Docker/Podman)
 

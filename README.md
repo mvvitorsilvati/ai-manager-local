@@ -181,6 +181,7 @@ just stop       # encerra a instância que estiver na porta 4747
 | `just check` | lint + testes |
 | `just hooks` | liga os git hooks versionados (pre-commit roda `just check`) |
 | `just statusline [target]` | instala o statusline para Claude Code e/ou Antigravity (interativo; padrão: não fazer nada) |
+| `just jq` | verifica o jq (dependência do statusline) e oferece instalar quando faltar |
 | `just version` | imprime a versão do projeto (backend/pyproject.toml) |
 | `just docker-build` | build da imagem `localhost/ai-manager-local-py-3.14:<versão do pyproject>` |
 | `just docker-run` | sobe o painel em container montando o seu `$HOME` |
@@ -190,6 +191,8 @@ just stop       # encerra a instância que estiver na porta 4747
 
 O projeto inclui statuslines customizados de alta performance para o **Claude Code** (`~/.claude/`) e para o **Google Antigravity CLI (`agy`)** (`~/.gemini/antigravity-cli/`).
 Eles exibem cotas de tokens em tempo real (janelas de 5h, 7d e mensal), janela de contexto, custos acumulados da sessão, branch Git e diff stats (+X/-Y) com zero overhead de tokens.
+
+> **Pré-requisito:** os scripts usam o [`jq`](https://jqlang.org/download/) para ler os transcripts. Sem ele, a instalação (CLI ou Web UI) pergunta se você deseja instalá-lo — e **aborta** se você recusar. No macOS: `brew install jq`.
 
 A instalação é sempre opcional e orientada por escolha:
 
@@ -223,7 +226,7 @@ Deseja instalar os statusline para o claude-code e ou agy?
      ```
 
 3. **Dentro do sistema (Web UI):**
-   - No **Dashboard** e na tela **Por IA** (`/ia`), o card **Statusline (CLI)** exibe o estado de cada ferramenta (instalado e configurado), os caminhos dos scripts e permite selecionar e instalar diretamente pela interface gráfica, com criação automática de backups com timestamp (`.bak-<timestamp>`).
+   - No **Dashboard** e na tela **Por IA** (`/ia`), o card **Statusline (CLI)** exibe o estado de cada ferramenta (instalado e configurado), os caminhos dos scripts e permite selecionar e instalar diretamente pela interface gráfica, com criação automática de backups com timestamp (`.bak-<timestamp>`). Toda instalação pede confirmação em um modal e, se o `jq` estiver ausente, oferece instalá-lo — recusar aborta a instalação.
 
 ### Rodando em container (Docker/Podman)
 

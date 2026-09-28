@@ -316,7 +316,13 @@ export type ToolStatuslineInfo = {
   path: string
 }
 
+export type StatuslineJqInfo = {
+  available: boolean
+  command: string | null
+}
+
 export type StatuslineStatusResponse = {
+  jq: StatuslineJqInfo
   claude: ToolStatuslineInfo
   antigravity: ToolStatuslineInfo
 }
@@ -326,6 +332,15 @@ export type StatuslineInstallResult = {
   target: StatuslineTarget
   installed_files: string[]
   status: StatuslineStatusResponse
+  message: string
+  needs_jq?: boolean
+  jq_command?: string | null
+}
+
+export type StatuslineJqResult = {
+  ok: boolean
+  installed: boolean
+  command: string | null
   message: string
 }
 
@@ -433,6 +448,7 @@ export const api = {
   statuslineStatus: () => unwrap<StatuslineStatusResponse>(client.get("/api/statusline")),
   installStatusline: (target: StatuslineTarget) =>
     unwrap<StatuslineInstallResult>(client.post("/api/statusline", { target })),
+  installStatuslineJq: () => unwrap<StatuslineJqResult>(client.post("/api/statusline/jq", {})),
   statuslineBackups: (tool?: string) =>
     unwrap<StatuslineBackup[]>(client.get("/api/statusline/backups", { params: tool ? { tool } : {} })),
   restoreStatuslineBackup: (tool: string, backup: string) =>

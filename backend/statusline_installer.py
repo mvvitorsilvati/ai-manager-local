@@ -11,7 +11,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shlex
 import shutil
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -20,6 +22,7 @@ logger = logging.getLogger("statusline")
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 STATUSLINE_SRC = PROJECT_ROOT / "statusline"
+JQ_DOCS_URL = "https://jqlang.org/download/"
 
 
 def get_home() -> Path:
@@ -27,6 +30,62 @@ def get_home() -> Path:
     if aim_home:
         return Path(aim_home).expanduser()
     return Path.home()
+
+
+def jq_available() -> bool:
+    """O statusline usa o jq para ler os transcripts; sem ele os scripts ficam mudos."""
+    return shutil.which("jq") is not None
+
+
+def jq_install_command() -> str | None:
+    """Comando para instalar o jq na plataforma atual, quando houver gerenciador conhecido."""
+    if sys.platform == "darwin":
+        return "brew install jq" if shutil.which("brew") else None
+    for manager, command in (
+        ("apt-get", "sudo apt-get install -y jq"),
+        ("dnf", "sudo dnf install -y jq"),
+        ("yum", "sudo yum install -y jq"),
+        ("pacman", "sudo pacman -S --noconfirm jq"),
+        ("zypper", "sudo zypper install -y jq"),
+        ("apk", "sudo apk add jq"),
+    ):
+        if shutil.which(manager):
+            return command
+    return None
+
+
+def install_jq() -> dict:
+    """Instala o jq pelo gerenciador de pacotes da plataforma."""
+    if jq_available():
+        return {"ok": True, "installed": False, "command": None, "message": "O jq já está instalado."}
+    command = jq_install_command()
+    if command is None:
+        return {
+            "ok": False,
+            "installed": False,
+            "command": None,
+            "message": (
+                "Nenhum gerenciador de pacotes conhecido para instalar o jq. "
+                f"Instale manualmente: {JQ_DOCS_URL}"
+            ),
+        }
+    try:
+        proc = subprocess.run(shlex.split(command), capture_output=True, text=True, timeout=600)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {"ok": False, "installed": False, "command": command, "message": f"Falha ao instalar o jq: {exc}"}
+    if proc.returncode != 0:
+        lines = (proc.stderr or proc.stdout or "").strip().splitlines()
+        hint = lines[-1] if lines else f"código {proc.returncode}"
+        return {"ok": False, "installed": False, "command": command, "message": f"Falha ao instalar o jq ({hint})."}
+    if not jq_available():
+        return {
+            "ok": False,
+            "installed": False,
+            "command": command,
+            "message": f"O comando terminou, mas o jq não apareceu no PATH. Instale manualmente: {JQ_DOCS_URL}",
+        }
+    logger.info(f"jq instalado via '{command}'")
+    return {"ok": True, "installed": True, "command": command, "message": "jq instalado com sucesso."}
 
 
 def check_status(home: Path | None = None) -> dict:
@@ -64,6 +123,10 @@ def check_status(home: Path | None = None) -> dict:
             pass
 
     return {
+        "jq": {
+            "available": jq_available(),
+            "command": jq_install_command(),
+        },
         "claude": {
             "installed": claude_installed,
             "configured": claude_configured,
@@ -176,10 +239,38 @@ def install_antigravity(home: Path | None = None) -> list[str]:
     return installed
 
 
-def install(target: str = "none", home: Path | None = None) -> dict:
-    """Executa a instalação conforme o alvo selecionado."""
+def resolve_target(target: str) -> str:
+    """Normaliza o alvo da instalação para both/claude/antigravity/none."""
     t = target.lower().strip()
     if t in ("both", "ambos", "all", "1"):
+        return "both"
+    if t in ("claude", "claude-code", "2"):
+        return "claude"
+    if t in ("antigravity", "agy", "gemini", "3"):
+        return "antigravity"
+    return "none"
+
+
+def install(target: str = "none", home: Path | None = None) -> dict:
+    """Executa a instalação conforme o alvo selecionado.
+
+    O jq é obrigatório para o statusline: sem ele a instalação é abortada com
+    `needs_jq`, para a UI (modal) ou a CLI perguntarem antes de prosseguir.
+    """
+    resolved = resolve_target(target)
+
+    if resolved != "none" and not jq_available():
+        return {
+            "ok": False,
+            "needs_jq": True,
+            "target": resolved,
+            "installed_files": [],
+            "status": check_status(home),
+            "jq_command": jq_install_command(),
+            "message": "O jq é uma dependência do statusline e não está instalado. Instale o jq para continuar.",
+        }
+
+    if resolved == "both":
         c_files = install_claude(home)
         a_files = install_antigravity(home)
         return {
@@ -189,7 +280,7 @@ def install(target: str = "none", home: Path | None = None) -> dict:
             "status": check_status(home),
             "message": "Statusline instalado com sucesso para Claude Code e Antigravity.",
         }
-    elif t in ("claude", "claude-code", "2"):
+    elif resolved == "claude":
         c_files = install_claude(home)
         return {
             "ok": True,
@@ -198,7 +289,7 @@ def install(target: str = "none", home: Path | None = None) -> dict:
             "status": check_status(home),
             "message": "Statusline instalado com sucesso para o Claude Code.",
         }
-    elif t in ("antigravity", "agy", "gemini", "3"):
+    elif resolved == "antigravity":
         a_files = install_antigravity(home)
         return {
             "ok": True,
@@ -434,14 +525,57 @@ def prompt_user_choice() -> str:
         return "none"
 
 
+def prompt_install_jq() -> bool:
+    """Pergunta no terminal se o usuário quer instalar o jq agora."""
+    command = jq_install_command()
+    print("\nO jq é uma dependência do statusline e não foi encontrado no PATH.")
+    if command:
+        print(f"Comando sugerido: {command}")
+    else:
+        print(f"Instale manualmente: {JQ_DOCS_URL}")
+    try:
+        answer = input("Deseja instalar o jq agora? [s/N]: ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False
+    if answer not in ("s", "sim", "y", "yes"):
+        return False
+    print(f"\n{install_jq()['message']}")
+    return jq_available()
+
+
+def ensure_jq() -> bool:
+    """Garante o jq antes da instalação; aborta quando o usuário recusa ou não há terminal."""
+    if jq_available():
+        return True
+    if not sys.stdin.isatty():
+        print("\nO jq é uma dependência do statusline e não está instalado; instalação abortada.")
+        return False
+    if prompt_install_jq():
+        return True
+    print("\nInstalação abortada: o jq é obrigatório para o statusline.")
+    return False
+
+
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("-")]
+    argv = sys.argv[1:]
+
+    if "--check-jq" in argv:
+        if not ensure_jq():
+            sys.exit(1)
+        print("\njq disponível para o statusline.")
+        return
+
+    args = [a for a in argv if not a.startswith("-")]
     if args:
         target = args[0]
     elif sys.stdin.isatty():
         target = prompt_user_choice()
     else:
         target = "none"
+
+    if resolve_target(target) != "none" and not ensure_jq():
+        sys.exit(1)
 
     result = install(target)
     print(f"\n{result['message']}")

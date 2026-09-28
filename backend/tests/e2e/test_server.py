@@ -187,6 +187,7 @@ def test_usage_responde_com_dados_do_claude(servidor, monkeypatch):
     monkeypatch.setattr(app, "codex_usage", lambda: None)
     monkeypatch.setattr(app, "copilot_usage", lambda: None)
     monkeypatch.setattr(app, "gemini_usage", lambda: None)
+    monkeypatch.setattr(app, "cursor_usage", lambda: None)
     app._usage_cache = (0.0, {})
     status, body = request(f"{servidor.url}/api/usage")
     assert status == 200
@@ -195,6 +196,7 @@ def test_usage_responde_com_dados_do_claude(servidor, monkeypatch):
     assert "codex" in payload
     assert "copilot" in payload
     assert "gemini" in payload
+    assert "cursor" in payload
 
     status, body = request(f"{servidor.url}/api/usage?refresh=1&tool=codex")
     assert status == 200

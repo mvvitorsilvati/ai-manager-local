@@ -15,6 +15,7 @@ import os
 import pwd
 import re
 import shutil
+import sqlite3
 import subprocess
 import sys
 import threading
@@ -1045,6 +1046,15 @@ ANTIGRAVITY_CACHE = HOME / ".gemini" / "antigravity-cli" / "cache"
 ANTIGRAVITY_CACHE_STATUS = ANTIGRAVITY_CACHE / "latest_status.json"
 ANTIGRAVITY_PAYLOAD = Path("/tmp/antigravity_statusline_payload.json")
 
+CURSOR_USAGE_URL = "https://cursor.com/api/usage-summary"
+# Sessão do editor, por SO e relativa ao HOME (que segue o AIM_HOME): macOS,
+# Linux e Windows — o último cobre o WSL com o Cursor instalado no Windows.
+CURSOR_STATE_DBS = (
+    Path("Library/Application Support/Cursor/User/globalStorage/state.vscdb"),
+    Path(".config/Cursor/User/globalStorage/state.vscdb"),
+    Path("AppData/Roaming/Cursor/User/globalStorage/state.vscdb"),
+)
+
 USAGE_WINDOWS = (
     ("five_hour", "Sessão (5h)"),
     ("seven_day", "Semanal (7d)"),
@@ -1561,6 +1571,183 @@ def gemini_usage() -> dict | None:
     }
 
 
+def _unsafe_cookie_value(value: str) -> bool:
+    return any(character.isspace() or character in ";\r\n" for character in value)
+
+
+def cursor_state_db() -> Path | None:
+    return next((HOME / rel for rel in CURSOR_STATE_DBS if (HOME / rel).is_file()), None)
+
+
+def _read_cursor_state(db: Path) -> dict[str, str]:
+    """Valores da sessão no `state.vscdb`, com o SQLite padrão em modo somente-leitura.
+
+    Mesmo desenho do leitor da referência: primeiro `mode=ro` com espera pelo
+    editor aberto; se o arquivo não abrir (WAL sem `-shm` depois do editor
+    fechar), tenta `immutable=1`, que lê o banco principal sem lock.
+    """
+    keys = ("cursorAuth/accessToken", "cursorAuth/stripeMembershipAuthId", "cursorAuth/cachedEmail")
+    placeholders = ",".join("?" * len(keys))
+    uri = db.resolve().as_uri()
+    for query in (f"{uri}?mode=ro", f"{uri}?immutable=1"):
+        connection = None
+        try:
+            connection = sqlite3.connect(query, uri=True, timeout=2.0)
+            rows = connection.execute(
+                f"SELECT key, value FROM ItemTable WHERE key IN ({placeholders})", keys
+            ).fetchall()
+            return {str(key): str(value) for key, value in rows if value is not None}
+        except sqlite3.Error as exc:
+            logger.debug(f"sessão do Cursor ilegível em {db}: {exc}")
+        finally:
+            if connection is not None:
+                connection.close()
+    return {}
+
+
+def cursor_credentials() -> dict | None:
+    """Sessão do editor: token e conta, re-lidos a cada chamada e nunca persistidos.
+
+    A conta sai de `cursorAuth/stripeMembershipAuthId` e, na falta, do `sub` do
+    JWT — a mesma ordem da referência. Sem token utilizável (ou com caractere
+    que quebraria o cookie) não há sessão: é o estado de "deslogado/ausente",
+    não um erro.
+    """
+    db = cursor_state_db()
+    if db is None:
+        return None
+    values = _read_cursor_state(db)
+    token = (values.get("cursorAuth/accessToken") or "").strip()
+    account = (values.get("cursorAuth/stripeMembershipAuthId") or "").strip()
+    if not account and token:
+        claims = _jwt_claims(token) or {}
+        subject = claims.get("sub")
+        account = subject.strip() if isinstance(subject, str) else ""
+    if not token or not account or _unsafe_cookie_value(token) or _unsafe_cookie_value(account):
+        return None
+    email = (values.get("cursorAuth/cachedEmail") or "").strip() or None
+    return {"account_id": account, "access_token": token, "email": email}
+
+
+def _cursor_percent(value) -> float | None:
+    """Percentual 0–100 (o payload do Cursor usa 0–100, não fração)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return round(min(max(float(value), 0.0), 100.0), 1)
+
+
+def _cursor_spend(bucket) -> dict | None:
+    """Balde em centavos com teto real (o `get-plan-info` do Cursor usa 40000 = $400).
+
+    Só quando ligado, com limite positivo e uso informado — mesma condição da
+    referência; percentual acima do limite satura em 100 em vez de derrubar a
+    leitura, que é quando o usuário mais precisa dela.
+    """
+    if not isinstance(bucket, dict) or bucket.get("enabled") is not True:
+        return None
+    if isinstance(bucket.get("limit"), bool) or not isinstance(bucket.get("limit"), (int, float)):
+        return None
+    if isinstance(bucket.get("used"), bool) or not isinstance(bucket.get("used"), (int, float)):
+        return None
+    limit = float(bucket["limit"])
+    if limit <= 0:
+        return None
+    used = max(float(bucket["used"]), 0.0)
+    return {
+        "used": round(used / 100, 2),
+        "limit": round(limit / 100, 2),
+        "percent": round(min(used / limit * 100, 100.0), 1),
+        "currency": "USD",
+    }
+
+
+def parse_cursor_usage(payload: dict) -> dict | None:
+    """Resumo pessoal do Cursor (`GET cursor.com/api/usage-summary`).
+
+    Duas formas, as mesmas registradas pela referência: plano pessoal traz
+    `individualUsage.plan` em percentuais (no free, `used`/`limit` ficam
+    zerados mesmo com uso real — a franquia chega como `breakdown`); plano
+    enterprise/team não traz percentual e mede `individualUsage.overall` em
+    `used`/`limit`. `totalPercentUsed` fica de fora: é a mistura de Auto e API
+    e, como cota, dispararia o mesmo alerta duas vezes. O on-demand (ligado,
+    com limite) sai como a única linha em $ — o uso incluído não tem valor em
+    $ para exibir.
+    """
+    usage = payload.get("individualUsage")
+    plan = usage.get("plan") if isinstance(usage, dict) else None
+    team = payload.get("teamUsage")
+    raw_reset = payload.get("billingCycleEnd")
+    resets_at = raw_reset if isinstance(raw_reset, str) else None
+
+    windows: list[dict] = []
+    if isinstance(plan, dict):
+        auto = _cursor_percent(plan.get("autoPercentUsed"))
+        if auto is not None:
+            windows.append({"label": "Auto (Cursor Models)", "utilization": auto, "resets_at": resets_at})
+        api = _cursor_percent(plan.get("apiPercentUsed"))
+        if api is not None and api > 0:
+            windows.append({"label": "API", "utilization": api, "resets_at": resets_at})
+
+    credits = None
+    if isinstance(usage, dict):
+        on_demand = _cursor_spend(usage.get("onDemand"))
+        if on_demand is not None:
+            credits = {**on_demand, "severity": None, "resets_at": resets_at}
+        if not windows:
+            overall = _cursor_spend(usage.get("overall"))
+            if overall is not None:
+                windows.append({"label": "Incluído", "utilization": overall["percent"], "resets_at": resets_at})
+    if isinstance(team, dict):
+        team_on_demand = _cursor_spend(team.get("onDemand"))
+        if team_on_demand is not None and team_on_demand["percent"] > 0:
+            windows.append(
+                {"label": "On-demand do time", "utilization": team_on_demand["percent"], "resets_at": resets_at}
+            )
+
+    if not windows and credits is None:
+        return None
+
+    membership = payload.get("membershipType")
+    plan_label = None
+    if isinstance(membership, str) and membership.strip():
+        trimmed = membership.strip()
+        plan_label = trimmed[0].upper() + trimmed[1:]
+    return {"available": True, "plan": plan_label, "windows": windows, "credits": credits}
+
+
+def cursor_usage() -> dict | None:
+    """Uso do Cursor a partir da sessão do editor.
+
+    A rota não é documentada e responde com o cookie montado da sessão local;
+    o token é lido na hora, usado somente contra `cursor.com` e nunca gravado
+    nem logado. Ausência/expiração da sessão é o estado "sem dados", como nas
+    outras IAs.
+    """
+    credentials = cursor_credentials()
+    if credentials is None:
+        return None
+    try:
+        response = httpx.get(
+            CURSOR_USAGE_URL,
+            headers={
+                "Cookie": f"WorkosCursorSessionToken={credentials['account_id']}::{credentials['access_token']}",
+                "Accept": "application/json",
+            },
+            timeout=10,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.debug(f"uso do Cursor indisponível: {exc}")
+        return None
+    if not isinstance(payload, dict):
+        return None
+    parsed = parse_cursor_usage(payload)
+    if parsed is None:
+        return None
+    return {**parsed, "account": credentials["email"]}
+
+
 def usage_providers() -> dict:
     """Resolvido a cada chamada: os testes trocam `*_usage` por monkeypatch."""
     return {
@@ -1568,6 +1755,7 @@ def usage_providers() -> dict:
         "codex": codex_usage,
         "copilot": copilot_usage,
         "gemini": gemini_usage,
+        "cursor": cursor_usage,
     }
 
 

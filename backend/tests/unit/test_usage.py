@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import sqlite3
 
 import httpx
 import pytest
@@ -327,9 +328,10 @@ def test_usage_snapshot_com_tool_atualiza_so_a_ia_pedida(monkeypatch):
     provider("codex", {"available": True, "plan": "plus", "windows": []})
     provider("copilot", {"available": True, "windows": []})
     provider("gemini", {"available": True, "windows": []})
+    provider("cursor", {"available": True, "windows": []})
     monkeypatch.setattr(app, "_usage_cache", (0.0, {}))
 
-    assert set(app.usage_snapshot()) == {"claude", "codex", "copilot", "gemini"}
+    assert set(app.usage_snapshot()) == {"claude", "codex", "copilot", "gemini", "cursor"}
     chamadas.clear()
 
     parcial = app.usage_snapshot(force=True, tool="codex")
@@ -340,7 +342,7 @@ def test_usage_snapshot_com_tool_atualiza_so_a_ia_pedida(monkeypatch):
     chamadas.clear()
     assert set(app.usage_snapshot(tool="claude")) == {"claude"}
     assert chamadas == []
-    assert set(app._usage_cache[1]) == {"claude", "codex", "copilot", "gemini"}
+    assert set(app._usage_cache[1]) == {"claude", "codex", "copilot", "gemini", "cursor"}
 
 
 def test_parse_gemini_quota_extrai_janelas_de_5h_e_7d():
@@ -428,4 +430,161 @@ def test_gemini_usage_sem_payload_nao_inventa_plano(tmp_path, monkeypatch):
     assert usage is not None
     assert usage["plan"] is None
     assert usage["windows"] == []
+
+
+def _write_cursor_state(path, values):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(path)
+    connection.execute("CREATE TABLE ItemTable (key TEXT PRIMARY KEY, value TEXT)")
+    connection.executemany("INSERT INTO ItemTable (key, value) VALUES (?, ?)", values)
+    connection.commit()
+    connection.close()
+
+
+def _cursor_db_path(home):
+    return home / "Library" / "Application Support" / "Cursor" / "User" / "globalStorage" / "state.vscdb"
+
+
+def test_cursor_credentials_le_a_sessao_do_editor(tmp_path, monkeypatch):
+    _write_cursor_state(_cursor_db_path(tmp_path), [
+        ("cursorAuth/accessToken", "token-secreto"),
+        ("cursorAuth/stripeMembershipAuthId", "user_123"),
+        ("cursorAuth/cachedEmail", "dev@example.com"),
+        ("cursorAuth/refreshToken", "ignorado"),
+    ])
+    monkeypatch.setattr(app, "HOME", tmp_path)
+
+    creds = app.cursor_credentials()
+    assert creds is not None
+    assert creds["account_id"] == "user_123"
+    assert creds["access_token"] == "token-secreto"
+    assert creds["email"] == "dev@example.com"
+
+
+def test_cursor_credentials_usa_o_sub_do_jwt_sem_stripe_id(tmp_path, monkeypatch):
+    claims = base64.urlsafe_b64encode(json.dumps({"sub": "user_456"}).encode()).decode().rstrip("=")
+    _write_cursor_state(_cursor_db_path(tmp_path), [("cursorAuth/accessToken", f"cabecalho.{claims}.assinatura")])
+    monkeypatch.setattr(app, "HOME", tmp_path)
+
+    creds = app.cursor_credentials()
+    assert creds is not None
+    assert creds["account_id"] == "user_456"
+
+
+def test_cursor_credentials_sem_banco_ou_sem_token_retorna_none(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "HOME", tmp_path)
+    assert app.cursor_credentials() is None
+
+    _write_cursor_state(_cursor_db_path(tmp_path), [("cursorAuth/stripeMembershipAuthId", "user_123")])
+    assert app.cursor_credentials() is None
+
+
+def test_cursor_credentials_recusa_valor_que_quebraria_o_cookie(tmp_path, monkeypatch):
+    _write_cursor_state(_cursor_db_path(tmp_path), [
+        ("cursorAuth/accessToken", "token;malicioso"),
+        ("cursorAuth/stripeMembershipAuthId", "user_123"),
+    ])
+    monkeypatch.setattr(app, "HOME", tmp_path)
+    assert app.cursor_credentials() is None
+
+
+def test_parse_cursor_usage_plano_pessoal_em_percentuais():
+    stats = app.parse_cursor_usage({
+        "billingCycleStart": "2026-08-24T03:32:15.933Z",
+        "billingCycleEnd": "2026-09-24T03:32:15.933Z",
+        "membershipType": "free",
+        "isUnlimited": False,
+        "individualUsage": {
+            "plan": {"enabled": True, "used": 0, "limit": 0, "remaining": 0,
+                     "breakdown": {"included": 0, "bonus": 19, "total": 19},
+                     "autoPercentUsed": 10.9, "apiPercentUsed": 19, "totalPercentUsed": 9.5},
+            "onDemand": {"enabled": False, "used": 0, "limit": None},
+        },
+    })
+    assert stats is not None
+    assert stats["plan"] == "Free"
+    # No free, used/limit ficam zerados mesmo com uso: só os percentuais contam.
+    assert [w["label"] for w in stats["windows"]] == ["Auto (Cursor Models)", "API"]
+    assert [w["utilization"] for w in stats["windows"]] == [10.9, 19.0]
+    assert stats["windows"][0]["resets_at"] == "2026-09-24T03:32:15.933Z"
+    assert stats["credits"] is None
+
+
+def test_parse_cursor_usage_on_demand_em_dolares():
+    stats = app.parse_cursor_usage({
+        "membershipType": "pro",
+        "individualUsage": {
+            "plan": {"autoPercentUsed": 5},
+            "onDemand": {"enabled": True, "used": 500, "limit": 2000},
+        },
+    })
+    assert stats is not None
+    # Centavos, como no `get-plan-info` do Cursor (40000 = $400): 500/2000 = $5 de $20.
+    assert stats["credits"]["used"] == 5.0
+    assert stats["credits"]["limit"] == 20.0
+    assert stats["credits"]["percent"] == 25.0
+    assert stats["credits"]["currency"] == "USD"
+    assert [w["label"] for w in stats["windows"]] == ["Auto (Cursor Models)"]
+
+
+def test_parse_cursor_usage_enterprise_mede_o_overall():
+    stats = app.parse_cursor_usage({
+        "membershipType": "enterprise",
+        "limitType": "team",
+        "billingCycleEnd": "2026-10-01T00:00:00Z",
+        "individualUsage": {"overall": {"enabled": True, "used": 6907, "limit": 45000, "remaining": 38093}},
+        "teamUsage": {"onDemand": {"enabled": True, "used": 250000, "limit": 1000000}},
+    })
+    assert stats is not None
+    assert [w["label"] for w in stats["windows"]] == ["Incluído", "On-demand do time"]
+    assert [w["utilization"] for w in stats["windows"]] == [15.3, 25.0]
+
+
+def test_parse_cursor_usage_sem_nada_medido_retorna_none():
+    payload = {"membershipType": "free", "individualUsage": {"plan": {"used": 0, "limit": 0}}}
+    assert app.parse_cursor_usage(payload) is None
+    assert app.parse_cursor_usage({}) is None
+
+
+def test_cursor_usage_sem_sessao_retorna_none(monkeypatch):
+    monkeypatch.setattr(app, "cursor_credentials", lambda: None)
+    assert app.cursor_usage() is None
+
+
+def test_cursor_usage_envia_cookie_e_parseia(monkeypatch):
+    monkeypatch.setattr(app, "cursor_credentials", lambda: {
+        "account_id": "user_123", "access_token": "token-secreto", "email": "dev@example.com",
+    })
+    capturado: dict = {}
+
+    class Resp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"membershipType": "pro", "individualUsage": {"plan": {"autoPercentUsed": 40}}}
+
+    def fake_get(url, **kwargs):
+        capturado["url"] = url
+        capturado.update(kwargs.get("headers") or {})
+        return Resp()
+
+    monkeypatch.setattr(app.httpx, "get", fake_get)
+
+    usage = app.cursor_usage()
+    assert usage is not None
+    assert capturado["url"] == "https://cursor.com/api/usage-summary"
+    assert capturado["Cookie"] == "WorkosCursorSessionToken=user_123::token-secreto"
+    assert usage["account"] == "dev@example.com"
+    assert usage["windows"][0]["utilization"] == 40.0
+
+
+def test_cursor_usage_com_erro_http_retorna_none(monkeypatch):
+    monkeypatch.setattr(app, "cursor_credentials", lambda: {"account_id": "u", "access_token": "t", "email": None})
+
+    def boom(*args, **kwargs):
+        raise httpx.ConnectError("sem rede")
+
+    monkeypatch.setattr(app.httpx, "get", boom)
+    assert app.cursor_usage() is None
 

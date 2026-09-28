@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: false
 
@@ -102,7 +102,7 @@ jobs:
           cache-dependency-path: web/pnpm-lock.yaml
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: false
 
@@ -120,7 +120,7 @@ jobs:
 
       - name: Artifacts das falhas
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-test-results
           path: web/test-results/

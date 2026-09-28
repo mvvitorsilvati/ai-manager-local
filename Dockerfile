@@ -27,5 +27,12 @@ COPY backend/*.py backend/
 COPY statusline/ statusline/
 COPY --from=web /web/dist web/dist
 
+# roda como usuário sem privilégio (resolve DS-0002 do Trivy)
+RUN groupadd --gid 10001 aim \
+    && useradd --uid 10001 --gid aim --create-home --shell /usr/sbin/nologin aim \
+    && chown -R aim:aim /app
+ENV UV_CACHE_DIR=/tmp/uv-cache
+USER 10001:10001
+
 EXPOSE 4747
 CMD ["uv", "run", "--project", "backend", "backend/app.py", "--no-open"]

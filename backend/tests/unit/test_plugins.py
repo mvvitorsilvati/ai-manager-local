@@ -45,3 +45,11 @@ def test_collect_project_plugins_deduplica_por_projeto(tmp_path):
     plugins = app.collect_project_plugins([proj])
     assert [p["name"] for p in plugins] == ["x@mkt"]
     assert plugins[0]["scope"] == "projeto"
+
+
+def test_plugins_from_config_opencode_v2_lista_nao_quebra(tmp_path):
+    (tmp_path / "opencode.jsonc").write_text(
+        '{"plugins": ["opencode-acme-plugin", {"package": "@acme/opencode-plugin"}]}'
+    )
+    plugins = app.plugins_from_config(tmp_path / "opencode.jsonc")
+    assert [p["name"] for p in plugins] == ["opencode-acme-plugin", "@acme/opencode-plugin"]

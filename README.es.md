@@ -190,7 +190,8 @@ just stop       # detiene la instancia en el puerto 4747
 | `just check` | linters + pruebas |
 | `just hooks` | activa los git hooks versionados (pre-commit ejecuta `just check`) |
 | `just statusline [target]` | instala la statusline para Claude Code y/o Antigravity (interactivo) |
-| `just docker-build` | construye la imagen `localhost/ai-manager-local-py-3.14:1.0.0` |
+| `just version` | imprime la versión del proyecto (backend/pyproject.toml) |
+| `just docker-build` | construye la imagen `localhost/ai-manager-local-py-3.14:<versión del pyproject>` |
 | `just docker-run` | ejecuta el panel en un contenedor montando tu `$HOME` |
 | `just docker-test` | ejecuta la suite de pruebas dentro de la imagen (sin red) |
 
@@ -234,11 +235,11 @@ Deseja instalar os statusline para o claude-code e ou agy?
 ### Ejecución en contenedor (Docker/Podman)
 
 ```bash
-just docker-build   # podman build -t localhost/ai-manager-local-py-3.14:1.0.0 .
+just docker-build   # podman build -t localhost/ai-manager-local-py-3.14:<versión del pyproject> .
 just docker-run     # http://127.0.0.1:4747
 ```
 
-O con Compose: `podman compose up --build` (o `docker compose up --build`).
+O con Compose: `podman compose up --build` (o `docker compose up --build`) — la etiqueta de la imagen viene de `AIM_VERSION` (valor por defecto del archivo); usa `AIM_VERSION=$(just version)` para fijarla a la versión actual.
 
 El contenedor monta tu `$HOME` en `/host-home` (con `HOME` apuntando allí), de modo que las fuentes escaneadas, las copias de seguridad y `audit.log` se mantienen en tu máquina. El puerto se expone **únicamente en el loopback del host** (`127.0.0.1:4747`).
 

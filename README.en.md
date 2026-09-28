@@ -466,7 +466,7 @@ The backend responds `503` asking for the build when `web/dist` does not exist. 
 - Claude: requires Claude Code logged in (Keychain) or `~/.claude/.credentials.json`
 - Copilot: requires `GITHUB_TOKEN`/`GH_TOKEN` or `gh auth token`
 - Codex: reads the last rollout in `~/.codex/sessions` — without a recent session, there is no data
-- Gemini/Antigravity: reads quota status locally from `~/.gemini/antigravity-cli/cache/latest_status.json` or Keychain credentials (`security`)
+- Gemini/Antigravity: with the CLI installed (1.2.9+), reads quotas straight from `agy --print /usage` (no statusline needed); without the CLI, it falls back to the statusline cache (`~/.gemini/antigravity-cli/cache/latest_status.json`) or Keychain credentials (`security`)
 - opencode (Zen/Go) does not expose usage locally; Zen spend only appears in the opencode console
 
 **Projects do not appear / appear from another directory**

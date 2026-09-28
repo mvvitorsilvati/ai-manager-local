@@ -89,11 +89,12 @@ export default function Dashboard() {
       </div>
 
       {(() => {
-        const availableTools: ("claude" | "codex" | "copilot" | "gemini")[] = []
+        const availableTools: ("claude" | "codex" | "copilot" | "gemini" | "cursor")[] = []
         if (usage?.claude) availableTools.push("claude")
         if (usage?.codex) availableTools.push("codex")
         if (usage?.copilot) availableTools.push("copilot")
         if (usage?.gemini) availableTools.push("gemini")
+        if (usage?.cursor) availableTools.push("cursor")
 
         if (!usagePending && availableTools.length === 0) return null
 

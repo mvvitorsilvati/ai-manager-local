@@ -18,6 +18,7 @@ const TOOL_LABEL: Record<string, string> = {
   codex: "Codex",
   copilot: "GitHub Copilot",
   gemini: "Gemini / Antigravity",
+  cursor: "Cursor",
 }
 
 export function UsageCard({
@@ -172,6 +173,7 @@ export function UsageCard({
           )}
         </div>
       )}
+      {tool === "cursor" && <p className="text-muted-foreground mt-3 text-[11.5px]">{t("usage.cursorNote")}</p>}
     </div>
   )
 }

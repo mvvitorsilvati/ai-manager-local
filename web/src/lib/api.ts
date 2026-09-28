@@ -171,7 +171,7 @@ export type SkillUsageResponse = {
   top: SkillRow[]
 }
 
-export type UsageTool = "claude" | "codex" | "copilot" | "gemini"
+export type UsageTool = "claude" | "codex" | "copilot" | "gemini" | "cursor"
 export type UsageResponse = Partial<Record<UsageTool, ToolUsage | null>>
 
 export type SessionItem = {

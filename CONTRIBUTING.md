@@ -33,7 +33,7 @@ just tag v1.1.0                 # confere a árvore, roda `just check` e publica
 gh release create v1.1.0 --title "v1.1.0 — resumo curto" --notes-file notas.md --latest
 ```
 
-A versão sobe por PR antes da tag: `pyproject.toml`, `package.json` e a tag da imagem (`justfile`, `docker-compose.yml`, CI) seguem o mesmo número.
+A versão sobe por PR antes da tag: `pyproject.toml` e `package.json` seguem o mesmo número (o `uv.lock` acompanha). A tag da imagem é derivada dessa versão pelo `justfile` e pelo CI; no `docker-compose.yml`, atualize o padrão de `AIM_VERSION` junto do bump — ou rode com `AIM_VERSION=$(just version)`.
 
 ## Preparando o ambiente
 

@@ -117,9 +117,12 @@ docker-run:
       -v "$HOME":/host-home \
       {{imagem}}
 
-# roda a suíte de testes dentro da imagem (usa a venv embutida, sem rede)
+# builda o alvo tests e roda a suíte com dependências dev, sem rede na execução
 docker-test:
+    podman build --target tests -t {{imagem}}-tests .
     podman run --rm --name ai-manager-local-test \
+      --network none --user "$(id -u):$(id -g)" \
+      -e HOME=/tmp/aim-tests \
       -v "$PWD":/workspace -w /workspace/backend \
-      {{imagem}} \
+      {{imagem}}-tests \
       /app/backend/.venv/bin/python -m pytest

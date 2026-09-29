@@ -137,7 +137,27 @@ jobs:
         run: |
           IMAGE="localhost/ai-manager-local-py-3.14:$(sed -n 's/^version = "\(.*\)"/\1/p' backend/pyproject.toml | head -n 1)"
           echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
-          docker build -t "$IMAGE" .
+          docker build --pull -t "$IMAGE" .
+
+      - name: Confere isolamento da imagem de produção
+        run: |
+          docker run --rm "$IMAGE" /app/backend/.venv/bin/python -c '
+          import importlib.util
+          import os
+          from pathlib import Path
+          assert os.geteuid() == 10001, "Runtime deve executar como usuário sem privilégio"
+          for name in ("pytest", "pytest_cov", "xdist", "pyright", "ruff", "nodeenv"):
+              assert importlib.util.find_spec(name) is None, f"Dependência dev no runtime: {name}"
+          for name in ("uv", "uvx"):
+              assert not Path(f"/usr/bin/{name}").exists(), f"Instalador no runtime: {name}"
+          '
+          docker run --rm --user 0 "$IMAGE" /usr/local/bin/python -c '
+          import importlib.util
+          from pathlib import Path
+          for name in ("pip", "ensurepip"):
+              assert importlib.util.find_spec(name) is None, f"Instalador Python no runtime: {name}"
+          assert not Path("/root/.cache/uv").exists(), "Cache de build no runtime"
+          '
 
       - name: Sobe o container e confere a API
         run: |

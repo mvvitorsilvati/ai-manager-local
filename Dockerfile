@@ -1,5 +1,7 @@
 # syntax=docker/dockerfile:1
 
+FROM python:3.14-slim-trixie AS python-base
+
 # ---------------------------------------------------------------- frontend
 FROM node:24-slim AS web
 
@@ -10,29 +12,41 @@ RUN pnpm install --frozen-lockfile
 COPY web/ ./
 RUN pnpm build
 
-# ---------------------------------------------------------------- runtime
-FROM python:3.14-slim AS runtime
+# ---------------------------------------------------------------- backend
+FROM python-base AS backend-build
 
-COPY --from=ghcr.io/astral-sh/uv:0.12 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.12 /uv /bin/uv
 ENV UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy \
-    PYTHONUNBUFFERED=1 \
-    AIM_HOST=0.0.0.0 \
-    AIM_PORT=4747
+    UV_LINK_MODE=copy
 
 WORKDIR /app
 COPY backend/pyproject.toml backend/uv.lock backend/
-RUN uv sync --frozen --project backend
-COPY backend/*.py backend/
-COPY statusline/ statusline/
-COPY --from=web /web/dist web/dist
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --project backend
 
-# roda como usuário sem privilégio (resolve DS-0002 do Trivy)
-RUN groupadd --gid 10001 aim \
-    && useradd --uid 10001 --gid aim --create-home --shell /usr/sbin/nologin aim \
-    && chown -R aim:aim /app
-ENV UV_CACHE_DIR=/tmp/uv-cache
+# alvo exclusivo de just docker-test; não faz parte da imagem publicada
+FROM backend-build AS tests
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --project backend
+
+# ---------------------------------------------------------------- runtime
+FROM python-base AS runtime
+ENV PYTHONUNBUFFERED=1 \
+    AIM_HOST=0.0.0.0 \
+    AIM_PORT=4747
+
+# instaladores e suas cópias vendorizadas ficam fora do runtime
+RUN python -m pip uninstall --yes pip \
+    && rm -rf /usr/local/lib/python3.14/ensurepip \
+    && groupadd --gid 10001 aim \
+    && useradd --uid 10001 --gid aim --create-home --shell /usr/sbin/nologin aim
+
+WORKDIR /app
+COPY --from=backend-build --chown=10001:10001 /app/backend/.venv backend/.venv
+COPY --chown=10001:10001 backend/*.py backend/
+COPY --chown=10001:10001 statusline/ statusline/
+COPY --from=web --chown=10001:10001 /web/dist web/dist
 USER 10001:10001
 
 EXPOSE 4747
-CMD ["uv", "run", "--project", "backend", "backend/app.py", "--no-open"]
+CMD ["/app/backend/.venv/bin/python", "/app/backend/app.py", "--no-open"]

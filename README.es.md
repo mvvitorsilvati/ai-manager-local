@@ -194,7 +194,7 @@ just stop       # detiene la instancia en el puerto 4747
 | `just version` | imprime la versión del proyecto (backend/pyproject.toml) |
 | `just docker-build` | construye la imagen `localhost/ai-manager-local-py-3.14:<versión del pyproject>` |
 | `just docker-run` | ejecuta el panel en un contenedor montando tu `$HOME` |
-| `just docker-test` | ejecuta la suite de pruebas dentro de la imagen (sin red) |
+| `just docker-test` | construye la imagen de pruebas y ejecuta pytest sin red |
 
 ### Statusline (Claude Code y Antigravity / agy)
 
@@ -249,13 +249,12 @@ docker run --rm \
   -p 127.0.0.1:4747:4747 \
   -e HOME=/host-home \
   -v "$HOME:/host-home" \
-  dockermvvitorsilvati/ai-manager-local:2.1.0 \
-  /app/backend/.venv/bin/python /app/backend/app.py --no-open
+  dockermvvitorsilvati/ai-manager-local:2.1.1
 ```
 
 Docker descarga la imagen si aún no está en la máquina. Abre [http://127.0.0.1:4747](http://127.0.0.1:4747) en el navegador y pulsa `Ctrl+C` en el terminal para detenerla. El comando usa tu UID/GID para respetar los permisos del directorio personal y ejecuta el intérprete Python ya instalado en la imagen.
 
-Las imágenes se publican en [dockermvvitorsilvati/ai-manager-local](https://hub.docker.com/r/dockermvvitorsilvati/ai-manager-local). La etiqueta `2.1.0` fija esta versión; `latest` apunta a la versión estable publicada más recientemente. Las versiones preliminares usan su propia etiqueta, como `2.1.0-rc.1`, sin actualizar `latest`. Para descargar una actualización estable, ejecuta `docker pull --platform linux/amd64 dockermvvitorsilvati/ai-manager-local:latest` y usa `:latest` en el comando anterior.
+Las imágenes se publican en [dockermvvitorsilvati/ai-manager-local](https://hub.docker.com/r/dockermvvitorsilvati/ai-manager-local). La etiqueta `2.1.1` fija esta versión; `latest` apunta a la versión estable publicada más recientemente. Las versiones preliminares usan su propia etiqueta, como `2.1.1-rc.1`, sin actualizar `latest`. Para descargar una actualización estable, ejecuta `docker pull --platform linux/amd64 dockermvvitorsilvati/ai-manager-local:latest` y usa `:latest` en el comando anterior.
 
 La imagen se publica para `linux/amd64`; su ejecución en máquinas ARM, como los Mac con Apple Silicon, requiere emulación. Para usar Podman, sustituye `docker` por `podman` en los comandos.
 
@@ -269,6 +268,8 @@ just docker-run     # http://127.0.0.1:4747
 O con Compose: `podman compose up --build` (o `docker compose up --build`) — la etiqueta de la imagen viene de `AIM_VERSION` (valor por defecto del archivo); usa `AIM_VERSION=$(just version)` para fijarla a la versión actual.
 
 El contenedor monta tu `$HOME` en `/host-home` (con `HOME` apuntando allí), de modo que las fuentes escaneadas, las copias de seguridad y `audit.log` se mantienen en tu máquina. El puerto se expone **únicamente en el loopback del host** (`127.0.0.1:4747`).
+
+La imagen publicada incluye solo dependencias de producción, sin pip, uv ni herramientas de pruebas. `just docker-test` construye el objetivo separado `tests` con dependencias de desarrollo y ejecuta pytest sin acceso a la red.
 
 ### Uso en WSL (IAs instaladas en Windows)
 

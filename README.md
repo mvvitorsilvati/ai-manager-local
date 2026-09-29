@@ -185,7 +185,7 @@ just stop       # encerra a instância que estiver na porta 4747
 | `just version` | imprime a versão do projeto (backend/pyproject.toml) |
 | `just docker-build` | build da imagem `localhost/ai-manager-local-py-3.14:<versão do pyproject>` |
 | `just docker-run` | sobe o painel em container montando o seu `$HOME` |
-| `just docker-test` | roda a suíte de testes dentro da imagem (sem rede) |
+| `just docker-test` | builda a imagem de testes e executa pytest sem rede |
 
 ### Statusline (Claude Code e Antigravity / agy)
 
@@ -242,13 +242,12 @@ docker run --rm \
   -p 127.0.0.1:4747:4747 \
   -e HOME=/host-home \
   -v "$HOME:/host-home" \
-  dockermvvitorsilvati/ai-manager-local:2.1.0 \
-  /app/backend/.venv/bin/python /app/backend/app.py --no-open
+  dockermvvitorsilvati/ai-manager-local:2.1.1
 ```
 
 O Docker baixa a imagem se ela ainda não estiver na máquina. Abra [http://127.0.0.1:4747](http://127.0.0.1:4747) no navegador e pressione `Ctrl+C` no terminal para encerrar. O comando usa seu UID/GID para respeitar as permissões da pasta pessoal e executa o Python já instalado na imagem.
 
-As imagens são publicadas em [dockermvvitorsilvati/ai-manager-local](https://hub.docker.com/r/dockermvvitorsilvati/ai-manager-local). A tag `2.1.0` fixa esta versão; `latest` acompanha a release estável mais recentemente publicada. Pré-releases usam sua própria tag, como `2.1.0-rc.1`, sem atualizar `latest`. Para baixar uma atualização estável, execute `docker pull --platform linux/amd64 dockermvvitorsilvati/ai-manager-local:latest` e use `:latest` no comando acima.
+As imagens são publicadas em [dockermvvitorsilvati/ai-manager-local](https://hub.docker.com/r/dockermvvitorsilvati/ai-manager-local). A tag `2.1.1` fixa esta versão; `latest` acompanha a release estável mais recentemente publicada. Pré-releases usam sua própria tag, como `2.1.1-rc.1`, sem atualizar `latest`. Para baixar uma atualização estável, execute `docker pull --platform linux/amd64 dockermvvitorsilvati/ai-manager-local:latest` e use `:latest` no comando acima.
 
 A imagem é publicada para `linux/amd64`; em máquinas ARM, como Macs com Apple Silicon, sua execução depende de emulação. Para usar Podman, substitua `docker` por `podman` nos comandos.
 
@@ -263,7 +262,7 @@ Ou com Compose: `podman compose up --build` (ou `docker compose up --build`) —
 
 O container monta o seu `$HOME` em `/host-home` (com `HOME` apontando para lá), então as fontes escaneadas, os backups e o `audit.log` continuam sendo os seus. A porta é publicada **só no loopback** do host (`127.0.0.1:4747`); dentro do container a API escuta em `0.0.0.0` via `AIM_HOST`.
 
-Limitações no modo container: Keychain do macOS (credenciais do Claude Code) e "abrir no Finder" não existem; o card de uso do Claude depende de `~/.claude/.credentials.json`. Para rodar os testes dentro da imagem (usa a venv embutida, sem rede): `just docker-test`.
+Limitações no modo container: Keychain do macOS (credenciais do Claude Code) e "abrir no Finder" não existem; o card de uso do Claude depende de `~/.claude/.credentials.json`. A imagem publicada inclui apenas dependências de produção, sem pip, uv ou ferramentas de testes. `just docker-test` builda o alvo separado `tests`, com as dependências de desenvolvimento, e executa pytest sem acesso à rede.
 
 ### Usando no WSL (IAs instaladas no Windows)
 

@@ -1,6 +1,6 @@
 [project]
 name = "ai-manager-local-backend"
-version = "2.0.3"
+version = "2.1.0"
 description = "Backend do AI Manager Local: API de configurações locais das IAs + serving do frontend"
 requires-python = ">=3.14"
 dependencies = [

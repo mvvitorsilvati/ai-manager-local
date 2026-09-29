@@ -3,7 +3,7 @@ name: ai-manager-local
 services:
   app:
     # tag no padrão do time; acompanha o bump de versão (sobrescreva com AIM_VERSION=<versão>)
-    image: localhost/ai-manager-local-py-3.14:${AIM_VERSION:-2.0.3}
+    image: localhost/ai-manager-local-py-3.14:${AIM_VERSION:-2.1.0}
     build: .
     ports:
       # publica só no loopback do host; dentro do container a API escuta em 0.0.0.0

@@ -230,6 +230,30 @@ Deseja instalar os statusline para o claude-code e ou agy?
 
 ### Running in a container (Docker/Podman)
 
+#### Published Docker Hub image
+
+With Docker installed and running, use a Linux, macOS or WSL terminal. The image includes the backend and frontend; Python, Node.js, uv and pnpm do not need to be installed on the host:
+
+```bash
+docker run --rm \
+  --name ai-manager-local \
+  --platform linux/amd64 \
+  --user "$(id -u):$(id -g)" \
+  -p 127.0.0.1:4747:4747 \
+  -e HOME=/host-home \
+  -v "$HOME:/host-home" \
+  dockermvvitorsilvati/ai-manager-local:2.1.0 \
+  /app/backend/.venv/bin/python /app/backend/app.py --no-open
+```
+
+Docker downloads the image if it is not already present. Open [http://127.0.0.1:4747](http://127.0.0.1:4747) in your browser and press `Ctrl+C` in the terminal to stop. The command uses your UID/GID to respect home directory permissions and runs the Python interpreter already installed in the image.
+
+Images are published at [dockermvvitorsilvati/ai-manager-local](https://hub.docker.com/r/dockermvvitorsilvati/ai-manager-local). The `2.1.0` tag pins this version; `latest` tracks the most recently published stable release. Pre-releases use their own tag, such as `2.1.0-rc.1`, without updating `latest`. To download a stable update, run `docker pull --platform linux/amd64 dockermvvitorsilvati/ai-manager-local:latest` and use `:latest` in the command above.
+
+The image is published for `linux/amd64`; running it on ARM machines, such as Apple Silicon Macs, requires emulation. To use Podman, replace `docker` with `podman` in the commands.
+
+#### Local build from source
+
 ```bash
 just docker-build   # podman build -t localhost/ai-manager-local-py-3.14:<pyproject version> .
 just docker-run     # http://127.0.0.1:4747

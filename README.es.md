@@ -237,6 +237,30 @@ Deseja instalar os statusline para o claude-code e ou agy?
 
 ### Ejecución en contenedor (Docker/Podman)
 
+#### Imagen publicada en Docker Hub
+
+Con Docker instalado y en ejecución, usa un terminal de Linux, macOS o WSL. La imagen incluye el backend y el frontend; no necesitas instalar Python, Node.js, uv ni pnpm en la máquina:
+
+```bash
+docker run --rm \
+  --name ai-manager-local \
+  --platform linux/amd64 \
+  --user "$(id -u):$(id -g)" \
+  -p 127.0.0.1:4747:4747 \
+  -e HOME=/host-home \
+  -v "$HOME:/host-home" \
+  dockermvvitorsilvati/ai-manager-local:2.1.0 \
+  /app/backend/.venv/bin/python /app/backend/app.py --no-open
+```
+
+Docker descarga la imagen si aún no está en la máquina. Abre [http://127.0.0.1:4747](http://127.0.0.1:4747) en el navegador y pulsa `Ctrl+C` en el terminal para detenerla. El comando usa tu UID/GID para respetar los permisos del directorio personal y ejecuta el intérprete Python ya instalado en la imagen.
+
+Las imágenes se publican en [dockermvvitorsilvati/ai-manager-local](https://hub.docker.com/r/dockermvvitorsilvati/ai-manager-local). La etiqueta `2.1.0` fija esta versión; `latest` apunta a la versión estable publicada más recientemente. Las versiones preliminares usan su propia etiqueta, como `2.1.0-rc.1`, sin actualizar `latest`. Para descargar una actualización estable, ejecuta `docker pull --platform linux/amd64 dockermvvitorsilvati/ai-manager-local:latest` y usa `:latest` en el comando anterior.
+
+La imagen se publica para `linux/amd64`; su ejecución en máquinas ARM, como los Mac con Apple Silicon, requiere emulación. Para usar Podman, sustituye `docker` por `podman` en los comandos.
+
+#### Compilación local desde el código
+
 ```bash
 just docker-build   # podman build -t localhost/ai-manager-local-py-3.14:<versión del pyproject> .
 just docker-run     # http://127.0.0.1:4747

@@ -2,6 +2,8 @@ import json
 import sqlite3
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 import spend
 
 
@@ -61,6 +63,53 @@ def test_custo_dos_modelos_novos_bate_com_a_tabela():
     # GPT-6 Sol 2/10 e Luna 0.1/0.5.
     assert spend.openai_cost("gpt-6-sol", 1_000_000, 0, 0, 0) == 2.0
     assert spend.openai_cost("gpt-6-luna", 0, 1_000_000, 0, 0) == 0.5
+
+
+@pytest.mark.parametrize(
+    ("inp", "out", "read", "write", "expected"),
+    [
+        (1_000_000, 0, 0, 0, 2.0),
+        (0, 1_000_000, 0, 0, 10.0),
+        (0, 0, 1_000_000, 0, 0.1),
+        (0, 0, 0, 1_000_000, 2.5),
+    ],
+)
+def test_custo_gpt_6_1_sol_separa_tarifas_de_entrada_saida_e_cache(inp, out, read, write, expected):
+    assert spend.openai_cost("gpt-6.1-sol", inp, out, read, write) == expected
+
+
+@pytest.mark.parametrize("legacy", [False, True], ids=["token_usage_record", "token_count"])
+def test_codex_gpt_6_1_sol_calcula_custo_no_relatorio(tmp_path, legacy):
+    root = tmp_path / "sessions"
+    root.mkdir()
+    ts = datetime.now(UTC).isoformat()
+    usage = {
+        "input_tokens": 1000,
+        "cached_input_tokens": 600,
+        "cache_write_input_tokens": 200,
+        "output_tokens": 40,
+    }
+    record = (
+        {"type": "event_msg", "payload": {"type": "token_count", "info": {"last_token_usage": usage}}}
+        if legacy else
+        {"type": "token_usage_record", "payload": {"response_id": "resp1", "usage": usage}}
+    )
+    record["timestamp"] = ts
+    rows = [
+        {"type": "session_meta", "payload": {"id": "s1", "cwd": "/tmp/demo"}},
+        {"type": "turn_context", "payload": {"model": "gpt-6.1-sol"}},
+        record,
+    ]
+    (root / "rollout.jsonl").write_text("\n".join(json.dumps(row) for row in rows))
+
+    tool = spend.build(days=2, tool="codex", roots={"codex": root})["tools"]["codex"]
+
+    # 200*2 + 600*0.1 + 200*2.5 + 40*10 = 1360, por 1M.
+    assert tool["total"]["cost"] == 0.00136
+    assert tool["by_model"][0]["model"] == "gpt-6.1-sol"
+    assert tool["by_model"][0]["cost"] == 0.00136
+    assert tool["sessions"][0]["cost"] == 0.00136
+    assert tool["unknown_models"] == []
 
 
 def test_custo_do_sonnet_5_5_bate_com_a_tabela():

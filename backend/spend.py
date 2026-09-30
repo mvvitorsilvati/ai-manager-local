@@ -25,8 +25,8 @@ TOP = 15
 TOOLS = ("claude", "codex", "opencode", "copilot", "gemini")
 
 # USD por 1M tokens. Cache Anthropic: read 0.1x, write 5m 1.25x, write 1h 2x.
-# OpenAI (faixa curta, página de pricing): read 0.1x, write 1.25x.
-# Tupla opcional de 3 itens: (input, output, cache read) quando o read foge do 0.1x.
+# OpenAI (faixa curta, página de pricing): read 0.1x por padrão, write 1.25x.
+# Tupla opcional de 3 itens: (input, output, multiplicador cache read) quando o read foge do 0.1x.
 ANTHROPIC = {
     "<synthetic>": (0.0, 0.0),
     "claude-fable-5-1": (10.0, 50.0, 0.025),
@@ -63,6 +63,8 @@ ANTHROPIC_ALIAS = {
     "claude-3-5-haiku-20241022": "claude-3-5-haiku",
 }
 OPENAI = {
+    # https://developers.openai.com/api/docs/models/gpt-6.1-sol (verificado em 2026-09-30).
+    "gpt-6.1-sol": (2.0, 10.0, 0.05),
     "gpt-6-astra": (10.0, 50.0),
     "gpt-6-sol": (2.0, 10.0),
     "gpt-6-luna": (0.10, 0.50),
@@ -111,7 +113,8 @@ LABEL = {
 NOTE = {
     "claude": "Preço de tabela da API, não a fatura. O Claude Code apaga transcripts antigos.",
     "codex": (
-        "Preço de tabela da API na faixa curta. Cache read 10% e cache write 125% do input. "
+        "Preço de tabela da API na faixa curta. Cache read 5% no GPT-6.1 Sol e 10% nos demais; "
+        "cache write 125% do input. "
         "Modelo sem preço fica zerado."
     ),
     "opencode": "Custo já calculado pelo opencode. Provedor que não reporta preço aparece zerado.",
@@ -249,8 +252,9 @@ def openai_cost(model: str, inp: int, out: int, read: int, write: int):
     rates = OPENAI.get(model)
     if rates is None:
         return None
-    inn, outn = rates
-    return (inp * inn + out * outn + read * inn * 0.1 + write * inn * 1.25) / 1_000_000
+    inn, outn, *rest = rates
+    read_mult = rest[0] if rest else 0.1
+    return (inp * inn + out * outn + read * inn * read_mult + write * inn * 1.25) / 1_000_000
 
 
 def gemini_cost(model: str, inp: int, out: int, read: int) -> float:

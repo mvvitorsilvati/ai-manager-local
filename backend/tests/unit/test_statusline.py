@@ -439,10 +439,10 @@ def test_antigravity_statusline_limites_por_modelo_selecionado(tmp_path, monkeyp
     }
 
     casos = [
-        ("Gemini 4 Argon (High)", "5h:2.0%", "7d:17%"),
-        ("Gemini 3.8 Flash (High)", "5h:2.0%", "7d:1.0%"),
-        ("Claude Opus 5.5 (High)", "5h:25%", "7d:40%"),
-        ("GPT-OSS 120B (Medium)", "5h:25%", "7d:40%"),
+        ("Gemini 4 Argon (High)", None, "lim 7d:17%"),
+        ("Gemini 3.8 Flash (High)", "lim 5h:2.0%", "7d:1.0%"),
+        ("Claude Opus 5.5 (High)", "lim 5h:25%", "7d:40%"),
+        ("GPT-OSS 120B (Medium)", "lim 5h:25%", "7d:40%"),
     ]
 
     for modelo, esperado_5h, esperado_7d in casos:
@@ -458,7 +458,10 @@ def test_antigravity_statusline_limites_por_modelo_selecionado(tmp_path, monkeyp
             check=True,
         ).stdout
         limpo = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", saida)
-        assert esperado_5h in limpo, f"{modelo}: esperado {esperado_5h} em {limpo}"
+        if esperado_5h is None:
+            assert "5h:" not in limpo, f"{modelo}: não deveria exibir 5h em {limpo}"
+        else:
+            assert esperado_5h in limpo, f"{modelo}: esperado {esperado_5h} em {limpo}"
         assert esperado_7d in limpo, f"{modelo}: esperado {esperado_7d} em {limpo}"
 
 

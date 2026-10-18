@@ -544,9 +544,7 @@ def extract_consumption(data):
             # Generic family bucket (e.g. gemini-5h, gemini-weekly, 3p-5h, 3p-weekly)
             return (2, 0, -len(q_lower))
 
-        best_5h_score = None
-        best_7d_score = None
-
+        scored_items = []
         for q_name, q_info in quota.items():
             if not isinstance(q_info, dict):
                 continue
@@ -556,10 +554,20 @@ def extract_consumption(data):
                 used = 1.0 - rem
             if used is None:
                 continue
+            scored_items.append((score_bucket(q_name), q_name, q_info, max(0.0, float(used) * 100.0)))
 
-            used_pct = max(0.0, float(used) * 100.0)
+        # If the selected model has a dedicated sub-model quota bucket (tier 3, e.g. Argon),
+        # do not mix in generic family buckets (tier 2, e.g. gemini-5h) for windows it doesn't have.
+        max_tier = max((sc[0] for sc, _, _, _ in scored_items), default=0)
+        min_required_tier = 3 if max_tier == 3 else 2 if max_tier >= 2 else 0
+
+        best_5h_score = None
+        best_7d_score = None
+
+        for sc, q_name, q_info, used_pct in scored_items:
+            if sc[0] < min_required_tier:
+                continue
             q_lower = q_name.lower()
-            sc = score_bucket(q_name)
 
             if any(x in q_lower for x in ["5h", "five_hour", "day", "daily", "24h", "1d"]):
                 if best_5h_score is None or sc > best_5h_score:
@@ -592,7 +600,8 @@ def extract_consumption(data):
             s += f" {C_CYAN}⏱{RESET} {C_DIM}5h:{fmt_seconds(reset_5h_sec)}{RESET}"
         segments.append(s)
     if weekly is not None:
-        s = f"{C_DIM}7d:{RESET}{color_pct(weekly)}"
+        prefix = f"{C_CYAN}lim{RESET} " if daily is None else ""
+        s = f"{prefix}{C_DIM}7d:{RESET}{color_pct(weekly)}"
         if reset_7d_sec:
             s += f" {C_CYAN}⏱{RESET} {C_DIM}7d:{fmt_seconds(reset_7d_sec)}{RESET}"
         segments.append(s)

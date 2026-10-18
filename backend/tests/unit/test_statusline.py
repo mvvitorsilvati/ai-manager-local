@@ -413,3 +413,76 @@ def test_ensure_jq_sem_terminal_aborta(monkeypatch):
     monkeypatch.setattr(statusline, "jq_available", lambda: False)
     monkeypatch.setattr(statusline.sys.stdin, "isatty", lambda: False)
     assert statusline.ensure_jq() is False
+
+
+def test_antigravity_statusline_limites_por_modelo_selecionado(tmp_path, monkeypatch):
+    import re
+    import sys
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    script = statusline.STATUSLINE_SRC / "antigravity" / "statusline.sh"
+    quota_comum = {
+        "3p-5h": {"remaining_fraction": 0.75, "reset_in_seconds": 7200},
+        "3p-weekly": {"remaining_fraction": 0.60, "reset_in_seconds": 432000},
+        "gemini-5h": {"remaining_fraction": 0.98, "reset_in_seconds": 14400},
+        "gemini-argon-wtu-weekly": {"remaining_fraction": 0.83, "reset_in_seconds": 518400},
+        "gemini-weekly": {"remaining_fraction": 0.99, "reset_in_seconds": 604800},
+    }
+
+    casos = [
+        ("Gemini 4 Argon (High)", "5h:2.0%", "7d:17%"),
+        ("Gemini 3.8 Flash (High)", "5h:2.0%", "7d:1.0%"),
+        ("Claude Opus 5.5 (High)", "5h:25%", "7d:40%"),
+        ("GPT-OSS 120B (Medium)", "5h:25%", "7d:40%"),
+    ]
+
+    for modelo, esperado_5h, esperado_7d in casos:
+        payload = {
+            "model": {"id": modelo, "display_name": modelo},
+            "quota": quota_comum,
+        }
+        saida = subprocess.run(
+            [sys.executable, str(script)],
+            input=json.dumps(payload),
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        limpo = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", saida)
+        assert esperado_5h in limpo, f"{modelo}: esperado {esperado_5h} em {limpo}"
+        assert esperado_7d in limpo, f"{modelo}: esperado {esperado_7d} em {limpo}"
+
+
+def test_claude_statusline_limites_por_modelo_selecionado(tmp_path, monkeypatch):
+    import re
+
+    if shutil.which("jq") is None:
+        pytest.skip("jq não disponível")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    script = statusline.STATUSLINE_SRC / "claude" / "statusline-command.sh"
+    rate_limits = {
+        "five_hour": {"used_percentage": 5},
+        "seven_day": {"used_percentage": 10},
+        "seven_day_opus": {"used_percentage": 35},
+        "seven_day_sonnet": {"used_percentage": 22},
+    }
+
+    for modelo, esperado in (
+        ("Claude Opus 5.5", "lim 5h:5% 7d:35%"),
+        ("Claude Sonnet 5.5", "lim 5h:5% 7d:22%"),
+        ("Claude Haiku 4.5", "lim 5h:5% 7d:10%"),
+    ):
+        payload = {
+            "model": {"display_name": modelo},
+            "rate_limits": rate_limits,
+        }
+        saida = subprocess.run(
+            ["bash", str(script)],
+            input=json.dumps(payload),
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        limpo = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", saida)
+        assert esperado in limpo, f"{modelo}: esperado '{esperado}' em '{limpo}'"
+

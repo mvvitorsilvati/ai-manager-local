@@ -15,6 +15,8 @@ class TestInstallableTools:
         )
         # Força pastas de config e apps a não existirem
         monkeypatch.setattr(Path, "exists", lambda self: False)
+        monkeypatch.setattr(Path, "is_dir", lambda self: False)
+        monkeypatch.setattr(Path, "is_file", lambda self: False)
 
         data = app.get_installable_tools(include_installed=False)
 

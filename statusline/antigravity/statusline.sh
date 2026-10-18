@@ -499,7 +499,10 @@ def extract_consumption(data):
     # 1. Rate limits block
     rl = data.get("rate_limits") or {}
     if isinstance(rl, dict):
-        for k in ["five_hour", "5h", "daily", "24h", "day", "1d"]:
+        five_h_rl_keys = ["five_hour", "5h", "daily", "24h", "day", "1d"]
+        for sub in sorted(model_submodels):
+            five_h_rl_keys = [f"five_hour_{sub}", f"5h_{sub}", f"daily_{sub}"] + five_h_rl_keys
+        for k in five_h_rl_keys:
             if k in rl and rl[k] is not None:
                 entry = rl[k]
                 val = entry.get("used_percentage") if isinstance(entry, dict) else entry
@@ -560,6 +563,11 @@ def extract_consumption(data):
         # do not mix in generic family buckets (tier 2, e.g. gemini-5h) for windows it doesn't have.
         max_tier = max((sc[0] for sc, _, _, _ in scored_items), default=0)
         min_required_tier = 3 if max_tier == 3 else 2 if max_tier >= 2 else 0
+        if max_tier >= 2:
+            daily = None
+            weekly = None
+            reset_5h_sec = None
+            reset_7d_sec = None
 
         best_5h_score = None
         best_7d_score = None

@@ -449,6 +449,10 @@ def test_antigravity_statusline_limites_por_modelo_selecionado(tmp_path, monkeyp
         payload = {
             "model": {"id": modelo, "display_name": modelo},
             "quota": quota_comum,
+            "rate_limits": {
+                "five_hour": {"used_percentage": 2.0, "reset_in_seconds": 14400},
+                "seven_day": {"used_percentage": 1.0, "reset_in_seconds": 604800},
+            },
         }
         saida = subprocess.run(
             [sys.executable, str(script)],

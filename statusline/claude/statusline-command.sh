@@ -169,9 +169,38 @@ fi
 total_in=$(echo "$input" | jq -r '.context_window.total_input_tokens // empty')
 total_out=$(echo "$input" | jq -r '.context_window.total_output_tokens // empty')
 
-# --- Rate limits ---
-five_h=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
-seven_d=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
+# --- Rate limits (prioritizes active model bucket when available) ---
+five_h=$(echo "$input" | jq -r '
+  ((.model.display_name // "") + " " + (.model.id // "") | ascii_downcase) as $m
+  | if ($m | test("opus")) and (.rate_limits.five_hour_opus.used_percentage != null) then
+      .rate_limits.five_hour_opus.used_percentage
+    elif ($m | test("sonnet")) and (.rate_limits.five_hour_sonnet.used_percentage != null) then
+      .rate_limits.five_hour_sonnet.used_percentage
+    else
+      .rate_limits.five_hour.used_percentage
+    end // empty
+')
+seven_d=$(echo "$input" | jq -r '
+  ((.model.display_name // "") + " " + (.model.id // "") | ascii_downcase) as $m
+  | (
+      [ (.rate_limits.model_scoped // [])[]?
+        | select(.display_name != null and .utilization != null)
+        | select(($m | contains(.display_name | ascii_downcase)))
+        | .utilization
+      ][0]
+    ) as $scoped
+  | if $scoped != null then
+      $scoped
+    elif ($m | test("opus")) and (.rate_limits.seven_day_opus.used_percentage != null) then
+      .rate_limits.seven_day_opus.used_percentage
+    elif ($m | test("sonnet")) and (.rate_limits.seven_day_sonnet.used_percentage != null) then
+      .rate_limits.seven_day_sonnet.used_percentage
+    elif ($m | test("fable")) and (.rate_limits.seven_day_overage_included.used_percentage != null) then
+      .rate_limits.seven_day_overage_included.used_percentage
+    else
+      .rate_limits.seven_day.used_percentage
+    end // empty
+')
 
 # --- Effort / thinking ---
 # O JSON do live é a fonte de verdade: reflete /effort da sessão atual.

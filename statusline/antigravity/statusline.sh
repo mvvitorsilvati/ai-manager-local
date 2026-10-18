@@ -440,79 +440,142 @@ def get_persisted_session_usage(conv_id, current_in, current_out, current_cache,
 
     return final_in, final_out, final_cache, final_cost, final_dur
 
+THIRD_PARTY_KEYWORDS = {"claude", "anthropic", "gpt", "openai", "3p", "sonnet", "opus", "haiku", "oss", "fable"}
+SUBMODEL_KEYWORDS = {"argon", "flash", "pro", "ultra", "lite", "nano", "opus", "sonnet", "haiku", "gpt", "oss", "fable"}
+
+
+def resolve_selected_model(data):
+    """Returns (model_id, model_disp, raw_model) from payload or settings.json fallback."""
+    model_obj = data.get("model")
+    model_id = ""
+    model_disp = ""
+    if isinstance(model_obj, dict):
+        model_id = str(model_obj.get("id") or "").strip()
+        model_disp = str(model_obj.get("display_name") or "").strip()
+    elif isinstance(model_obj, str):
+        model_id = model_obj.strip()
+        model_disp = model_obj.strip()
+
+    if not model_id and not model_disp:
+        settings_path = os.path.expanduser("~/.gemini/antigravity-cli/settings.json")
+        try:
+            if os.path.isfile(settings_path):
+                with open(settings_path, "r", encoding="utf-8") as f:
+                    s_data = json.load(f)
+                cfg_model = str(s_data.get("model") or "").strip()
+                if cfg_model:
+                    model_id = cfg_model
+                    model_disp = cfg_model
+        except Exception:
+            pass
+
+    raw_model = model_disp or model_id or "Gemini"
+    return model_id.lower(), model_disp.lower(), raw_model
+
+
 def extract_consumption(data):
     """
     Accurately extracts real-time usage percentages:
     - 5h / Daily rate limit & quota
     - 7d / Weekly rate limit & quota
-    Prioritizes active model quotas (e.g., gemini-*) over third-party (3p-*).
-    Returns (lim_str, reset_5h_sec, reset_7d_sec).
+    Selects the quota bucket matching the active model:
+    - Sub-model specific bucket first (e.g., gemini-argon-wtu-weekly for Gemini 4 Argon)
+    - Family generic bucket next (e.g., gemini-5h / gemini-weekly for Gemini; 3p-5h / 3p-weekly for Claude/GPT)
     """
     daily = None
     weekly = None
     reset_5h_sec = None
     reset_7d_sec = None
 
+    model_id, model_disp, _ = resolve_selected_model(data)
+    model_text = f"{model_id} {model_disp}".strip()
+    model_tokens = set(re.findall(r"[a-z0-9]+", model_text))
+    is_3p_model = bool(model_tokens & THIRD_PARTY_KEYWORDS) or any(
+        k in model_text for k in THIRD_PARTY_KEYWORDS
+    )
+    target_family = "3p" if is_3p_model else "gemini"
+    model_submodels = model_tokens & SUBMODEL_KEYWORDS
+
     # 1. Rate limits block
     rl = data.get("rate_limits") or {}
     if isinstance(rl, dict):
         for k in ["five_hour", "5h", "daily", "24h", "day", "1d"]:
-            if k in rl:
-                val = rl[k].get("used_percentage") if isinstance(rl[k], dict) else rl[k]
+            if k in rl and rl[k] is not None:
+                entry = rl[k]
+                val = entry.get("used_percentage") if isinstance(entry, dict) else entry
                 if val is not None:
                     daily = float(val)
+                    if isinstance(entry, dict) and entry.get("reset_in_seconds"):
+                        reset_5h_sec = entry["reset_in_seconds"]
                     break
-        for k in ["seven_day", "7d", "weekly", "week"]:
-            if k in rl:
-                val = rl[k].get("used_percentage") if isinstance(rl[k], dict) else rl[k]
+
+        weekly_rl_keys = ["seven_day", "7d", "weekly", "week"]
+        for sub in sorted(model_submodels):
+            weekly_rl_keys = [f"seven_day_{sub}", f"7d_{sub}", f"weekly_{sub}"] + weekly_rl_keys
+        for k in weekly_rl_keys:
+            if k in rl and rl[k] is not None:
+                entry = rl[k]
+                val = entry.get("used_percentage") if isinstance(entry, dict) else entry
                 if val is not None:
                     weekly = float(val)
+                    if isinstance(entry, dict) and entry.get("reset_in_seconds"):
+                        reset_7d_sec = entry["reset_in_seconds"]
                     break
 
     # 2. Quota block (Antigravity standard)
     quota = data.get("quota") or {}
     if isinstance(quota, dict) and quota:
-        model_obj = data.get("model") or {}
-        model_id = str(model_obj.get("id") or "").lower()
-        model_disp = str(model_obj.get("display_name") or "").lower()
-        is_3p_model = any(
-            x in model_id or x in model_disp
-            for x in ["claude", "anthropic", "gpt", "openai", "3p", "sonnet", "opus", "haiku"]
-        )
-        target_prefix = "3p" if is_3p_model else "gemini"
+        def score_bucket(q_name):
+            q_lower = q_name.lower()
+            q_tokens = set(re.findall(r"[a-z0-9]+", q_lower))
+            bucket_is_3p = q_lower.startswith("3p") or bool(q_tokens & THIRD_PARTY_KEYWORDS)
+            bucket_family = "3p" if bucket_is_3p else "gemini"
+            bucket_submodels = q_tokens & SUBMODEL_KEYWORDS
 
-        sorted_keys = sorted(
-            quota.keys(),
-            key=lambda k: (0 if k.lower().startswith(target_prefix) else 1, k)
-        )
-        for q_name in sorted_keys:
-            q_info = quota[q_name]
+            if bucket_family != target_family:
+                return (0, 0, -len(q_lower))
+            if bucket_submodels:
+                overlap = len(bucket_submodels & model_submodels)
+                if overlap > 0:
+                    # Exact sub-model match (e.g. gemini-argon-wtu-weekly for Gemini 4 Argon)
+                    return (3, overlap, -len(q_lower))
+                # Bucket belongs to another sub-model (e.g. argon bucket when Flash is active)
+                return (1, 0, -len(q_lower))
+            # Generic family bucket (e.g. gemini-5h, gemini-weekly, 3p-5h, 3p-weekly)
+            return (2, 0, -len(q_lower))
+
+        best_5h_score = None
+        best_7d_score = None
+
+        for q_name, q_info in quota.items():
             if not isinstance(q_info, dict):
                 continue
             rem = q_info.get("remaining_fraction")
             used = q_info.get("used_fraction")
             if used is None and rem is not None:
                 used = 1.0 - rem
+            if used is None:
+                continue
 
-            if used is not None:
-                used_pct = used * 100.0
-                q_lower = q_name.lower()
-                is_target = q_lower.startswith(target_prefix)
+            used_pct = max(0.0, float(used) * 100.0)
+            q_lower = q_name.lower()
+            sc = score_bucket(q_name)
 
-                if any(x in q_lower for x in ["5h", "day", "daily", "24h", "1d"]):
-                    if daily is None or is_target:
-                        daily = used_pct
-                        if q_info.get("reset_in_seconds"):
-                            reset_5h_sec = q_info["reset_in_seconds"]
-                elif any(x in q_lower for x in ["week", "weekly", "7d"]):
-                    if weekly is None or is_target:
-                        weekly = used_pct
-                        if q_info.get("reset_in_seconds"):
-                            reset_7d_sec = q_info["reset_in_seconds"]
+            if any(x in q_lower for x in ["5h", "five_hour", "day", "daily", "24h", "1d"]):
+                if best_5h_score is None or sc > best_5h_score:
+                    best_5h_score = sc
+                    daily = used_pct
+                    reset_5h_sec = q_info.get("reset_in_seconds")
+            elif any(x in q_lower for x in ["week", "weekly", "7d", "seven_day"]):
+                if best_7d_score is None or sc > best_7d_score:
+                    best_7d_score = sc
+                    weekly = used_pct
+                    reset_7d_sec = q_info.get("reset_in_seconds")
 
     def color_pct(pct):
         if pct is None:
             return ""
+        pct = round(float(pct), 1)
         p_val = f"{pct:.1f}%" if (0 < pct < 10 or pct % 1 != 0) else f"{int(round(pct))}%"
         if pct >= 80:
             c = C_RED
@@ -544,8 +607,8 @@ def render(data):
     line1_segments = []
 
     # 1. Model & Effort / Thinking
-    model_obj = data.get("model") or {}
-    raw_model = model_obj.get("display_name") or model_obj.get("id") or "Gemini"
+    model_obj = data.get("model") if isinstance(data.get("model"), dict) else {}
+    _, _, raw_model = resolve_selected_model(data)
     
     effort_label = ""
     match = re.search(r"\((.*?)\)", raw_model)

@@ -295,13 +295,18 @@ def test_custo_do_statusline_distingue_sonnet_5_5_do_sonnet_4(tmp_path, monkeypa
     monkeypatch.setenv("TMPDIR", str(tmp_path))
     script = statusline.STATUSLINE_SRC / "claude" / "statusline-cost.sh"
     transcript = tmp_path / "sessao.jsonl"
-    for modelo, sessao, esperado in (
-        ("claude-sonnet-5-5", "s55", "2.0000"),
-        ("claude-sonnet-4-5", "s45", "3.0000"),
+    for modelo, sessao, usage, esperado in (
+        ("claude-sonnet-5-5", "s55", {"input_tokens": 1_000_000}, "2.0000"),
+        ("claude-sonnet-5-5", "s55r", {"cache_read_input_tokens": 1_000_000}, "0.1000"),
+        ("claude-sonnet-4-5", "s45", {"input_tokens": 1_000_000}, "3.0000"),
+        ("claude-haiku-5-5", "h55", {"input_tokens": 1_000_000, "output_tokens": 1_000_000}, "0.6000"),
+        ("claude-opus-5-5", "o55", {"input_tokens": 1_000_000, "cache_read_input_tokens": 1_000_000}, "4.2000"),
+        ("claude-fable-5-1", "f51", {"cache_read_input_tokens": 1_000_000}, "0.2500"),
+        ("claude-mythos-5-1", "m51", {"cache_read_input_tokens": 1_000_000}, "0.2500"),
     ):
         transcript.write_text(json.dumps({
             "type": "assistant",
-            "message": {"model": modelo, "usage": {"input_tokens": 1_000_000}},
+            "message": {"model": modelo, "usage": usage},
         }) + "\n")
         custo = subprocess.run(
             ["bash", str(script), str(transcript), sessao],
@@ -327,6 +332,8 @@ def test_subagent_statusline_exibe_sonnet_5_5(tmp_path, monkeypatch):
         "tasks": [
             {"id": "t1", "name": "explorer", "model": "claude-sonnet-5-5", "status": "completed", "tokenCount": 1500},
             {"id": "t2", "name": "builder", "model": "claude-sonnet-5", "status": "completed", "tokenCount": 900},
+            {"id": "t3", "name": "fast", "model": "claude-haiku-5-5", "status": "completed", "tokenCount": 500},
+            {"id": "t4", "name": "deep", "model": "claude-opus-5-5", "status": "completed", "tokenCount": 2000},
         ],
     }
     saida = subprocess.run(
@@ -343,6 +350,8 @@ def test_subagent_statusline_exibe_sonnet_5_5(tmp_path, monkeypatch):
             conteudos[item["id"]] = item["content"]
     assert "Sonnet 5.5" in conteudos["t1"]
     assert "Sonnet 5.5" not in conteudos["t2"]
+    assert "Haiku 5.5" in conteudos["t3"]
+    assert "Opus 5.5" in conteudos["t4"]
 
 
 def test_statusline_exige_jq_na_instalacao(tmp_path, monkeypatch):

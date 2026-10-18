@@ -92,13 +92,19 @@ cost=$(
     ' "$f" 2>/dev/null
   done | awk -F'\t' '
     # Tabela de preços ($/MTok). Atualizar quando preços/modelos mudarem.
-    # Colunas: input, output, cache_write_5m (1.25x), cache_write_1h (2x), cache_read (0.1x)
+    # Colunas: input, output, cache_write_5m (1.25x), cache_write_1h (2x), cache_read
     function price(model,   p) {
-      if (model ~ /claude-fable/)          { in_p=10.0; out_p=50.0; w5=12.5; w1=20.0; rd=1.0 }
-      else if (model ~ /claude-haiku/)     { in_p=1.0;  out_p=5.0;  w5=1.25; w1=2.0;  rd=0.1 }
-      else if (model ~ /claude-sonnet-5/)  { in_p=2.0;  out_p=10.0; w5=2.5;  w1=4.0;  rd=0.2 }
-      else if (model ~ /claude-sonnet/)    { in_p=3.0;  out_p=15.0; w5=3.75; w1=6.0;  rd=0.3 }
-      else                                 { in_p=5.0;  out_p=25.0; w5=6.25; w1=10.0; rd=0.5 }  # opus / fallback
+      if (model ~ /claude-(fable|mythos)-5-1/)      { in_p=10.0; out_p=50.0; w5=12.5;  w1=20.0; rd=0.25 }
+      else if (model ~ /claude-(fable|mythos)/)     { in_p=10.0; out_p=50.0; w5=12.5;  w1=20.0; rd=1.0  }
+      else if (model ~ /claude-opus-5-5/)           { in_p=4.0;  out_p=20.0; w5=5.0;   w1=8.0;  rd=0.2  }
+      else if (model ~ /claude-opus-4-([01]|2025)/) { in_p=15.0; out_p=75.0; w5=18.75; w1=30.0; rd=1.5  }
+      else if (model ~ /claude-sonnet-5-5/)         { in_p=2.0;  out_p=10.0; w5=2.5;   w1=4.0;  rd=0.1  }
+      else if (model ~ /claude-sonnet-5/)           { in_p=2.0;  out_p=10.0; w5=2.5;   w1=4.0;  rd=0.2  }
+      else if (model ~ /claude-sonnet/)             { in_p=3.0;  out_p=15.0; w5=3.75;  w1=6.0;  rd=0.3  }
+      else if (model ~ /claude-haiku-5/)            { in_p=0.10; out_p=0.50; w5=0.125; w1=0.20; rd=0.01 }
+      else if (model ~ /claude-3-5-haiku/)          { in_p=0.80; out_p=4.0;  w5=1.0;   w1=1.60; rd=0.08 }
+      else if (model ~ /claude-haiku/)              { in_p=1.0;  out_p=5.0;  w5=1.25;  w1=2.0;  rd=0.1  }
+      else                                          { in_p=5.0;  out_p=25.0; w5=6.25;  w1=10.0; rd=0.5  }  # opus / fallback
     }
     {
       model=$1; in_t=$2; out_t=$3; cr=$4; cw5=$5; cw1=$6

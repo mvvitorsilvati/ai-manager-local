@@ -24,12 +24,14 @@ CACHE_SECONDS = 60
 TOP = 15
 TOOLS = ("claude", "codex", "opencode", "copilot", "gemini")
 
-# USD por 1M tokens. Cache Anthropic: read 0.1x, write 5m 1.25x, write 1h 2x.
+# USD por 1M tokens. Cache Anthropic: read 0.1x (salvo exceções de 0.05x/0.025x), write 5m 1.25x, write 1h 2x.
 # OpenAI (faixa curta, página de pricing): read 0.1x por padrão, write 1.25x.
+# Gemini (faixa padrão, página de pricing): read 0.1x por padrão (0.05x no 4 Argon, 0.25x na linha 1.5).
 # Tupla opcional de 3 itens: (input, output, multiplicador cache read) quando o read foge do 0.1x.
 ANTHROPIC = {
     "<synthetic>": (0.0, 0.0),
     "claude-fable-5-1": (10.0, 50.0, 0.025),
+    "claude-mythos-5-1": (10.0, 50.0, 0.025),
     "claude-fable-5": (10.0, 50.0),
     "claude-mythos-5": (10.0, 50.0),
     "claude-opus-5-5": (4.0, 20.0, 0.05),
@@ -40,11 +42,12 @@ ANTHROPIC = {
     "claude-opus-4-5": (5.0, 25.0),
     "claude-opus-4-1": (15.0, 75.0),
     "claude-opus-4-0": (15.0, 75.0),
-    "claude-sonnet-5-5": (2.0, 10.0),
+    "claude-sonnet-5-5": (2.0, 10.0, 0.05),
     "claude-sonnet-5": (2.0, 10.0),
     "claude-sonnet-4-6": (3.0, 15.0),
     "claude-sonnet-4-5": (3.0, 15.0),
     "claude-sonnet-4-0": (3.0, 15.0),
+    "claude-haiku-5-5": (0.10, 0.50),
     "claude-haiku-4-5": (1.0, 5.0),
     "claude-3-5-haiku": (0.8, 4.0),
 }
@@ -63,44 +66,107 @@ ANTHROPIC_ALIAS = {
     "claude-3-5-haiku-20241022": "claude-3-5-haiku",
 }
 OPENAI = {
-    # https://developers.openai.com/api/docs/models/gpt-6.1-sol (verificado em 2026-09-30).
+    # https://developers.openai.com/api/docs/pricing (verificado em 2026-10-18).
     "gpt-6.1-sol": (2.0, 10.0, 0.05),
+    "gpt-6.1-sol-pro": (2.0, 10.0, 0.05),
     "gpt-6-astra": (10.0, 50.0),
+    "gpt-6-astra-pro": (10.0, 50.0),
     "gpt-6-sol": (2.0, 10.0),
+    "gpt-6-sol-pro": (2.0, 10.0),
     "gpt-6-luna": (0.10, 0.50),
+    "gpt-6-luna-pro": (0.10, 0.50),
+    "gpt-5.6": (4.0, 20.0),
+    "gpt-5.6-sol": (4.0, 20.0),
+    "gpt-5.6-sol-pro": (4.0, 20.0),
     "gpt-5.6-terra": (2.0, 12.0),
-    "gpt-5.6-sol": (2.0, 10.0),
+    "gpt-5.6-terra-pro": (2.0, 12.0),
     "gpt-5.6-luna": (0.20, 1.20),
+    "gpt-5.6-luna-pro": (0.20, 1.20),
+    "gpt-5.6-cyber": (12.5, 75.0),
+    "gpt-5.5-cyber": (12.5, 75.0),
+    "gpt-daybreak-blue-latest": (4.0, 20.0),
+    "gpt-daybreak-red-latest": (12.5, 75.0),
+    "gpt-rosalind-research": (5.0, 25.0),
+    "gpt-rosalind-discovery": (5.0, 25.0),
     "gpt-5.5": (5.0, 30.0),
+    "gpt-5.5-pro": (30.0, 180.0),
     "gpt-5.4": (2.5, 15.0),
+    "gpt-5.4-pro": (30.0, 180.0),
     "gpt-5.4-mini": (0.75, 4.5),
+    "gpt-5.4-nano": (0.20, 1.25),
     "gpt-5.3-codex": (1.75, 14.0),
+    "gpt-5.3-codex-spark": (1.75, 14.0),
+    "gpt-5.3-chat-latest": (1.75, 14.0),
     "gpt-5.2": (1.75, 14.0),
+    "gpt-5.2-pro": (21.0, 168.0),
     "gpt-5.2-codex": (1.75, 14.0),
+    "gpt-5.2-chat-latest": (1.75, 14.0),
     "gpt-5.1": (1.25, 10.0),
     "gpt-5.1-codex": (1.25, 10.0),
     "gpt-5.1-codex-max": (1.25, 10.0),
     "gpt-5.1-codex-mini": (0.25, 2.0),
     "gpt-5": (1.25, 10.0),
+    "gpt-5-pro": (15.0, 120.0),
     "gpt-5-codex": (1.25, 10.0),
     "gpt-5-codex-mini": (0.25, 2.0),
     "gpt-5-mini": (0.25, 2.0),
+    "gpt-5-nano": (0.05, 0.40),
+    "chat-latest": (5.0, 30.0),
+    "gpt-chat-latest": (5.0, 30.0),
+    "codex-mini-latest": (1.5, 6.0, 0.25),
+    "gpt-4.1": (2.0, 8.0, 0.25),
+    "gpt-4.1-mini": (0.40, 1.60, 0.25),
+    "gpt-4.1-nano": (0.10, 0.40, 0.25),
+    "gpt-4o": (2.5, 10.0, 0.5),
+    "gpt-4o-mini": (0.15, 0.60, 0.5),
+    "o3-pro": (20.0, 80.0),
+    "o3": (2.0, 8.0, 0.25),
+    "o4-mini": (1.10, 4.40, 0.25),
+    "o3-mini": (1.10, 4.40, 0.5),
+    "o1": (15.0, 60.0, 0.5),
+    "o1-pro": (150.0, 600.0),
 }
 GEMINI = {
-    "gemini-3.8-flash": (0.075, 0.30),
-    "gemini-3.7-flash": (0.075, 0.30),
-    "gemini-3.6-flash": (0.075, 0.30),
-    "gemini-3.5-flash": (0.075, 0.30),
-    "gemini-3.1-pro": (1.25, 5.0),
-    "gemini-3.0-pro": (1.25, 5.0),
-    "gemini-2.5-pro": (1.25, 5.0),
-    "gemini-2.5-flash": (0.075, 0.30),
-    "gemini-1.5-pro": (1.25, 5.0),
-    "gemini-1.5-flash": (0.075, 0.30),
-    "3.7-flash": (0.075, 0.30),
-    "3.6-flash": (0.075, 0.30),
-    "3.1-pro": (1.25, 5.0),
-    "gemini": (0.075, 0.30),
+    # https://ai.google.dev/gemini-api/docs/pricing (verificado em 2026-10-18).
+    "gemini-4-argon": (2.0, 10.0, 0.05),
+    "gemini-3.8-flash": (0.75, 3.75),
+    "gemini-3.8-live": (0.75, 4.50),
+    "gemini-3.8-live-extended-thinking": (0.75, 4.50),
+    "gemini-3.7-flash": (0.75, 3.75),
+    "gemini-3.6-flash": (0.75, 3.75),
+    "gemini-3.5-flash": (1.50, 9.0),
+    "gemini-3.5-flash-lite": (0.30, 2.50),
+    "gemini-3.1-pro": (2.0, 12.0),
+    "gemini-3.1-pro-preview": (2.0, 12.0),
+    "gemini-3.1-pro-preview-customtools": (2.0, 12.0),
+    "gemini-3.1-flash-lite": (0.25, 1.50),
+    "gemini-3.1-flash-lite-preview": (0.25, 1.50),
+    "gemini-3.1-flash-live-preview": (0.75, 4.50),
+    "gemini-3.0-pro": (2.0, 12.0),
+    "gemini-3-pro": (2.0, 12.0),
+    "gemini-3-flash-preview": (0.50, 3.0),
+    "gemini-3.0-flash": (0.50, 3.0),
+    "gemini-3-flash": (0.50, 3.0),
+    "gemini-2.5-pro": (1.25, 10.0),
+    "gemini-2.5-pro-preview": (1.25, 10.0),
+    "gemini-2.5-flash": (0.30, 2.50),
+    "gemini-2.5-flash-lite": (0.10, 0.40),
+    "gemini-1.5-pro": (1.25, 5.0, 0.25),
+    "gemini-1.5-flash": (0.075, 0.30, 0.25),
+    "4-argon": (2.0, 10.0, 0.05),
+    "3.8-flash": (0.75, 3.75),
+    "3.7-flash": (0.75, 3.75),
+    "3.6-flash": (0.75, 3.75),
+    "3.5-flash": (1.50, 9.0),
+    "3.5-flash-lite": (0.30, 2.50),
+    "3.1-pro": (2.0, 12.0),
+    "3.1-flash-lite": (0.25, 1.50),
+    "3.0-pro": (2.0, 12.0),
+    "3.0-flash": (0.50, 3.0),
+    "2.5-pro": (1.25, 10.0),
+    "2.5-flash": (0.30, 2.50),
+    "2.5-flash-lite": (0.10, 0.40),
+    "gemini": (0.75, 3.75),
 }
 
 LABEL = {
@@ -258,14 +324,20 @@ def openai_cost(model: str, inp: int, out: int, read: int, write: int):
 
 
 def gemini_cost(model: str, inp: int, out: int, read: int) -> float:
-    m = model.lower().strip().replace(" ", "-")
+    m = model.lower().strip().replace(" ", "-").split("-(")[0]
     rates = GEMINI.get(m)
     if rates is None and not m.startswith("gemini-"):
         rates = GEMINI.get(f"gemini-{m}")
     if rates is None:
-        rates = (1.25, 5.0) if "pro" in m else (0.075, 0.30)
-    inn, outn = rates
-    return (inp * inn + out * outn + read * inn * 0.25) / 1_000_000
+        if "argon" in m:
+            rates = (2.0, 10.0, 0.05)
+        elif "pro" in m:
+            rates = (2.0, 12.0)
+        else:
+            rates = (0.75, 3.75)
+    inn, outn, *rest = rates
+    read_mult = rest[0] if rest else 0.1
+    return (inp * inn + out * outn + read * inn * read_mult) / 1_000_000
 
 
 def _in_window(ts: datetime | None, start: datetime | None) -> bool:

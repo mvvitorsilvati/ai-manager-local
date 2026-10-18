@@ -60,9 +60,26 @@ def test_custo_dos_modelos_novos_bate_com_a_tabela():
     assert spend.anthropic_cost("claude-opus-5-5", None, 1_000_000, 0, 0, 0, 0) == 4.0
     assert spend.anthropic_cost("claude-opus-5-5", None, 0, 0, 0, 0, 1_000_000) == 0.2
     assert spend.anthropic_cost("claude-opus-5-5", "fast", 1_000_000, 0, 0, 0, 0) == 8.0
-    # GPT-6 Sol 2/10 e Luna 0.1/0.5.
+    # Haiku 5.5: input 0.10, output 0.50, cache read 0.01 (10% do input).
+    assert spend.anthropic_cost("claude-haiku-5-5", None, 1_000_000, 0, 0, 0, 0) == 0.10
+    assert spend.anthropic_cost("claude-haiku-5-5", None, 0, 1_000_000, 0, 0, 0) == 0.50
+    assert spend.anthropic_cost("claude-haiku-5-5", None, 0, 0, 0, 0, 1_000_000) == 0.01
+    # GPT-6 Sol 2/10, Luna 0.1/0.5, GPT-5.6 Sol 4/20 e Cyber 12.5/75.
     assert spend.openai_cost("gpt-6-sol", 1_000_000, 0, 0, 0) == 2.0
     assert spend.openai_cost("gpt-6-luna", 0, 1_000_000, 0, 0) == 0.5
+    assert spend.openai_cost("gpt-5.6-sol", 1_000_000, 0, 0, 0) == 4.0
+    assert spend.openai_cost("gpt-5.6-sol", 0, 1_000_000, 0, 0) == 20.0
+    assert spend.openai_cost("gpt-5.6-cyber", 1_000_000, 0, 0, 0) == 12.5
+    assert spend.openai_cost("gpt-daybreak-blue-latest", 1_000_000, 0, 0, 0) == 4.0
+    assert spend.openai_cost("gpt-rosalind-research", 0, 1_000_000, 0, 0) == 25.0
+    assert spend.openai_cost("codex-mini-latest", 0, 0, 1_000_000, 0) == 0.375
+    # Gemini 4 Argon (2/10, cache read 5%), 3.8 Flash (0.75/3.75, cache read 10%) e 3.1 Pro (2/12).
+    assert spend.gemini_cost("gemini-4-argon", 1_000_000, 0, 0) == 2.0
+    assert spend.gemini_cost("Gemini 4 Argon (High)", 0, 1_000_000, 0) == 10.0
+    assert spend.gemini_cost("gemini-4-argon", 0, 0, 1_000_000) == 0.1
+    assert spend.gemini_cost("gemini-3.8-flash", 1_000_000, 1_000_000, 1_000_000) == 4.575
+    assert spend.gemini_cost("gemini-3.1-pro", 1_000_000, 1_000_000, 0) == 14.0
+    assert spend.gemini_cost("gemini-1.5-pro", 0, 0, 1_000_000) == 0.3125
 
 
 @pytest.mark.parametrize(
@@ -113,12 +130,13 @@ def test_codex_gpt_6_1_sol_calcula_custo_no_relatorio(tmp_path, legacy):
 
 
 def test_custo_do_sonnet_5_5_bate_com_a_tabela():
-    # Sonnet 5.5: 2/10, cache read a 10% do input (0.2), write 1.25x/2x e sem faixa fast própria.
+    # Sonnet 5.5: 2/10, cache read a 5% do input (0.10), write 1.25x/2x e sem faixa fast própria.
     assert spend.anthropic_cost("claude-sonnet-5-5", None, 1_000_000, 0, 0, 0, 0) == 2.0
     assert spend.anthropic_cost("claude-sonnet-5-5", None, 0, 1_000_000, 0, 0, 0) == 10.0
     assert spend.anthropic_cost("claude-sonnet-5-5", None, 0, 0, 1_000_000, 0, 0) == 2.5
     assert spend.anthropic_cost("claude-sonnet-5-5", None, 0, 0, 0, 1_000_000, 0) == 4.0
-    assert spend.anthropic_cost("claude-sonnet-5-5", None, 0, 0, 0, 0, 1_000_000) == 0.2
+    assert spend.anthropic_cost("claude-sonnet-5-5", None, 0, 0, 0, 0, 1_000_000) == 0.1
+    assert spend.anthropic_cost("claude-sonnet-5", None, 0, 0, 0, 0, 1_000_000) == 0.2
     assert spend.anthropic_cost("claude-sonnet-5-5", "fast", 1_000_000, 0, 0, 0, 0) == 2.0
 
 
@@ -127,8 +145,9 @@ def test_custo_dos_modelos_codex_e_fable_bate_com_a_tabela():
     assert spend.openai_cost("gpt-5.3-codex", 1_000_000, 0, 0, 0) == 1.75
     assert spend.openai_cost("gpt-5.3-codex", 0, 0, 1_000_000, 0) == 0.175
     assert spend.openai_cost("gpt-5-codex", 0, 1_000_000, 0, 0) == 10.0
-    # Fable 5.1: cache read a 2.5% do input.
+    # Fable 5.1 e Mythos 5.1: cache read a 2.5% do input.
     assert spend.anthropic_cost("claude-fable-5-1", None, 0, 0, 0, 0, 1_000_000) == 0.25
+    assert spend.anthropic_cost("claude-mythos-5-1", None, 0, 0, 0, 0, 1_000_000) == 0.25
 
 
 def test_codex_desconta_cache_do_input_e_ignora_turno_acumulado(tmp_path):
